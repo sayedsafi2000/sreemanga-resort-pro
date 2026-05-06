@@ -1,0 +1,22 @@
+import { Router } from 'express';
+import {
+  getAllStaffSalaries,
+  getStaffSalaryByUser,
+  getAllStaffWithSalaries,
+  createSalaryPayment,
+  markSalaryPaid,
+  deleteSalary,
+  getSalaryStats,
+} from '../controllers/salaryController';
+
+const router = Router();
+
+router.get('/stats', getSalaryStats);
+router.get('/staff', getAllStaffWithSalaries);
+router.get('/', getAllStaffSalaries);
+router.get('/user/:userId', getStaffSalaryByUser);
+router.post('/', createSalaryPayment);
+router.patch('/:id/mark-paid', markSalaryPaid);
+router.delete('/:id', deleteSalary);
+
+export default router;

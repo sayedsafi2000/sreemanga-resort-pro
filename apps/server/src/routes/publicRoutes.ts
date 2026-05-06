@@ -1,0 +1,30 @@
+import { Router } from 'express';
+import {
+  getPublicRooms,
+  getPublicRoom,
+  checkRoomAvailability,
+  getAvailabilityCalendar,
+  getPublicSettings,
+  getPublicMenu,
+  createPublicBooking,
+} from '../controllers/publicController';
+import { getPublicGallery } from '../controllers/galleryController';
+import { getPublicNearbyExplore, getPublicNearbySpotBySlug } from '../controllers/nearbySpotsController';
+import { getPublicBlogs, getPublicBlogBySlug } from '../controllers/blogController';
+
+const router = Router();
+
+router.get('/rooms', getPublicRooms);
+router.get('/rooms/availability', checkRoomAvailability);
+router.get('/rooms/availability-calendar', getAvailabilityCalendar);
+router.get('/rooms/:id', getPublicRoom);
+router.get('/settings', getPublicSettings);
+router.get('/menu', getPublicMenu);
+router.get('/gallery', getPublicGallery);
+router.get('/nearby-explore', getPublicNearbyExplore);
+router.get('/nearby-spots/:slug', getPublicNearbySpotBySlug);
+router.get('/blogs', getPublicBlogs);
+router.get('/blogs/:slug', getPublicBlogBySlug);
+router.post('/bookings', createPublicBooking);
+
+export default router;

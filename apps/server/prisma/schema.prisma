@@ -1,0 +1,348 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ExpenseCategory {
+  id         String     @id @default(uuid())
+  name       String
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  expenses   Expense[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model Expense {
+  id              String         @id @default(uuid())
+  title           String
+  amount          Float
+  categoryId      String
+  category        ExpenseCategory @relation(fields: [categoryId], references: [id])
+  date            DateTime
+  paymentMethod   PaymentMethod?  @default(CASH)
+  paidTo          String?
+  description    String?
+  attachment     String?
+  status         String         @default("PAID")
+  createdById     String?
+  createdBy       User?          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([categoryId])
+  @@index([date])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(RECEPTIONIST)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  restaurantOrders  RestaurantOrder[]
+  createdBookings   Booking[]           @relation("StaffBookings")
+  expenses       Expense[]
+  salaryPayments  StaffSalary[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model StaffSalary {
+  id            String     @id @default(uuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id])
+  amount       Float
+  month        Int        // 1-12
+  year         Int
+  paymentDate  DateTime?
+  status       String     @default("PENDING")
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, month, year])
+  @@index([userId])
+  @@index([year, month])
+}
+
+model Room {
+  id          String   @id @default(uuid())
+  name        String
+  roomCode    String?
+  type        RoomType
+  price       Float
+  weekendPrice Float?
+  seasonalPrice Float?
+  extraGuestCharge Float?
+  status      RoomStatus @default(AVAILABLE)
+  capacity    Int
+  floorBuilding String?
+  roomSizeSqft Int?
+  maxAdults   Int?
+  maxChildren Int?
+  bedType     String?
+  description String?
+  mainImage   String?
+  images      String[]
+  facilities  Json?
+  foodOptions Json?
+  services    Json?
+  experienceFeatures Json?
+  addOns      Json?
+  bookingRules Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  bookings    Booking[]
+  orders      RestaurantOrder[]
+
+  @@index([type])
+  @@index([status])
+  @@index([price])
+}
+
+model Booking {
+  id            String   @id @default(uuid())
+  roomId        String
+  guestId       String
+  staffId       String?
+  adults        Int      @default(1)
+  children      Int      @default(0)
+  checkInDate   DateTime
+  checkOutDate  DateTime
+  status        BookingStatus @default(PENDING)
+  preferredPaymentTiming String?
+  preferredPaymentMethod String?
+  paymentTransactionId String?
+  paymentProofImage String?
+  totalAmount   Float
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  room          Room     @relation(fields: [roomId], references: [id])
+  guest         Guest    @relation(fields: [guestId], references: [id])
+  staff         User?    @relation("StaffBookings", fields: [staffId], references: [id])
+  payments      Payment[]
+
+  @@index([roomId])
+  @@index([guestId])
+  @@index([status])
+  @@index([checkInDate, checkOutDate])
+}
+
+model Guest {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String
+  nid         String?
+  passport    String?
+  address     String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  bookings    Booking[]
+
+  @@index([phone])
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  bookingId     String
+  amount        Float
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  booking       Booking  @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([method])
+  @@index([status])
+}
+
+model RestaurantMenu {
+  id          String   @id @default(uuid())
+  name        String
+  price       Float
+  category    String
+  description String?
+  image       String?
+  isAvailable Boolean  @default(true)
+  // Display order inside category (then name). Lower = earlier in menu book.
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([category, sortOrder])
+  @@index([isAvailable])
+}
+
+model RestaurantOrder {
+  id          String   @id @default(uuid())
+  roomId      String?
+  userId      String?
+  items       Json
+  totalPrice  Float
+  status      OrderStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  room         Room?    @relation(fields: [roomId], references: [id])
+  user         User?    @relation(fields: [userId], references: [id])
+
+  @@index([roomId])
+  @@index([status])
+}
+
+model Setting {
+  id            String   @id @default(uuid())
+  key           String   @unique
+  value         String
+  description   String?
+  type          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([key])
+}
+
+// Public site gallery — admin: image URL or data URL, category & sort order.
+model SiteGalleryItem {
+  id          String   @id @default(uuid())
+  imageUrl    String
+  alt         String   @default("")
+  category    String   @default("General")
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@index([category])
+}
+
+// Home “nearby places” carousel + /explore/[slug] detail — managed in admin.
+model SiteNearbySpot {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  emoji       String   @default("")
+  badge       String   @default("")
+  distance    String   @default("")
+  bullets     String[] @default([])
+  bestFor     String   @default("")
+  imageUrl    String
+  imageAlt    String   @default("")
+  body        String   @db.Text
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+// Blog posts — managed in admin, displayed on web.
+model SiteBlog {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  summary    String   @db.Text // Short description for card
+  content     String   @db.Text // Full blog body (markdown/HTML)
+  imageUrl    String
+  imageAlt    String   @default("")
+  category    String   @default("General")
+  authorName  String   @default("Nirjon Nature's Hideout")
+  tags        String[] @default([])
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@index([category])
+}
+
+enum Role {
+  SUPER_ADMIN
+  MANAGER
+  RECEPTIONIST
+  HOUSEKEEPING
+  RESTAURANT_STAFF
+  ACCOUNTANT
+}
+
+enum RoomType {
+  STANDARD
+  DELUXE
+  SUITE
+  FAMILY
+  PRESIDENTIAL
+}
+
+enum RoomStatus {
+  AVAILABLE
+  BOOKED
+  CLEANING
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BKASH
+  NAGAD
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}

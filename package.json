@@ -1,0 +1,26 @@
+{
+  "name": "resort-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:admin\" \"npm run dev:web\"",
+    "dev:server": "cd apps/server && (pids=$(lsof -ti :8000 2>/dev/null); [ -n \"$pids\" ] && kill -9 $pids || true) && npm run dev",
+    "dev:admin": "cd apps/admin && npm run dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "build": "npm run build:server && npm run build:admin && npm run build:web",
+    "build:server": "cd apps/server && npm run build",
+    "build:admin": "cd apps/admin && npm run build",
+    "build:web": "cd apps/web && npm run build",
+    "db:generate": "cd apps/server && npm run db:generate",
+    "db:push": "cd apps/server && npm run db:push",
+    "db:studio": "cd apps/server && npm run db:studio",
+    "install:all": "npm install && cd apps/server && npm install && cd ../admin && npm install && cd ../web && npm install",
+    "lint": "npm run lint:admin && npm run lint:web",
+    "lint:admin": "cd apps/admin && npm run lint",
+    "lint:web": "cd apps/web && npm run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+}

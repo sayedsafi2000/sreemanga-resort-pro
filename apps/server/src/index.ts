@@ -1,0 +1,75 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { errorHandler } from './middleware/errorHandler';
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
+import roomRoutes from './routes/roomRoutes';
+import bookingRoutes from './routes/bookingRoutes';
+import guestRoutes from './routes/guestRoutes';
+import paymentRoutes from './routes/paymentRoutes';
+import restaurantRoutes from './routes/restaurantRoutes';
+import settingsRoutes from './routes/settingsRoutes';
+import reportRoutes from './routes/reportRoutes';
+import publicRoutes from './routes/publicRoutes';
+import galleryRoutes from './routes/galleryRoutes';
+import nearbySpotsRoutes from './routes/nearbySpotsRoutes';
+import blogRoutes from './routes/blogRoutes';
+import expenditureRoutes from './routes/expenditureRoutes';
+import salaryRoutes from './routes/salaryRoutes';
+import { authenticateToken } from './middleware/auth';
+import { roleCheck } from './middleware/roleCheck';
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Public routes (no auth required)
+app.use('/api/auth', authRoutes);
+app.use('/api/public', publicRoutes);
+
+// Protected routes
+app.use('/api/users', authenticateToken, roleCheck(['SUPER_ADMIN']), userRoutes);
+app.use('/api/rooms', authenticateToken, roomRoutes);
+app.use('/api/bookings', authenticateToken, bookingRoutes);
+app.use('/api/guests', authenticateToken, guestRoutes);
+app.use('/api/payments', authenticateToken, paymentRoutes);
+app.use('/api/restaurant', authenticateToken, restaurantRoutes);
+app.use('/api/settings', authenticateToken, roleCheck(['SUPER_ADMIN']), settingsRoutes);
+app.use('/api/gallery', authenticateToken, galleryRoutes);
+app.use('/api/nearby-spots', authenticateToken, nearbySpotsRoutes);
+app.use('/api/blogs', authenticateToken, blogRoutes);
+app.use('/api/reports', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), reportRoutes);
+app.use('/api/expenditures', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), expenditureRoutes);
+app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), salaryRoutes);
+
+// Error handling
+app.use(errorHandler);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+});
+
+export default app;
