@@ -7,27 +7,49 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Hotel, Loader2 } from 'lucide-react';
 
+const REMEMBER_KEY = 'resort_admin_remember_email';
+
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(() => Boolean(localStorage.getItem(REMEMBER_KEY)));
+  const [supportEmail, setSupportEmail] = useState<string>('');
   const { login, user } = useAuth();
   const navigate = useNavigate();
 
-  // If already authenticated, redirect to dashboard
-  // Redirect authenticated users to dashboard
   useEffect(() => {
     if (user) {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    // Pull support email from public settings so "Forgot password?" goes somewhere real.
+    const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/$/, '');
+    fetch(`${apiBase}/public/settings`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const v = d?.settings?.resortEmail || d?.settings?.contact_email;
+        if (typeof v === 'string') setSupportEmail(v);
+      })
+      .catch(() => {
+        /* non-blocking */
+      });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       await login(email, password);
+      if (remember) {
+        localStorage.setItem(REMEMBER_KEY, email);
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
+      }
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed');
@@ -35,6 +57,12 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const supportMailto = supportEmail
+    ? `mailto:${supportEmail}?subject=${encodeURIComponent('Resort Admin — password reset request')}&body=${encodeURIComponent(
+        'Please reset the password for the following admin account:\n\nEmail: \nReason: \n'
+      )}`
+    : undefined;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-100 to-teal-200">
@@ -67,7 +95,7 @@ const Login: React.FC = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@resort.com"
+                placeholder="admin@resortnirjon.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -88,10 +116,29 @@ const Login: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <label className="flex items-center space-x-2 text-sm">
-                <input type="checkbox" className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500" />
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                />
                 <span className="text-emerald-800/80">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-emerald-700 hover:text-emerald-900 hover:underline">Forgot password?</a>
+              {supportMailto ? (
+                <a
+                  href={supportMailto}
+                  className="text-sm text-emerald-700 hover:text-emerald-900 hover:underline"
+                >
+                  Forgot password?
+                </a>
+              ) : (
+                <span
+                  className="text-sm text-emerald-700/50 cursor-not-allowed"
+                  title="Support email not configured yet"
+                >
+                  Forgot password?
+                </span>
+              )}
             </div>
             <Button
               type="submit"
@@ -102,7 +149,17 @@ const Login: React.FC = () => {
               Sign In
             </Button>
             <p className="mt-1 border-t border-emerald-100 pt-3 text-center text-sm text-emerald-800/80">
-              Need help? <a href="#" className="font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Contact support</a>
+              Need help?{' '}
+              {supportMailto ? (
+                <a
+                  href={supportMailto}
+                  className="font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
+                >
+                  Contact support
+                </a>
+              ) : (
+                <span className="font-medium text-emerald-700/50">Contact support</span>
+              )}
             </p>
           </form>
           </CardContent>
