@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:admin\" \"npm run dev:web\"",
-    "dev:server": "cd apps/server && (pids=$(lsof -ti :8000 2>/dev/null); [ -n \"$pids\" ] && kill -9 $pids || true) && npm run dev",
+    "dev:server": "cd apps/server && npm run dev",
     "dev:admin": "cd apps/admin && npm run dev",
     "dev:web": "cd apps/web && npm run dev",
     "build": "npm run build:server && npm run build:admin && npm run build:web",
