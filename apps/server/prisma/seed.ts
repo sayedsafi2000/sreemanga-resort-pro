@@ -137,7 +137,7 @@ async function main() {
         name: 'Highland Sunrise Set · টি হিল প্রভাত',
         price: 620,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1493770348161-369560609357?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
         description:
           'সাত রকমের টি টেইস্টিং, পরোটা বা টোস্ট, মসুর ডাল, মৌসুমি ফল, দই।\nফিল্টার কফি বা গরম চা · ডিম শেফ স্টাইলে (অর্ডারে জানান)।',
       },
@@ -159,7 +159,7 @@ async function main() {
         name: 'Bangla Cottage Breakfast · গ্রামীণ সকাল',
         price: 520,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1546069901-ba95909a691e?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=1200&q=80',
         description:
           'ভাজা খিচুড়ি বা লুচি, সবজির তরকারি, ভর্তা, ডিম।\nমিষ্টি দই বা ছানা · গরম চা।',
       },
@@ -170,7 +170,7 @@ async function main() {
         name: 'Tea Garden Lunch Thali · বাগান থালি',
         price: 890,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1588137378718-ff6a509e731f?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=1200&q=80',
         description:
           'গরম ভাত, ডাল, মাছ বা মাংস (একটি), দুই রকম সবজি, সালাদ, পাপড়।\nরসগোল্লা বা ফল · লেবু পানি।',
       },
@@ -181,7 +181,7 @@ async function main() {
         name: 'Hill Wind Biryani Box · হিল উইন্ড বিরিয়ানি',
         price: 750,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1563379091339-03246963d96a?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80',
         description:
           'কাচি বা চিকেন বিরিয়ানি (অর্ডারে), বোরহানি, সালাদ, আচার।\nফিরনি বা পায়েস।',
       },
@@ -246,7 +246,7 @@ async function main() {
         name: 'Pitha Platter · পিঠা প্ল্যাটার',
         price: 420,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1600490033905-93e6d5c6cfc5?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80',
         description: 'চিতই, ভাপা পিঠা, নাল পিঠা — মিষ্টি ও নোনতা মিক্স (মৌসুমি)।',
       },
       {
@@ -276,7 +276,7 @@ async function main() {
         name: 'Bhuna Kacchi Goat · ভুনা কাচ্চি ছাগল',
         price: 520,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1606491956689-2ea866880c21?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=1200&q=80',
         description: 'মেদের কাচ্চি শেল্প, গরম রুটি বা ভাতের সাথে।',
       },
       {
@@ -286,7 +286,7 @@ async function main() {
         name: 'Hill River Fish Curry · টিলা মাছের ঝাল',
         price: 480,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1519708227418-c4fdccc2d175?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=1200&q=80',
         description: 'দিনের মাছ, সরিষা বা দুধ ঝাল — শীতল টমেটো খচ্চর।',
       },
       {
@@ -296,7 +296,7 @@ async function main() {
         name: 'Clay Pot Beef Tehari · হাঁড়ি তেহারি',
         price: 450,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1544025162-d76694265948?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
         description: 'মসলায় হাঁড়িতে ফোটানো বিফ তেহারি — সালাদ ও আচার।',
       },
       {
@@ -306,7 +306,7 @@ async function main() {
         name: 'Paneer Tikka Makhani · পনীর টিক্কা ',
         price: 420,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1567188040759-76bbd0a29666?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80',
         description:
           'পনির টিক্কা ও মখনী গ্রেভি নিরামিষ বিকল্প — নান বা জিরা ভাতের সাথে।',
       },
@@ -317,7 +317,7 @@ async function main() {
         name: 'Kalijira Polao · কালিজিরা পোলাউ',
         price: 220,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1603133872878-684ac608d810?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
         description: 'হালকা মসলার কালিজিরা ভাত।',
       },
       {
@@ -327,7 +327,7 @@ async function main() {
         name: 'Tandoor Basket · তন্দুরি ঝુড়ি',
         price: 180,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1596795204327-7259960c2cb5?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=1200&q=80',
         description: 'নান, রুটি, লাচ্ছা পরোটা — মিক্স।',
       },
       {
@@ -337,7 +337,7 @@ async function main() {
         name: 'Steamed Bashmoti · বাসমতি ভাপ',
         price: 160,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1536304573101-b8470a7cd3ba?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80',
         description: 'সুগন্ধি বাসমতি সাদা ভাত।',
       },
       {
@@ -357,7 +357,7 @@ async function main() {
         name: 'Orange & Dark Chocolate Mousse',
         price: 320,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1578985545062-c73b593d08ad?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=1200&q=80',
         description: 'মৌসুমি কমলা ও ডার্ক চকলেট।',
       },
       {
@@ -377,7 +377,7 @@ async function main() {
         name: 'Hand-pulled Masala Chai · মসলা চা',
         price: 90,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1571934811-8e0cb5b09599?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=1200&q=80',
         description: 'দুধ চা, আদা-এলাচ।',
       },
       {
@@ -397,7 +397,7 @@ async function main() {
         name: 'Fresh Lemon & Mint · লেবু পুদিনা',
         price: 120,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1513558168814-1b9b742a7f76?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=1200&q=80',
         description: 'টাটকা লেবু, পুদিনা, সোডা বা পানি।',
       },
       {
@@ -407,7 +407,7 @@ async function main() {
         name: 'Seasonal Fruit Lassi · লস্সি',
         price: 160,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1572490122747-39608b8fa1be?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80',
         description: 'আম, কাঠাল বা দই — মৌসুম অনুযায়ী।',
       },
       {
@@ -417,7 +417,7 @@ async function main() {
         name: 'Mineral Water · পানি',
         price: 40,
         isAvailable: true,
-        image: 'https://images.unsplash.com/photo-1548835820-4dacfae4ceaa?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=1200&q=80',
         description: '৫০০ মিলি বোতল।',
       },
     ],
@@ -463,11 +463,15 @@ async function main() {
   }
 
   const settingKeys = [
-    { key: 'site_name', value: "Nirjon Nature's Hideout", description: 'Public site title' },
+    { key: 'resortName', value: "Nirjon Nature's Hideout", description: 'Public site title' },
     { key: 'site_name_bn', value: 'নির্জন নেচারস হাইডআউট', description: 'Public site title Bengali' },
-    { key: 'contact_phone', value: '01727-135520', description: 'Front desk' },
-    { key: 'contact_email', value: 'nirjonnature@gmail.com', description: 'Inquiries' },
-    { key: 'contact_address', value: 'Bishamoni, Radhanagar, Sreemangal (Opposite of Bishamoni High School), Maulvi Bazar, Bangladesh', description: 'Address' },
+    { key: 'resortPhone', value: '01727-135520', description: 'Front desk' },
+    { key: 'resortEmail', value: 'nirjonnature@gmail.com', description: 'Inquiries' },
+    { key: 'resortAddress', value: 'Bishamoni, Radhanagar, Sreemangal (Opposite of Bishamoni High School), Maulvi Bazar, Bangladesh', description: 'Address' },
+    { key: 'resortDescription', value: 'Nature-focused resort stay with calm hospitality.', description: 'Short description for admin' },
+    { key: 'checkInTime', value: '14:00', description: 'Check-in time' },
+    { key: 'checkOutTime', value: '12:00', description: 'Check-out time' },
+    { key: 'mapEmbedUrl', value: '', description: 'Google Maps embed URL' },
     { key: 'tagline', value: 'Nature retreat in Sreemangal', description: 'Tagline' },
     { key: 'tagline_bn', value: 'শ্রীমঙ্গলে প্রকৃতির আশ্রয়', description: 'Tagline Bengali' },
     { key: 'aboutShort', value: 'Nature-focused resort stay with calm hospitality.', description: 'About short' },
@@ -647,7 +651,7 @@ Established as a national park in 1996 under the Wildlife Act, Lawachara is home
 The park offers well-maintained hiking trails perfect for nature walks. Early morning visits are best for bird watching and photographing the forest in soft light. Remember to bring sturdy shoes, water, and avoid carrying plastic into the forest.
 
 Tips: Hire a local guide for safety, wear comfortable walking shoes, and bring a camera with good low-light performance.`,
-      imageUrl: 'https://images.unsplash.com/photo-1448375240586-dfd8ca53d7bf?auto=format&fit=crop&w=1200&q=80',
+      imageUrl: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=1200&q=80',
       category: 'Nature',
       authorName: "Nirjon Nature's Hideout",
       tags: ['lawachara', 'nature', 'hiking', 'wildlife', 'sreemangal'],
@@ -666,7 +670,7 @@ The most famous attraction is the "Seven-Layer Tea" (SAT Rong Cha) — a unique 
 Tea garden tours are available through several estates. You can drive through the plantations, interact with tea pluckers (mostly women from local communities), and learn about the tea-making process from leaf to cup.
 
 Best time to visit: October to March for pleasant weather. Early morning offers misty views perfect for photography. Bring sun protection and comfortable footwear for garden walks.`,
-      imageUrl: 'https://images.unsplash.com/photo-1587387119725-9d3998863f18?auto=format&fit=crop&w=1200&q=80',
+      imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
       category: 'Experience',
       authorName: "Nirjon Nature's Hideout",
       tags: ['tea', 'tour', 'sreemangal', 'seven-layer-tea', 'nature'],
@@ -685,7 +689,7 @@ The area around the waterfall is part of a larger eco-park, providing basic amen
 This is a full-day trip destination. We recommend starting early morning from the resort (around 7 AM) to avoid crowds and have ample time to explore. The road conditions have improved in recent years, but some sections are still rough.
 
 Pack lightly: Bring water, snacks, good walking shoes, and a change of clothes if you plan to wade in the natural pools. Avoid plastics and help keep this beautiful site clean.`,
-      imageUrl: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f1?auto=format&fit=crop&w=1200&q=80',
+      imageUrl: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80',
       category: 'Adventure',
       authorName: "Nirjon Nature's Hideout",
       tags: ['waterfall', 'madhabkunda', 'day-trip', 'nature', 'adventure'],
@@ -774,7 +778,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
       ],
       bestFor: 'Nature walk · photography · jungle vibe',
       imageUrl:
-        'https://images.unsplash.com/photo-1448375240586-dfd8ca53d7bf?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=1200&q=80',
       imageAlt: 'Dense tropical rainforest canopy with light through the trees',
       sortOrder: 1,
       body: `লাওয়াছড়া জাতীয় উদ্যান বাংলাদেশের মৌলভীবাজার জেলার কমলগঞ্জ উপজেলায় অবস্থিত—শ্রীমঙ্গল শহর থেকে মাত্র কয়েক কিলোমিটার দূরে। প্রায় ১,২৫০ হেক্টর এলাকা জুড়ে সেমি-এভারগ্রিন ও মিশ্র পর্ণমোচী বন; এটি বৃহত্তর পশ্চিম ভানুগাছ সংরক্ষিত বনের অংশ।
@@ -798,7 +802,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
       ],
       bestFor: 'Drone shots · chill drive · couple photos',
       imageUrl:
-        'https://images.unsplash.com/photo-1587387119725-9d3998863f18?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
       imageAlt: 'Rolling green tea plantation hills',
       sortOrder: 2,
       body: `শ্রীমঙ্গলকে বলা হয় বাংলাদেশের চা রাজধানী। শহরের চারপাশে ছড়িয়ে আছে অসংখ্য চা বাগান—নীলক নীলকন্ঠ, লুকলুক টি এস্টেট, জিয়াউর টি গার্ডেনসহ বিখ্যাত নামগুলো। সবুজ টিলা, কুয়াশা ভরা সকাল আর শ্রমিকদের চা পাতা তোলার দৃশ্য—এক অনন্য অভিজ্ঞতা।
@@ -820,7 +824,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
       ],
       bestFor: 'Day trip adventure',
       imageUrl:
-        'https://images.unsplash.com/photo-1432405972618-c60b0225b8f1?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80',
       imageAlt: 'Powerful waterfall in a green rocky landscape',
       sortOrder: 3,
       body: `মাধবকুণ্ড জলপ্রপাত মৌলভীবাজারের বড়লেখা উপজেলায় অবস্থিত—প্রায় ৬১ মিটার (২০০ ফুট) উচ্চতায় পড়ে এটি দেশের অন্যতম উল্লেখযোগ্য ঝর্ণা। গঙ্গামারা স্রোত পাথরিয়া পাহাড় থেকে নেমে মাধবছড়া হয়ে হাকালুকি হাওড়ের দিকে চলে যায়।
