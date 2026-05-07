@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getAllGuests,
   getGuest,
+  getGuestHistory,
   createGuest,
   updateGuest,
   deleteGuest,
@@ -13,6 +14,7 @@ const RG = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
 const router = Router();
 
 router.get('/', roleCheck([...RG]), getAllGuests);
+router.get('/:id/history', roleCheck([...RG]), getGuestHistory);
 router.get('/:id', roleCheck([...RG]), getGuest);
 router.post('/', roleCheck([...RG]), createGuest);
 router.put('/:id', roleCheck([...RG]), updateGuest);

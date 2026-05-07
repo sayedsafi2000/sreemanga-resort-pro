@@ -96,3 +96,60 @@ export const deleteGuest = async (
     next(error);
   }
 };
+
+export const getGuestHistory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+
+    const guest = await prisma.guest.findUnique({ where: { id } });
+    if (!guest) {
+      throw new AppError('Guest not found', 404);
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: { guestId: id },
+      include: {
+        room: { select: { id: true, name: true, type: true } },
+        payments: true,
+      },
+      orderBy: { checkInDate: 'desc' },
+    });
+
+    const payments = bookings.flatMap((b) =>
+      b.payments.map((p) => ({
+        ...p,
+        bookingRoomName: b.room?.name ?? null,
+        bookingCheckIn: b.checkInDate,
+      }))
+    );
+
+    const totalSpend = payments
+      .filter((p) => p.status === 'COMPLETED')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const completedStays = bookings.filter(
+      (b) => b.status === 'CHECKED_OUT'
+    ).length;
+
+    const lastStay = bookings.find((b) => b.status === 'CHECKED_OUT')?.checkOutDate ?? null;
+
+    res.json({
+      success: true,
+      guest,
+      bookings,
+      payments,
+      stats: {
+        totalBookings: bookings.length,
+        completedStays,
+        totalSpend,
+        lastStay,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
