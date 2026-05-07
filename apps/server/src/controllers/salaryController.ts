@@ -4,14 +4,30 @@ import { z } from 'zod';
 
 const directPrisma = new PrismaClient();
 
+export const SALARY_STATUSES = ['PENDING', 'PAID', 'CANCELLED'] as const;
+
 export const salarySchema = z.object({
   userId: z.string().uuid(),
   amount: z.number().positive(),
   month: z.number().min(1).max(12),
   year: z.number().min(2020),
-  status: z.string().optional(),
+  status: z.enum(SALARY_STATUSES).optional(),
+  paymentDate: z.string().datetime().optional().nullable(),
   notes: z.string().optional(),
 });
+
+export const salaryUpdateSchema = z.object({
+  status: z.enum(SALARY_STATUSES).optional(),
+  paymentDate: z.string().datetime().optional().nullable(),
+  notes: z.string().optional(),
+  amount: z.number().positive().optional(),
+});
+
+function resolvePaymentDate(status: string | undefined, raw: string | null | undefined): Date | null {
+  if (raw === null) return null;
+  if (raw) return new Date(raw);
+  return status === 'PAID' ? new Date() : null;
+}
 
 export const getAllStaffSalaries = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -62,7 +78,7 @@ export const getAllStaffWithSalaries = async (req: Request, res: Response, next:
 
     const staffWithSalaries = staff.map(s => {
       const salary = salaries.find(sal => sal.userId === s.id);
-      return { ...salary, user: s, isPaid: !!salary };
+      return { ...salary, user: s, isPaid: salary?.status === 'PAID' };
     });
 
     res.json({ success: true, staff: staffWithSalaries });
@@ -74,6 +90,8 @@ export const getAllStaffWithSalaries = async (req: Request, res: Response, next:
 export const createSalaryPayment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = salarySchema.parse(req.body);
+    const status = data.status || 'PAID';
+    const paymentDate = resolvePaymentDate(status, data.paymentDate);
     const salary = await directPrisma.staffSalary.upsert({
       where: {
         userId_month_year: {
@@ -82,8 +100,16 @@ export const createSalaryPayment = async (req: Request, res: Response, next: Nex
           year: data.year,
         },
       },
-      update: { amount: data.amount, status: data.status || 'PAID', paymentDate: new Date(), notes: data.notes },
-      create: { ...data, status: data.status || 'PAID', paymentDate: new Date() },
+      update: { amount: data.amount, status, paymentDate, notes: data.notes },
+      create: {
+        userId: data.userId,
+        amount: data.amount,
+        month: data.month,
+        year: data.year,
+        notes: data.notes,
+        status,
+        paymentDate,
+      },
     });
     res.json({ success: true, salary });
   } catch (error) {
@@ -94,9 +120,17 @@ export const createSalaryPayment = async (req: Request, res: Response, next: Nex
 export const markSalaryPaid = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const data = salaryUpdateSchema.parse(req.body || {});
+    const status = data.status || 'PAID';
+    const paymentDate = resolvePaymentDate(status, data.paymentDate);
     const salary = await directPrisma.staffSalary.update({
       where: { id },
-      data: { status: 'PAID', paymentDate: new Date() },
+      data: {
+        status,
+        paymentDate,
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        ...(data.amount !== undefined ? { amount: data.amount } : {}),
+      },
     });
     res.json({ success: true, salary });
   } catch (error) {

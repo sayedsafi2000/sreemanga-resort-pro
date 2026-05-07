@@ -33,7 +33,25 @@ import { Label } from '@/components/ui/label';
 import { DollarSign, Check, X, Loader2 } from 'lucide-react';
 
 type User = { id: string; name: string; role: string };
-type StaffWithSalary = { user: User; userId: string; amount?: number; month?: number; year?: number; status?: string; isPaid: boolean };
+type StaffWithSalary = {
+  id?: string;
+  user: User;
+  userId: string;
+  amount?: number;
+  month?: number;
+  year?: number;
+  status?: string;
+  paymentDate?: string | null;
+  notes?: string | null;
+  isPaid: boolean;
+};
+
+const SALARY_STATUSES = ['PENDING', 'PAID', 'CANCELLED'] as const;
+type SalaryStatus = (typeof SALARY_STATUSES)[number];
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const ROLE_LABELS: Record<string, string> = {
   MANAGER: 'Manager',
@@ -52,6 +70,8 @@ export default function StaffSalaries() {
   const [selectedStaff, setSelectedStaff] = useState<StaffWithSalary | null>(null);
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
+  const [paymentDate, setPaymentDate] = useState<string>(todayIso());
+  const [status, setStatus] = useState<SalaryStatus>('PAID');
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -74,7 +94,12 @@ export default function StaffSalaries() {
   const openPayDialog = (staffMember: StaffWithSalary) => {
     setSelectedStaff(staffMember);
     setAmount((staffMember.amount || 0).toString());
-    setNotes('');
+    setNotes(staffMember.notes || '');
+    const existingStatus = (staffMember.status as SalaryStatus | undefined) || 'PAID';
+    setStatus(existingStatus);
+    setPaymentDate(
+      staffMember.paymentDate ? staffMember.paymentDate.slice(0, 10) : todayIso()
+    );
     setOpenDialog(true);
   };
 
@@ -82,14 +107,20 @@ export default function StaffSalaries() {
     if (!selectedStaff || !amount) return;
     setSaving(true);
     try {
-      await api.post('/salaries', {
+      const payload: Record<string, unknown> = {
         userId: selectedStaff.user.id,
         amount: parseFloat(amount),
         month,
         year,
-        status: 'PAID',
+        status,
         notes,
-      });
+      };
+      if (status === 'PAID') {
+        payload.paymentDate = new Date(`${paymentDate}T00:00:00.000Z`).toISOString();
+      } else {
+        payload.paymentDate = null;
+      }
+      await api.post('/salaries', payload);
       setOpenDialog(false);
       fetchData();
     } catch (err) {
@@ -177,38 +208,47 @@ export default function StaffSalaries() {
                 <TableHead>Role</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Paid On</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staff.map((s) => (
-                <TableRow key={s.user.id}>
-                  <TableCell className="font-medium">{s.user.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{ROLE_LABELS[s.user.role] || s.user.role}</Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">৳ {(s.amount || 0).toLocaleString()}</TableCell>
-                  <TableCell>
-                    {s.isPaid ? (
-                      <Badge className="bg-green-600">Paid</Badge>
-                    ) : (
-                      <Badge variant="secondary">Pending</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {s.isPaid ? (
-                      <span className="text-sm text-green-600">Completed</span>
-                    ) : (
-                      <Button size="sm" onClick={() => openPayDialog(s)}>
-                        Pay Now
+              {staff.map((s) => {
+                const rowStatus = (s.status as SalaryStatus | undefined) || 'PENDING';
+                return (
+                  <TableRow key={s.user.id}>
+                    <TableCell className="font-medium">{s.user.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{ROLE_LABELS[s.user.role] || s.user.role}</Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">৳ {(s.amount || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {rowStatus === 'PAID' ? (
+                        <Badge className="bg-green-600">Paid</Badge>
+                      ) : rowStatus === 'CANCELLED' ? (
+                        <Badge className="bg-red-600">Cancelled</Badge>
+                      ) : (
+                        <Badge variant="secondary">Pending</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {s.paymentDate ? new Date(s.paymentDate).toLocaleDateString() : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant={rowStatus === 'PAID' ? 'outline' : 'default'}
+                        onClick={() => openPayDialog(s)}
+                      >
+                        {rowStatus === 'PAID' ? 'Edit' : 'Pay Now'}
                       </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {staff.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No staff found
                   </TableCell>
                 </TableRow>
@@ -234,6 +274,30 @@ export default function StaffSalaries() {
                 placeholder="Enter amount"
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={(v) => setStatus(v as SalaryStatus)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SALARY_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Date</Label>
+                <Input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  disabled={status !== 'PAID'}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Notes (optional)</Label>
               <Input
@@ -247,7 +311,7 @@ export default function StaffSalaries() {
             <Button variant="outline" onClick={() => setOpenDialog(false)}>Cancel</Button>
             <Button onClick={handleSavePayment} disabled={saving || !amount}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Mark as Paid
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
