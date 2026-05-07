@@ -34,8 +34,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search, TrendingUp, DollarSign, Calendar, Edit, Trash2, Loader2, Paperclip, X as XIcon } from 'lucide-react';
 
-type Category = { id: string; name: string; sortOrder: number };
-type Expense = { id: string; title: string; amount: number; categoryId: string; category: Category; date: string; paymentMethod: string; paidTo: string; description: string; status: string; attachment?: string };
+type Category = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  isActive?: boolean;
+  _count?: { expenses: number };
+};
+type Expense = { id: string; title: string; amount: number; categoryId: string; category: Category; date: string; paymentMethod: string; paidTo: string; description: string; status: string; attachment?: string; createdBy?: { id: string; name: string; role: string } | null };
 type Stats = { todayTotal: number; monthTotal: number; categoryBreakdown: { categoryId: string; categoryName: string; total: number }[] };
 
 const MAX_RECEIPT_DIMENSION = 1600;
@@ -165,12 +171,18 @@ export default function Expenditures() {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm('Delete this category?')) return;
+    const cat = categories.find((c) => c.id === id);
+    const count = cat?._count?.expenses ?? 0;
+    const msg = count > 0
+      ? `${cat?.name} has ${count} expense${count === 1 ? '' : 's'}. Delete anyway? You will need to reassign or remove those first.`
+      : `Delete ${cat?.name ?? 'this category'}?`;
+    if (!confirm(msg)) return;
     try {
       await api.delete(`/expenditures/categories/${id}`);
       fetchData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message;
+      alert(serverMsg || 'Could not delete category.');
     }
   };
 
@@ -191,8 +203,9 @@ export default function Expenditures() {
       setExpenseForm({ title: '', amount: '', categoryId: '', date: new Date().toISOString().split('T')[0], paymentMethod: 'CASH', paidTo: '', description: '', status: 'PAID', attachment: '' });
       setEditingExpense(null);
       fetchData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message;
+      alert(serverMsg || 'Could not save expense.');
     } finally {
       setSaving(false);
     }
