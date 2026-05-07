@@ -24,8 +24,8 @@ const Payments: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<any>(null);
-  const [form, setForm] = useState({ bookingId: '', amount: '', method: 'CASH' });
-  const [editForm, setEditForm] = useState({ status: 'COMPLETED', notes: '' });
+  const [form, setForm] = useState({ bookingId: '', amount: '', method: 'CASH', transactionId: '', notes: '' });
+  const [editForm, setEditForm] = useState({ status: 'COMPLETED', transactionId: '', notes: '' });
 
   const fetchData = async () => {
     try {
@@ -37,16 +37,29 @@ const Payments: React.FC = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  const openNew = () => { setForm({ bookingId: '', amount: '', method: 'CASH' }); setOpen(true); };
+  const openNew = () => {
+    setForm({ bookingId: '', amount: '', method: 'CASH', transactionId: '', notes: '' });
+    setOpen(true);
+  };
 
   const openEditPayment = (p: any) => {
     setEditingPayment(p);
-    setEditForm({ status: p.status, notes: p.notes || '' });
+    setEditForm({
+      status: p.status,
+      transactionId: p.transactionId || '',
+      notes: p.notes || '',
+    });
     setEditOpen(true);
   };
 
   const handleSave = async () => {
-    const data = { bookingId: form.bookingId, amount: Number(form.amount), method: form.method };
+    const data = {
+      bookingId: form.bookingId,
+      amount: Number(form.amount),
+      method: form.method,
+      transactionId: form.transactionId.trim() || undefined,
+      notes: form.notes.trim() || undefined,
+    };
     try {
       await api.post('/payments', data);
       setOpen(false);
@@ -57,7 +70,11 @@ const Payments: React.FC = () => {
   const handleEditSave = async () => {
     if (!editingPayment) return;
     try {
-      await api.put(`/payments/${editingPayment.id}`, { status: editForm.status, notes: editForm.notes || undefined });
+      await api.put(`/payments/${editingPayment.id}`, {
+        status: editForm.status,
+        transactionId: editForm.transactionId.trim() || null,
+        notes: editForm.notes.trim() || null,
+      });
       setEditOpen(false);
       setEditingPayment(null);
       fetchData();
@@ -97,8 +114,12 @@ const Payments: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Booking</TableHead><TableHead>Amount</TableHead><TableHead>Method</TableHead>
-                <TableHead>Status</TableHead><TableHead>Date</TableHead>
+                <TableHead>Booking</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead>Txn ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
                 {editPayments && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -108,6 +129,7 @@ const Payments: React.FC = () => {
                   <TableCell>{p.booking?.guest?.name || p.bookingId?.slice(0, 8)}</TableCell>
                   <TableCell>৳{p.amount?.toLocaleString?.() ?? p.amount}</TableCell>
                   <TableCell>{p.method}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{p.transactionId || '—'}</TableCell>
                   <TableCell><Badge variant={statusColor(p.status) as any}>{p.status}</Badge></TableCell>
                   <TableCell>{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '-'}</TableCell>
                   {editPayments && (
@@ -119,7 +141,7 @@ const Payments: React.FC = () => {
               ))}
               {payments.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={editPayments ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={editPayments ? 7 : 6} className="text-center py-8 text-muted-foreground">
                     No payments found
                   </TableCell>
                 </TableRow>
@@ -138,6 +160,22 @@ const Payments: React.FC = () => {
               <div className="space-y-2"><Label>Amount (৳)</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
               <div className="space-y-2"><Label>Method</Label><Select value={form.method} onValueChange={(v) => setForm({ ...form, method: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{paymentMethods.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select></div>
             </div>
+            <div className="space-y-2">
+              <Label>Transaction ID (optional)</Label>
+              <Input
+                value={form.transactionId}
+                onChange={(e) => setForm({ ...form, transactionId: e.target.value })}
+                placeholder="e.g. bKash TXN ID"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Input
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="Internal note"
+              />
+            </div>
             <p className="text-xs text-muted-foreground">New payments are recorded as completed on the server.</p>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={handleSave}>Record</Button></DialogFooter>
@@ -149,6 +187,7 @@ const Payments: React.FC = () => {
           <DialogHeader><DialogTitle>Update payment</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Status</Label><Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{paymentStatuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Transaction ID</Label><Input value={editForm.transactionId} onChange={(e) => setEditForm({ ...editForm, transactionId: e.target.value })} placeholder="e.g. bKash TXN ID" /></div>
             <div className="space-y-2"><Label>Notes</Label><Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={handleEditSave}>Save</Button></DialogFooter>

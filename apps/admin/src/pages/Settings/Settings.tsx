@@ -70,6 +70,17 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    title: 'Payment Accounts',
+    description: 'Shown to guests when they pick Instant payment in the manual booking flow.',
+    fields: [
+      { key: 'bkashNumber', label: 'bKash number', type: 'tel', placeholder: '017XXXXXXXX' },
+      { key: 'bankAccountName', label: 'Bank account name' },
+      { key: 'bankAccountNumber', label: 'Bank account number' },
+      { key: 'bankName', label: 'Bank name' },
+      { key: 'bankBranch', label: 'Bank branch' },
+    ],
+  },
+  {
     title: 'Social',
     fields: [
       { key: 'socialFacebook', label: 'Facebook URL', type: 'url' },

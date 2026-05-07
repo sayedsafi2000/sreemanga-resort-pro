@@ -493,6 +493,11 @@ async function main() {
     { key: 'testimonial3Quote', value: '', description: 'Testimonial 3 quote' },
     { key: 'testimonial3Author', value: '', description: 'Testimonial 3 author' },
     { key: 'testimonial3Role', value: '', description: 'Testimonial 3 role' },
+    { key: 'bkashNumber', value: '', description: 'bKash payment number shown to guests' },
+    { key: 'bankAccountName', value: '', description: 'Bank account holder name' },
+    { key: 'bankAccountNumber', value: '', description: 'Bank account number' },
+    { key: 'bankName', value: '', description: 'Bank name' },
+    { key: 'bankBranch', value: '', description: 'Bank branch' },
   ];
   for (const s of settingKeys) {
     // Preserve existing non-empty values; only seed when missing or blank.

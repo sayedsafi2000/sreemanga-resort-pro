@@ -19,11 +19,11 @@ type CalendarDay = { date: string; status: string; bookingStatus?: string | null
 
 const CALENDAR_DAYS = 90;
 
-const BKASH_NUMBER = import.meta.env.VITE_PUBLIC_BKASH_NUMBER || '017XXXXXXXX';
-const BANK_ACCOUNT_NAME = import.meta.env.VITE_PUBLIC_BANK_ACCOUNT_NAME || 'Resort';
-const BANK_ACCOUNT_NUMBER = import.meta.env.VITE_PUBLIC_BANK_ACCOUNT_NUMBER || '—';
-const BANK_NAME = import.meta.env.VITE_PUBLIC_BANK_NAME || 'Bank';
-const BANK_BRANCH = import.meta.env.VITE_PUBLIC_BANK_BRANCH || 'Sreemangal';
+const ENV_BKASH_NUMBER = import.meta.env.VITE_PUBLIC_BKASH_NUMBER || '017XXXXXXXX';
+const ENV_BANK_ACCOUNT_NAME = import.meta.env.VITE_PUBLIC_BANK_ACCOUNT_NAME || 'Resort';
+const ENV_BANK_ACCOUNT_NUMBER = import.meta.env.VITE_PUBLIC_BANK_ACCOUNT_NUMBER || '—';
+const ENV_BANK_NAME = import.meta.env.VITE_PUBLIC_BANK_NAME || 'Bank';
+const ENV_BANK_BRANCH = import.meta.env.VITE_PUBLIC_BANK_BRANCH || 'Sreemangal';
 
 type Props = {
   open: boolean;
@@ -53,6 +53,34 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
   const [calLoading, setCalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentAccounts, setPaymentAccounts] = useState({
+    bkashNumber: ENV_BKASH_NUMBER,
+    bankAccountName: ENV_BANK_ACCOUNT_NAME,
+    bankAccountNumber: ENV_BANK_ACCOUNT_NUMBER,
+    bankName: ENV_BANK_NAME,
+    bankBranch: ENV_BANK_BRANCH,
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    // Pull payment account details from public settings; fall back to env vars / placeholders.
+    const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/$/, '');
+    fetch(`${apiBase}/public/settings`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const s = d?.settings || {};
+        setPaymentAccounts({
+          bkashNumber: s.bkashNumber || ENV_BKASH_NUMBER,
+          bankAccountName: s.bankAccountName || ENV_BANK_ACCOUNT_NAME,
+          bankAccountNumber: s.bankAccountNumber || ENV_BANK_ACCOUNT_NUMBER,
+          bankName: s.bankName || ENV_BANK_NAME,
+          bankBranch: s.bankBranch || ENV_BANK_BRANCH,
+        });
+      })
+      .catch(() => {
+        /* keep env defaults */
+      });
+  }, [open]);
 
   const todayStart = useMemo(() => startOfDay(new Date()), []);
 
@@ -347,16 +375,16 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
                   {preferredPaymentMethod === 'BKASH' ? (
                     <>
                       <p className="font-semibold">bKash</p>
-                      <p>Number: {BKASH_NUMBER}</p>
+                      <p>Number: {paymentAccounts.bkashNumber}</p>
                     </>
                   ) : (
                     <>
                       <p className="font-semibold">Bank transfer</p>
                       <p>
-                        {BANK_NAME}, {BANK_BRANCH}
+                        {paymentAccounts.bankName}, {paymentAccounts.bankBranch}
                       </p>
                       <p>
-                        A/C: {BANK_ACCOUNT_NAME} — {BANK_ACCOUNT_NUMBER}
+                        A/C: {paymentAccounts.bankAccountName} — {paymentAccounts.bankAccountNumber}
                       </p>
                     </>
                   )}

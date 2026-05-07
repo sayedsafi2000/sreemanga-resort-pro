@@ -10,7 +10,8 @@ export const paymentSchema = z.object({
 
 export const updatePaymentSchema = z.object({
   status: z.enum(['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED']).optional(),
-  notes: z.string().optional(),
+  transactionId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 export type PaymentInput = z.infer<typeof paymentSchema>;
