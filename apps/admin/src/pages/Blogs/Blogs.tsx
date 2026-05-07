@@ -10,6 +10,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Pencil, Trash2, Eye, Star } from 'lucide-react';
+import { marked } from 'marked';
+
+marked.setOptions({ breaks: true, gfm: true });
+
+const renderMarkdown = (md: string): string => {
+  try {
+    return marked.parse(md ?? '', { async: false }) as string;
+  } catch {
+    return md;
+  }
+};
 
 const fileToDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -230,7 +241,14 @@ const Blogs: React.FC = () => {
             </div>
             <div className="grid gap-2">
               <Label>Content (Full article)</Label>
-              <Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Write your blog content here..." rows={8} />
+              <Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Write markdown here. Use **bold**, *italic*, [links](url), and lists." rows={8} />
+              <details className="rounded border bg-muted/30">
+                <summary className="cursor-pointer px-3 py-2 text-sm font-medium">Markdown preview</summary>
+                <div
+                  className="prose prose-sm max-w-none px-3 py-2"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(form.content) }}
+                />
+              </details>
             </div>
             <div className="grid gap-2">
               <Label>Featured Image</Label>
@@ -296,7 +314,10 @@ const Blogs: React.FC = () => {
               </div>
               <h2 className="text-2xl font-bold mt-2">{viewing.title}</h2>
               <p className="text-muted-foreground">By {viewing.authorName} · {new Date(viewing.createdAt).toLocaleDateString()}</p>
-              <div className="prose max-w-none mt-4 whitespace-pre-wrap">{viewing.content}</div>
+              <div
+                className="prose max-w-none mt-4"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(viewing.content) }}
+              />
             </>
           )}
         </DialogContent>
