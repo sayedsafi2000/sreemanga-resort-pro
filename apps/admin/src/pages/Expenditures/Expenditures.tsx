@@ -87,6 +87,38 @@ async function fileToCompressedDataUrl(file: File): Promise<string> {
 const paymentMethods = ['CASH', 'BKASH', 'NAGAD', 'CARD'] as const;
 const statuses = ['PAID', 'PENDING', 'CANCELLED'] as const;
 
+const DEFAULT_EXPENSE_FORM = {
+  title: '',
+  amount: '',
+  categoryId: '',
+  date: new Date().toISOString().split('T')[0],
+  paymentMethod: 'CASH',
+  paidTo: '',
+  description: '',
+  status: 'PAID',
+  attachment: '',
+};
+
+function csvDownload(filename: string, rows: string[][]): void {
+  const csv = rows
+    .map((r) =>
+      r
+        .map((c) => {
+          const s = String(c ?? '');
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        })
+        .join(',')
+    )
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Expenditures() {
   const navigate = useNavigate();
   const tab = new URLSearchParams(window.location.search).get('tab') || 'overview';
@@ -108,17 +140,8 @@ export default function Expenditures() {
 
   // Form states
   const [categoryName, setCategoryName] = useState('');
-  const [expenseForm, setExpenseForm] = useState({
-    title: '',
-    amount: '',
-    categoryId: '',
-    date: new Date().toISOString().split('T')[0],
-    paymentMethod: 'CASH',
-    paidTo: '',
-    description: '',
-    status: 'PAID',
-    attachment: '',
-  });
+  const [categoryIsActive, setCategoryIsActive] = useState(true);
+  const [expenseForm, setExpenseForm] = useState({ ...DEFAULT_EXPENSE_FORM });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -131,14 +154,21 @@ export default function Expenditures() {
   };
 
   useEffect(() => {
-    fetchData();
+    // Debounce so typing doesn't fire one request per keystroke. statusFilter applies immediately.
+    const t = setTimeout(() => fetchData(), search ? 300 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter]);
 
   const fetchData = async () => {
     try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set('search', search.trim());
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      const qs = params.toString() ? `?${params.toString()}` : '';
       const [catRes, expRes, statsRes] = await Promise.all([
         api.get('/expenditures/categories'),
-        api.get(`/expenditures?search=${search}&status=${statusFilter !== 'all' ? statusFilter : ''}`),
+        api.get(`/expenditures${qs}`),
         api.get('/expenditures/stats'),
       ]);
       setCategories(unwrapList(catRes, ['categories']) || []);
@@ -154,13 +184,15 @@ export default function Expenditures() {
     if (!categoryName.trim()) return;
     setSaving(true);
     try {
+      const payload = { name: categoryName, isActive: categoryIsActive };
       if (editingCategory) {
-        await api.patch(`/expenditures/categories/${editingCategory.id}`, { name: categoryName });
+        await api.patch(`/expenditures/categories/${editingCategory.id}`, payload);
       } else {
-        await api.post('/expenditures/categories', { name: categoryName });
+        await api.post('/expenditures/categories', payload);
       }
       setOpenCategory(false);
       setCategoryName('');
+      setCategoryIsActive(true);
       setEditingCategory(null);
       fetchData();
     } catch (err) {
@@ -200,7 +232,7 @@ export default function Expenditures() {
         await api.post('/expenditures', data);
       }
       setOpenExpense(false);
-      setExpenseForm({ title: '', amount: '', categoryId: '', date: new Date().toISOString().split('T')[0], paymentMethod: 'CASH', paidTo: '', description: '', status: 'PAID', attachment: '' });
+      setExpenseForm({ ...DEFAULT_EXPENSE_FORM });
       setEditingExpense(null);
       fetchData();
     } catch (err: any) {
@@ -303,11 +335,13 @@ export default function Expenditures() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Total Categories</CardTitle>
+                <CardTitle className="text-sm font-medium">Active categories</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{categories.length}</div>
+                <div className="text-2xl font-bold">
+                  {categories.filter((c) => c.isActive !== false).length}
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -370,9 +404,33 @@ export default function Expenditures() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => { setEditingExpense(null); setOpenExpense(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Add Expense
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const rows: string[][] = [
+                    ['Title', 'Category', 'Paid To', 'Method', 'Amount', 'Date', 'Status', 'Recorded by'],
+                    ...filteredExpenses.map((e) => [
+                      e.title,
+                      e.category?.name ?? '',
+                      e.paidTo ?? '',
+                      e.paymentMethod ?? '',
+                      String(e.amount),
+                      new Date(e.date).toISOString().split('T')[0],
+                      e.status,
+                      e.createdBy?.name ?? '',
+                    ]),
+                  ];
+                  csvDownload(`expenses-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+                }}
+                disabled={filteredExpenses.length === 0}
+              >
+                Export CSV
+              </Button>
+              <Button onClick={() => { setEditingExpense(null); setOpenExpense(true); }}>
+                <Plus className="mr-2 h-4 w-4" /> Add Expense
+              </Button>
+            </div>
           </div>
 
           {/* Table */}
@@ -388,6 +446,7 @@ export default function Expenditures() {
                     <TableHead>Amount</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Recorded by</TableHead>
                     <TableHead>Receipt</TableHead>
                     {canEdit && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
@@ -411,6 +470,7 @@ export default function Expenditures() {
                           {exp.status}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{exp.createdBy?.name ?? '—'}</TableCell>
                       <TableCell>
                         {exp.attachment ? (
                           <button
@@ -439,7 +499,7 @@ export default function Expenditures() {
                   ))}
                   {filteredExpenses.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         No expenses found
                       </TableCell>
                     </TableRow>
@@ -455,7 +515,7 @@ export default function Expenditures() {
       {tab === 'categories' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => { setEditingCategory(null); setCategoryName(''); setOpenCategory(true); }}>
+            <Button onClick={() => { setEditingCategory(null); setCategoryName(''); setCategoryIsActive(true); setOpenCategory(true); }}>
               <Plus className="mr-2 h-4 w-4" /> Add Category
             </Button>
           </div>
@@ -467,6 +527,8 @@ export default function Expenditures() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Order</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Usage</TableHead>
                     {canEdit && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -475,6 +537,16 @@ export default function Expenditures() {
                     <TableRow key={cat.id}>
                       <TableCell className="font-medium">{cat.name}</TableCell>
                       <TableCell>{cat.sortOrder}</TableCell>
+                      <TableCell>
+                        {cat.isActive === false ? (
+                          <Badge variant="secondary">Inactive</Badge>
+                        ) : (
+                          <Badge variant="outline">Active</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {cat._count?.expenses ?? 0} expense{(cat._count?.expenses ?? 0) === 1 ? '' : 's'}
+                      </TableCell>
                       {canEdit && (
                         <TableCell className="text-right">
                           <Button
@@ -483,6 +555,7 @@ export default function Expenditures() {
                             onClick={() => {
                               setEditingCategory(cat);
                               setCategoryName(cat.name);
+                              setCategoryIsActive(cat.isActive !== false);
                               setOpenCategory(true);
                             }}
                           >
@@ -497,7 +570,7 @@ export default function Expenditures() {
                   ))}
                   {categories.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                         No categories
                       </TableCell>
                     </TableRow>
@@ -524,6 +597,14 @@ export default function Expenditures() {
                 placeholder="e.g., Staff Salary"
               />
             </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={categoryIsActive}
+                onChange={(e) => setCategoryIsActive(e.target.checked)}
+              />
+              Active (uncheck to hide from new-expense dropdown without deleting)
+            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenCategory(false)}>Cancel</Button>
@@ -549,7 +630,7 @@ export default function Expenditures() {
 
       {/* Add/Edit Expense Dialog */}
       <Dialog open={openExpense} onOpenChange={setOpenExpense}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingExpense ? 'Edit Expense' : 'Add Expense'}</DialogTitle>
           </DialogHeader>
@@ -591,9 +672,11 @@ export default function Expenditures() {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                  ))}
+                  {categories
+                    .filter((cat) => cat.isActive !== false)
+                    .map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -670,6 +753,7 @@ export default function Expenditures() {
                 <Input
                   type="file"
                   accept="image/*,application/pdf"
+                  capture="environment"
                   onChange={(e) => handleAttachmentSelect(e.target.files?.[0])}
                   disabled={uploading}
                 />
