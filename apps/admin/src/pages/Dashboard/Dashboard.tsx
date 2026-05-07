@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BedDouble, CalendarCheck, Users, DollarSign, TrendingUp, Clock, UtensilsCrossed } from 'lucide-react';
 
+// Single shape covering all roles. Fields stay 0 when the role doesn't fetch them
+// so consumers can read every key without optional-chaining gymnastics.
 interface DashboardStats {
   totalRooms: number;
   occupiedRooms: number;
@@ -14,29 +16,36 @@ interface DashboardStats {
   totalRevenue: number;
   todayCheckIns: number;
   todayCheckOuts: number;
-  menuItems?: number;
-  pendingOrders?: number;
+  menuItems: number;
+  pendingOrders: number;
 }
+
+const EMPTY_STATS: DashboardStats = {
+  totalRooms: 0,
+  occupiedRooms: 0,
+  totalBookings: 0,
+  pendingBookings: 0,
+  totalGuests: 0,
+  totalRevenue: 0,
+  todayCheckIns: 0,
+  todayCheckOuts: 0,
+  menuItems: 0,
+  pendingOrders: 0,
+};
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const role = user?.role ?? '';
-  const [stats, setStats] = useState<DashboardStats>({
-    totalRooms: 0, occupiedRooms: 0, totalBookings: 0, pendingBookings: 0,
-    totalGuests: 0, totalRevenue: 0, todayCheckIns: 0, todayCheckOuts: 0,
-  });
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const t = todayStr();
-        const base: DashboardStats = {
-          totalRooms: 0, occupiedRooms: 0, totalBookings: 0, pendingBookings: 0,
-          totalGuests: 0, totalRevenue: 0, todayCheckIns: 0, todayCheckOuts: 0,
-        };
+        const base: DashboardStats = { ...EMPTY_STATS };
 
         if (role === 'HOUSEKEEPING') {
           const roomsRes = await api.get('/rooms');

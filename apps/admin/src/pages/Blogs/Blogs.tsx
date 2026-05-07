@@ -117,7 +117,7 @@ const Blogs: React.FC = () => {
       content: '',
       imageUrl: '',
       category: 'General',
-      authorName: "Nirjon Nature's Hideout",
+      authorName: user?.name || "Nirjon Nature's Hideout",
       tags: '',
       sortOrder: String(items.length ? Math.max(...items.map((i) => i.sortOrder)) + 1 : 0),
       isActive: true,

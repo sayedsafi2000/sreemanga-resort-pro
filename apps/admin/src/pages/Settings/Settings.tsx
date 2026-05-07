@@ -213,15 +213,22 @@ const Settings: React.FC = () => {
         </p>
       )}
 
-      {SECTIONS.map((section) => (
-        <Card key={section.title}>
-          <CardHeader>
-            <CardTitle>{section.title}</CardTitle>
-            {section.description && (
-              <p className="text-sm text-muted-foreground">{section.description}</p>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-4">
+      {SECTIONS.map((section, idx) => (
+        <details key={section.title} open={idx < 3} className="rounded-lg border bg-background">
+          <summary className="cursor-pointer px-4 py-3 text-base font-semibold hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex w-full items-center justify-between">
+              <span>
+                {section.title}
+                {section.description && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    — {section.description}
+                  </span>
+                )}
+              </span>
+              <span className="text-muted-foreground text-xs">▾</span>
+            </span>
+          </summary>
+          <div className="space-y-4 border-t px-4 py-4">
             {section.fields.map((field) => (
               <div key={field.key} className="space-y-2">
                 <Label>{field.label}</Label>
@@ -245,8 +252,8 @@ const Settings: React.FC = () => {
                 )}
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </details>
       ))}
     </div>
   );

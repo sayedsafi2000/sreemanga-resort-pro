@@ -272,6 +272,7 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
                   {guests.map((g) => (
                     <SelectItem key={g.id} value={g.id}>
                       {g.name} — {g.phone}
+                      {g.email ? ` · ${g.email}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
