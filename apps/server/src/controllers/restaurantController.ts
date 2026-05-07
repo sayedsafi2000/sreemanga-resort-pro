@@ -22,6 +22,15 @@ const orderSchema = z.object({
   notes: z.string().optional(),
 });
 
+const orderUpdateSchema = z.object({
+  status: z.enum(['PENDING', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED']).optional(),
+  items: z.array(z.any()).optional(),
+  totalPrice: z.number().positive().optional(),
+  notes: z.string().optional().nullable(),
+  userId: z.string().uuid().optional().nullable(),
+  roomId: z.string().uuid().optional().nullable(),
+});
+
 export const getAllMenuItems = async (
   req: Request,
   res: Response,
@@ -183,11 +192,18 @@ export const updateOrder = async (
 ) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const data = orderUpdateSchema.parse(req.body);
 
     const order = await prisma.restaurantOrder.update({
       where: { id },
-      data: { status },
+      data: {
+        ...(data.status !== undefined ? { status: data.status } : {}),
+        ...(data.items !== undefined ? { items: data.items } : {}),
+        ...(data.totalPrice !== undefined ? { totalPrice: data.totalPrice } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        ...(data.userId !== undefined ? { userId: data.userId } : {}),
+        ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
+      },
       include: {
         room: true,
         user: true,

@@ -48,8 +48,16 @@ const Restaurant: React.FC = () => {
     image: '',
     isAvailable: true,
   });
-  const [orderForm, setOrderForm] = useState({ roomId: '', itemsJson: '[{"name":"Order","qty":1,"price":500}]', totalPrice: '', notes: '' });
+  const [orderForm, setOrderForm] = useState({ roomId: '', itemsJson: '[]', totalPrice: '', notes: '' });
   const [orderStatus, setOrderStatus] = useState('PENDING');
+  const [staff, setStaff] = useState<Array<{ id: string; name: string; role: string }>>([]);
+  const [editOrderForm, setEditOrderForm] = useState({
+    itemsJson: '[]',
+    totalPrice: '',
+    notes: '',
+    userId: '',
+    roomId: '',
+  });
 
   const fetchData = async () => {
     try {
@@ -62,6 +70,16 @@ const Restaurant: React.FC = () => {
       setOrders(unwrapList(oRes, ['orders']));
       setRooms(unwrapList(rRes, ['rooms']));
     } catch (err) { console.error(err); }
+    // Staff list is gated to SUPER_ADMIN only — fail quietly for other roles.
+    try {
+      const uRes = await api.get('/users');
+      const list = (unwrapList(uRes, ['users']) as Array<{ id: string; name: string; role: string }>).filter(
+        (u) => ['MANAGER', 'RESTAURANT_STAFF', 'RECEPTIONIST'].includes(u.role)
+      );
+      setStaff(list);
+    } catch {
+      setStaff([]);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -163,6 +181,13 @@ const Restaurant: React.FC = () => {
   const openEditOrder = (o: any) => {
     setEditingOrder(o);
     setOrderStatus(o.status || 'PENDING');
+    setEditOrderForm({
+      itemsJson: JSON.stringify(o.items ?? [], null, 2),
+      totalPrice: String(o.totalPrice ?? ''),
+      notes: o.notes ?? '',
+      userId: o.userId ?? '',
+      roomId: o.roomId ?? '',
+    });
     setOrderEditOpen(true);
   };
 
@@ -193,8 +218,31 @@ const Restaurant: React.FC = () => {
 
   const handleUpdateOrderStatus = async () => {
     if (!editingOrder) return;
+    let items: unknown;
     try {
-      await api.put(`/restaurant/orders/${editingOrder.id}`, { status: orderStatus });
+      items = JSON.parse(editOrderForm.itemsJson);
+    } catch {
+      alert('Items must be valid JSON array');
+      return;
+    }
+    if (!Array.isArray(items)) {
+      alert('Items must be a JSON array');
+      return;
+    }
+    const totalPrice = Number(editOrderForm.totalPrice);
+    if (!totalPrice || totalPrice <= 0) {
+      alert('Enter a valid total price');
+      return;
+    }
+    try {
+      await api.put(`/restaurant/orders/${editingOrder.id}`, {
+        status: orderStatus,
+        items,
+        totalPrice,
+        notes: editOrderForm.notes || null,
+        userId: editOrderForm.userId || null,
+        roomId: editOrderForm.roomId || null,
+      });
       setOrderEditOpen(false);
       setEditingOrder(null);
       fetchData();
@@ -285,8 +333,13 @@ const Restaurant: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Room</TableHead><TableHead>Items</TableHead><TableHead>Total</TableHead>
-                    <TableHead>Status</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Room</TableHead>
+                    <TableHead>Items</TableHead>
+                    <TableHead>Assigned to</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -294,6 +347,7 @@ const Restaurant: React.FC = () => {
                     <TableRow key={o.id}>
                       <TableCell>{o.room?.name || o.roomId || '-'}</TableCell>
                       <TableCell>{itemsCount(o.items)} items</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{o.user?.name || '—'}</TableCell>
                       <TableCell>৳{o.totalPrice?.toLocaleString?.() ?? o.totalPrice}</TableCell>
                       <TableCell><Badge variant={orderStatusColor(o.status) as any}>{o.status}</Badge></TableCell>
                       <TableCell>{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '-'}</TableCell>
@@ -302,7 +356,7 @@ const Restaurant: React.FC = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {orders.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No orders</TableCell></TableRow>}
+                  {orders.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No orders</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent>
@@ -413,17 +467,84 @@ const Restaurant: React.FC = () => {
       </Dialog>
 
       <Dialog open={orderEditOpen} onOpenChange={setOrderEditOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Update order status</DialogTitle></DialogHeader>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader><DialogTitle>Edit order</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Status</Label>
-              <Select value={orderStatus} onValueChange={setOrderStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{orderStatuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={orderStatus} onValueChange={setOrderStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{orderStatuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Total price (৳)</Label>
+                <Input
+                  type="number"
+                  value={editOrderForm.totalPrice}
+                  onChange={(e) => setEditOrderForm({ ...editOrderForm, totalPrice: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Room</Label>
+                <Select
+                  value={editOrderForm.roomId || '__none'}
+                  onValueChange={(v) => setEditOrderForm({ ...editOrderForm, roomId: v === '__none' ? '' : v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Walk-in / no room" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">None</SelectItem>
+                    {rooms.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Assigned staff</Label>
+                {staff.length > 0 ? (
+                  <Select
+                    value={editOrderForm.userId || '__none'}
+                    onValueChange={(v) => setEditOrderForm({ ...editOrderForm, userId: v === '__none' ? '' : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Unassigned</SelectItem>
+                      {staff.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name} ({u.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Staff list unavailable for your role.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Items (JSON array)</Label>
+              <textarea
+                className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+                value={editOrderForm.itemsJson}
+                onChange={(e) => setEditOrderForm({ ...editOrderForm, itemsJson: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Input
+                value={editOrderForm.notes}
+                onChange={(e) => setEditOrderForm({ ...editOrderForm, notes: e.target.value })}
+              />
             </div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setOrderEditOpen(false)}>Cancel</Button><Button onClick={handleUpdateOrderStatus}>Save</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOrderEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateOrderStatus}>Save</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
