@@ -38,6 +38,10 @@ model Expense {
   status         String         @default("PAID")
   createdById     String?
   createdBy       User?          @relation(fields: [createdById], references: [id])
+  // Optional link to a StaffSalary row when this expense was auto-created from a salary payment.
+  // Lets reports reconcile salary payouts shown in /expenditures back to /staff-salaries without double-counting.
+  salaryId        String?        @unique
+  salary          StaffSalary?   @relation(fields: [salaryId], references: [id])
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -76,6 +80,8 @@ model StaffSalary {
   paymentDate  DateTime?
   status       String     @default("PENDING")
   notes        String?
+  // Mirror Expense entry created when status -> PAID. Optional: not present until paid for the first time.
+  expense      Expense?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

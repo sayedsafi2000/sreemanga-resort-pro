@@ -41,7 +41,7 @@ type Category = {
   isActive?: boolean;
   _count?: { expenses: number };
 };
-type Expense = { id: string; title: string; amount: number; categoryId: string; category: Category; date: string; paymentMethod: string; paidTo: string; description: string; status: string; attachment?: string; createdBy?: { id: string; name: string; role: string } | null };
+type Expense = { id: string; title: string; amount: number; categoryId: string; category: Category; date: string; paymentMethod: string; paidTo: string; description: string; status: string; attachment?: string; createdBy?: { id: string; name: string; role: string } | null; salaryId?: string | null };
 type Stats = { todayTotal: number; monthTotal: number; categoryBreakdown: { categoryId: string; categoryName: string; total: number }[] };
 
 const MAX_RECEIPT_DIMENSION = 1600;
@@ -395,7 +395,12 @@ export default function Expenditures() {
                 <TableBody>
                   {filteredExpenses.map((exp) => (
                     <TableRow key={exp.id}>
-                      <TableCell className="font-medium">{exp.title}</TableCell>
+                      <TableCell className="font-medium">
+                        {exp.title}
+                        {exp.salaryId && (
+                          <Badge variant="outline" className="ml-2 text-[10px]">Salary</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{exp.category?.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{exp.paidTo || '—'}</TableCell>
                       <TableCell className="text-sm">{exp.paymentMethod || '—'}</TableCell>

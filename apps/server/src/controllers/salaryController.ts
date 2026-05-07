@@ -4,6 +4,84 @@ import { z } from 'zod';
 
 const directPrisma = new PrismaClient();
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+// Lazy-resolved category id for "Staff Salary" (seeded). Cached for the process lifetime.
+let _staffSalaryCategoryId: string | null = null;
+
+async function getStaffSalaryCategoryId(): Promise<string | null> {
+  if (_staffSalaryCategoryId) return _staffSalaryCategoryId;
+  const cat = await directPrisma.expenseCategory.findFirst({
+    where: { name: 'Staff Salary' },
+    select: { id: true },
+  });
+  if (cat) _staffSalaryCategoryId = cat.id;
+  return _staffSalaryCategoryId;
+}
+
+/**
+ * Mirror a StaffSalary row into the Expense ledger so /expenditures and reports
+ * reflect total payroll spend without the user maintaining two parallel lists.
+ *
+ * Status mapping:
+ *   salary.status PAID       -> expense.status PAID  (created or refreshed)
+ *   salary.status PENDING    -> expense.status CANCELLED (mirror exists from a prior payment)
+ *   salary.status CANCELLED  -> expense.status CANCELLED (preserves audit trail; no hard delete)
+ *
+ * Idempotent. Safe to call multiple times for the same salary row.
+ */
+async function syncSalaryExpense(salary: {
+  id: string;
+  userId: string;
+  amount: number;
+  month: number;
+  year: number;
+  status: string;
+  paymentDate: Date | null;
+  notes?: string | null;
+}): Promise<void> {
+  const categoryId = await getStaffSalaryCategoryId();
+  if (!categoryId) {
+    // Seed didn't run, or user renamed the category — silently skip rather than break salary saves.
+    return;
+  }
+  const user = await directPrisma.user.findUnique({
+    where: { id: salary.userId },
+    select: { name: true },
+  });
+  const monthName = MONTH_NAMES[salary.month - 1] || String(salary.month);
+  const title = `Salary — ${user?.name || 'Staff'} (${monthName} ${salary.year})`;
+  const expenseDate = salary.paymentDate || new Date();
+  const expenseStatus = salary.status === 'PAID' ? 'PAID' : 'CANCELLED';
+  await directPrisma.expense.upsert({
+    where: { salaryId: salary.id },
+    update: {
+      title,
+      amount: salary.amount,
+      categoryId,
+      date: expenseDate,
+      paymentMethod: 'CASH',
+      paidTo: user?.name || undefined,
+      description: salary.notes || `Auto-recorded from /staff-salaries`,
+      status: expenseStatus,
+    },
+    create: {
+      title,
+      amount: salary.amount,
+      categoryId,
+      date: expenseDate,
+      paymentMethod: 'CASH',
+      paidTo: user?.name || undefined,
+      description: salary.notes || `Auto-recorded from /staff-salaries`,
+      status: expenseStatus,
+      salaryId: salary.id,
+    },
+  });
+}
+
 export const SALARY_STATUSES = ['PENDING', 'PAID', 'CANCELLED'] as const;
 
 export const salarySchema = z.object({
@@ -111,6 +189,7 @@ export const createSalaryPayment = async (req: Request, res: Response, next: Nex
         paymentDate,
       },
     });
+    await syncSalaryExpense(salary);
     res.json({ success: true, salary });
   } catch (error) {
     next(error);
@@ -132,6 +211,7 @@ export const markSalaryPaid = async (req: Request, res: Response, next: NextFunc
         ...(data.amount !== undefined ? { amount: data.amount } : {}),
       },
     });
+    await syncSalaryExpense(salary);
     res.json({ success: true, salary });
   } catch (error) {
     next(error);
@@ -182,6 +262,10 @@ export const bulkPaySalaries = async (req: Request, res: Response, next: NextFun
         })
       )
     );
+    // Sync each as a mirrored Expense row sequentially so we don't hammer the DB.
+    for (const salary of results) {
+      await syncSalaryExpense(salary);
+    }
     res.json({ success: true, count: results.length, salaries: results });
   } catch (error) {
     next(error);
