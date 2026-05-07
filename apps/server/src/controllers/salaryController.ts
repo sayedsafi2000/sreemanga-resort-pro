@@ -148,6 +148,46 @@ export const deleteSalary = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+export const bulkPaySchema = z.object({
+  month: z.number().min(1).max(12),
+  year: z.number().min(2020),
+  paymentDate: z.string().datetime().optional().nullable(),
+  items: z.array(z.object({
+    userId: z.string().uuid(),
+    amount: z.number().positive(),
+    notes: z.string().optional(),
+  })).min(1),
+});
+
+export const bulkPaySalaries = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = bulkPaySchema.parse(req.body);
+    const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
+    const results = await Promise.all(
+      data.items.map((item) =>
+        directPrisma.staffSalary.upsert({
+          where: {
+            userId_month_year: { userId: item.userId, month: data.month, year: data.year },
+          },
+          update: { amount: item.amount, status: 'PAID', paymentDate, notes: item.notes },
+          create: {
+            userId: item.userId,
+            amount: item.amount,
+            month: data.month,
+            year: data.year,
+            status: 'PAID',
+            paymentDate,
+            notes: item.notes,
+          },
+        })
+      )
+    );
+    res.json({ success: true, count: results.length, salaries: results });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getSalaryStats = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const now = new Date();

@@ -72,6 +72,10 @@ export default function StaffSalaries() {
   const [notes, setNotes] = useState('');
   const [paymentDate, setPaymentDate] = useState<string>(todayIso());
   const [status, setStatus] = useState<SalaryStatus>('PAID');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAmounts, setBulkAmounts] = useState<Record<string, string>>({});
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -132,6 +136,57 @@ export default function StaffSalaries() {
 
   const totalSalary = staff.reduce((sum, s) => sum + (s.amount || 0), 0);
   const paidCount = staff.filter(s => s.isPaid).length;
+
+  const toggleSelected = (userId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
+
+  const openBulkPay = () => {
+    const amounts: Record<string, string> = {};
+    staff.forEach((s) => {
+      if (selectedIds.has(s.user.id)) {
+        amounts[s.user.id] = String(s.amount || '');
+      }
+    });
+    setBulkAmounts(amounts);
+    setBulkOpen(true);
+  };
+
+  const handleBulkPay = async () => {
+    setBulkSaving(true);
+    try {
+      const items = Array.from(selectedIds)
+        .map((userId) => {
+          const amt = parseFloat(bulkAmounts[userId] || '');
+          if (!amt || amt <= 0) return null;
+          return { userId, amount: amt };
+        })
+        .filter(Boolean) as Array<{ userId: string; amount: number }>;
+      if (items.length === 0) {
+        alert('Enter amounts for at least one staff member');
+        setBulkSaving(false);
+        return;
+      }
+      await api.post('/salaries/bulk-pay', {
+        month: Number(month),
+        year: Number(year),
+        paymentDate: new Date().toISOString(),
+        items,
+      });
+      setBulkOpen(false);
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBulkSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -204,6 +259,26 @@ export default function StaffSalaries() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all unpaid"
+                    checked={
+                      staff.length > 0 &&
+                      staff.filter((s) => !s.isPaid).every((s) => selectedIds.has(s.user.id))
+                    }
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      const next = new Set(selectedIds);
+                      staff.forEach((s) => {
+                        if (s.isPaid) return;
+                        if (checked) next.add(s.user.id);
+                        else next.delete(s.user.id);
+                      });
+                      setSelectedIds(next);
+                    }}
+                  />
+                </TableHead>
                 <TableHead>Staff Name</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Amount</TableHead>
@@ -217,6 +292,15 @@ export default function StaffSalaries() {
                 const rowStatus = (s.status as SalaryStatus | undefined) || 'PENDING';
                 return (
                   <TableRow key={s.user.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${s.user.name}`}
+                        disabled={s.isPaid}
+                        checked={selectedIds.has(s.user.id)}
+                        onChange={() => toggleSelected(s.user.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{s.user.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{ROLE_LABELS[s.user.role] || s.user.role}</Badge>
@@ -248,7 +332,7 @@ export default function StaffSalaries() {
               })}
               {staff.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No staff found
                   </TableCell>
                 </TableRow>
@@ -257,6 +341,59 @@ export default function StaffSalaries() {
           </Table>
         </CardContent>
       </Card>
+
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-4 z-30 mx-auto flex max-w-2xl items-center justify-between rounded-lg border bg-background px-4 py-2 shadow-lg">
+          <span className="text-sm">
+            <strong>{selectedIds.size}</strong> staff selected
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>
+              Clear
+            </Button>
+            <Button size="sm" onClick={openBulkPay}>
+              Pay {selectedIds.size} now
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Pay Dialog */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk pay — {months[Number(month) - 1]} {year}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {staff
+              .filter((s) => selectedIds.has(s.user.id))
+              .map((s) => (
+                <div key={s.user.id} className="flex items-center gap-3">
+                  <span className="flex-1 text-sm">
+                    {s.user.name}{' '}
+                    <span className="text-muted-foreground">({ROLE_LABELS[s.user.role] || s.user.role})</span>
+                  </span>
+                  <Input
+                    type="number"
+                    className="w-32"
+                    value={bulkAmounts[s.user.id] || ''}
+                    onChange={(e) =>
+                      setBulkAmounts({ ...bulkAmounts, [s.user.id]: e.target.value })
+                    }
+                    placeholder="Amount"
+                  />
+                </div>
+              ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkPay} disabled={bulkSaving}>
+              {bulkSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Mark all as PAID
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>

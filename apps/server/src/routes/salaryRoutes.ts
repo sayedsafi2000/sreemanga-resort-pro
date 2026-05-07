@@ -5,6 +5,7 @@ import {
   getAllStaffWithSalaries,
   createSalaryPayment,
   markSalaryPaid,
+  bulkPaySalaries,
   deleteSalary,
   getSalaryStats,
 } from '../controllers/salaryController';
@@ -15,6 +16,7 @@ router.get('/stats', getSalaryStats);
 router.get('/staff', getAllStaffWithSalaries);
 router.get('/', getAllStaffSalaries);
 router.get('/user/:userId', getStaffSalaryByUser);
+router.post('/bulk-pay', bulkPaySalaries);
 router.post('/', createSalaryPayment);
 router.patch('/:id/mark-paid', markSalaryPaid);
 router.delete('/:id', deleteSalary);
