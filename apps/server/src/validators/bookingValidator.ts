@@ -60,10 +60,11 @@ export const bookingSchema = z
 export const updateBookingSchema = z.object({
   adults: z.number().int().min(1).max(20).optional(),
   children: z.number().int().min(0).max(20).optional(),
-  preferredPaymentTiming: z.enum(['INSTANT', 'LATER']).optional(),
-  preferredPaymentMethod: z.enum(['BKASH', 'BANK_TRANSFER']).optional(),
-  paymentTransactionId: z.string().min(4).max(100).optional(),
-  paymentProofImage: z.string().optional(),
+  preferredPaymentTiming: z.enum(['INSTANT', 'LATER']).optional().nullable(),
+  preferredPaymentMethod: z.enum(['BKASH', 'BANK_TRANSFER']).optional().nullable(),
+  paymentTransactionId: z.string().min(4).max(100).optional().nullable(),
+  paymentProofImage: z.string().optional().nullable(),
+  staffId: z.string().uuid().optional().nullable(),
   status: z.enum(['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED']).optional(),
   notes: z.string().optional(),
 }).partial();

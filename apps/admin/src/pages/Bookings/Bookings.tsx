@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,18 +12,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X as XIcon } from 'lucide-react';
 import ManualBookingDialog from '@/pages/Bookings/ManualBookingDialog';
+import AvailabilityCalendar from '@/pages/Bookings/AvailabilityCalendar';
 
 const bookingStatuses = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'];
+
+const fileToDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
 const Bookings: React.FC = () => {
   const { user } = useAuth();
   const canAcceptReject = user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER' || user?.role === 'RECEPTIONIST';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'calendar' ? 'calendar' : 'list';
+  const setTab = (t: 'list' | 'calendar') => {
+    const next = new URLSearchParams(searchParams);
+    if (t === 'list') next.delete('tab');
+    else next.set('tab', t);
+    next.delete('new');
+    navigate(`?${next.toString()}`, { replace: true });
+  };
+
   const [bookings, setBookings] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [guests, setGuests] = useState<any[]>([]);
+  const [staff, setStaff] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -32,6 +53,11 @@ const Bookings: React.FC = () => {
     children: 0,
     status: 'PENDING' as string,
     notes: '',
+    preferredPaymentTiming: '',
+    preferredPaymentMethod: '',
+    paymentTransactionId: '',
+    paymentProofImage: '',
+    staffId: '',
   });
 
   const fetchData = async () => {
@@ -42,6 +68,14 @@ const Bookings: React.FC = () => {
       setGuests(unwrapList(gRes, ['guests']));
     } catch (err) {
       console.error(err);
+    }
+    // /api/users is SUPER_ADMIN only — fail quietly otherwise.
+    try {
+      const uRes = await api.get('/users');
+      const list = (unwrapList(uRes, ['users']) as Array<{ id: string; name: string; role: string }>);
+      setStaff(list);
+    } catch {
+      setStaff([]);
     }
   };
 
@@ -64,8 +98,23 @@ const Bookings: React.FC = () => {
       children: b.children ?? 0,
       status: b.status,
       notes: b.notes || '',
+      preferredPaymentTiming: b.preferredPaymentTiming || '',
+      preferredPaymentMethod: b.preferredPaymentMethod || '',
+      paymentTransactionId: b.paymentTransactionId || '',
+      paymentProofImage: b.paymentProofImage || '',
+      staffId: b.staffId || '',
     });
     setEditOpen(true);
+  };
+
+  const handleEditProofUpload = async (file?: File) => {
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setEditForm((f) => ({ ...f, paymentProofImage: dataUrl }));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleQuickStatus = async (id: string, status: string) => {
@@ -80,12 +129,29 @@ const Bookings: React.FC = () => {
   const handleEditSave = async () => {
     if (!editing) return;
     try {
-      await api.put(`/bookings/${editing.id}`, {
+      const payload: Record<string, unknown> = {
         adults: editForm.adults,
         children: editForm.children,
         status: editForm.status,
         notes: editForm.notes || undefined,
-      });
+        preferredPaymentTiming: editForm.preferredPaymentTiming || null,
+        preferredPaymentMethod:
+          editForm.preferredPaymentTiming === 'INSTANT'
+            ? editForm.preferredPaymentMethod || null
+            : null,
+        paymentTransactionId:
+          editForm.preferredPaymentTiming === 'INSTANT'
+            ? editForm.paymentTransactionId || null
+            : null,
+        paymentProofImage:
+          editForm.preferredPaymentTiming === 'INSTANT'
+            ? editForm.paymentProofImage || null
+            : null,
+      };
+      if (isSuperAdmin) {
+        payload.staffId = editForm.staffId || null;
+      }
+      await api.put(`/bookings/${editing.id}`, payload);
       setEditOpen(false);
       setEditing(null);
       fetchData();
@@ -152,6 +218,47 @@ const Bookings: React.FC = () => {
           New booking
         </Button>
       </div>
+      <div className="flex gap-2 border-b">
+        <button
+          type="button"
+          onClick={() => setTab('list')}
+          className={`px-4 py-2 text-sm font-medium transition ${
+            tab === 'list'
+              ? 'border-b-2 border-primary text-primary -mb-px'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          List
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('calendar')}
+          className={`px-4 py-2 text-sm font-medium transition ${
+            tab === 'calendar'
+              ? 'border-b-2 border-primary text-primary -mb-px'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Calendar
+        </button>
+      </div>
+
+      {tab === 'calendar' && (
+        <AvailabilityCalendar
+          rooms={rooms}
+          onCreateForRoomDate={(roomId, date) => {
+            const params = new URLSearchParams(searchParams);
+            params.delete('tab');
+            params.set('new', '1');
+            params.set('roomId', roomId);
+            params.set('date', date);
+            navigate(`?${params.toString()}`, { replace: true });
+            setCreateOpen(true);
+          }}
+        />
+      )}
+
+      {tab === 'list' && (
       <Card>
         <CardContent className="p-0">
           <div className="space-y-3 p-3 md:hidden">
@@ -234,6 +341,7 @@ const Bookings: React.FC = () => {
                   <TableHead className="whitespace-nowrap px-3 py-2">Proof</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Amount</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Status</TableHead>
+                  <TableHead className="whitespace-nowrap px-3 py-2">Created by</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -273,6 +381,9 @@ const Bookings: React.FC = () => {
                         {b.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-2 text-sm text-muted-foreground">
+                      {b.staff?.name || '—'}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2 text-right">
                       <div className="inline-flex items-center justify-end gap-0.5">
                         {canAcceptReject && b.status === 'PENDING' && (
@@ -297,7 +408,7 @@ const Bookings: React.FC = () => {
                 ))}
                 {bookings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={13} className="whitespace-normal py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={14} className="whitespace-normal py-8 text-center text-muted-foreground">
                       No bookings found
                     </TableCell>
                   </TableRow>
@@ -307,6 +418,7 @@ const Bookings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       <ManualBookingDialog
         open={createOpen}
@@ -317,26 +429,49 @@ const Bookings: React.FC = () => {
       />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit booking</DialogTitle>
-            <p className="text-sm text-muted-foreground">Status, pax, and notes. Dates and guest are set at booking time.</p>
+            <p className="text-sm text-muted-foreground">Status, pax, payment, and assignment. Dates and guest are set at booking time.</p>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {bookingStatuses.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bookingStatuses.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {isSuperAdmin && (
+                <div className="space-y-2">
+                  <Label>Created by (staff)</Label>
+                  <Select
+                    value={editForm.staffId || '__none'}
+                    onValueChange={(v) => setEditForm({ ...editForm, staffId: v === '__none' ? '' : v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Unassigned</SelectItem>
+                      {staff.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name} ({u.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -360,6 +495,91 @@ const Bookings: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Payment fields */}
+            <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+              <p className="text-sm font-semibold">Payment</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Timing</Label>
+                  <Select
+                    value={editForm.preferredPaymentTiming || '__none'}
+                    onValueChange={(v) =>
+                      setEditForm({ ...editForm, preferredPaymentTiming: v === '__none' ? '' : v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Not set" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Not set</SelectItem>
+                      <SelectItem value="INSTANT">Instant</SelectItem>
+                      <SelectItem value="LATER">Later</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editForm.preferredPaymentTiming === 'INSTANT' && (
+                  <div className="space-y-2">
+                    <Label>Method</Label>
+                    <Select
+                      value={editForm.preferredPaymentMethod || '__none'}
+                      onValueChange={(v) =>
+                        setEditForm({ ...editForm, preferredPaymentMethod: v === '__none' ? '' : v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">Select</SelectItem>
+                        <SelectItem value="BKASH">bKash</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              {editForm.preferredPaymentTiming === 'INSTANT' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Transaction ID</Label>
+                    <Input
+                      value={editForm.paymentTransactionId}
+                      onChange={(e) => setEditForm({ ...editForm, paymentTransactionId: e.target.value })}
+                      placeholder="e.g. TXN123456"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payment proof</Label>
+                    {editForm.paymentProofImage ? (
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={editForm.paymentProofImage}
+                          alt="Payment proof"
+                          className="h-24 w-24 rounded border border-border object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditForm({ ...editForm, paymentProofImage: '' })}
+                        >
+                          <XIcon className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => void handleEditProofUpload(e.target.files?.[0])}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
