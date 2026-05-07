@@ -50,6 +50,8 @@ const Restaurant: React.FC = () => {
   });
   const [orderForm, setOrderForm] = useState({ roomId: '', itemsJson: '[]', totalPrice: '', notes: '' });
   const [orderStatus, setOrderStatus] = useState('PENDING');
+  const [orderDateFrom, setOrderDateFrom] = useState('');
+  const [orderDateTo, setOrderDateTo] = useState('');
   const [staff, setStaff] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const [editOrderForm, setEditOrderForm] = useState({
     itemsJson: '[]',
@@ -61,9 +63,13 @@ const Restaurant: React.FC = () => {
 
   const fetchData = async () => {
     try {
+      const params = new URLSearchParams();
+      if (orderDateFrom) params.set('from', orderDateFrom);
+      if (orderDateTo) params.set('to', orderDateTo);
+      const qs = params.toString() ? `?${params.toString()}` : '';
       const [mRes, oRes, rRes] = await Promise.all([
         api.get('/restaurant/menu'),
-        api.get('/restaurant/orders'),
+        api.get(`/restaurant/orders${qs}`),
         api.get('/rooms'),
       ]);
       setMenuItems(unwrapList(mRes, ['menuItems']));
@@ -82,7 +88,7 @@ const Restaurant: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [orderDateFrom, orderDateTo]);
 
   useEffect(() => {
     const t = searchParams.get('tab');
@@ -325,8 +331,21 @@ const Restaurant: React.FC = () => {
 
       {tab === 'orders' && (
         <>
-          <div className="flex justify-end">
-            <Button onClick={openNewOrder}><Plus className="h-4 w-4 mr-2" />New order</Button>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">From</Label>
+              <Input type="date" value={orderDateFrom} onChange={(e) => setOrderDateFrom(e.target.value)} className="w-40" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">To</Label>
+              <Input type="date" value={orderDateTo} onChange={(e) => setOrderDateTo(e.target.value)} className="w-40" />
+            </div>
+            {(orderDateFrom || orderDateTo) && (
+              <Button variant="outline" size="sm" onClick={() => { setOrderDateFrom(''); setOrderDateTo(''); }}>
+                Clear
+              </Button>
+            )}
+            <Button className="ml-auto" onClick={openNewOrder}><Plus className="h-4 w-4 mr-2" />New order</Button>
           </div>
           <Card>
             <CardContent className="p-0">

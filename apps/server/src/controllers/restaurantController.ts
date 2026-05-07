@@ -163,12 +163,21 @@ export const getOrders = async (
   next: NextFunction
 ) => {
   try {
-    const { status, roomId } = req.query;
+    const { status, roomId, from, to } = req.query;
 
     const where: any = {};
 
     if (status) where.status = status;
     if (roomId) where.roomId = roomId;
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from as string);
+      if (to) {
+        const end = new Date(to as string);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
 
     const orders = await prisma.restaurantOrder.findMany({
       where,

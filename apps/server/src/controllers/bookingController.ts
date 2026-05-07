@@ -9,13 +9,23 @@ export const getAllBookings = async (
   next: NextFunction
 ) => {
   try {
-    const { status, roomId, guestId } = req.query;
+    const { status, roomId, guestId, from, to } = req.query;
 
     const where: any = {};
 
     if (status) where.status = status;
     if (roomId) where.roomId = roomId;
     if (guestId) where.guestId = guestId;
+    if (from || to) {
+      // Filter by check-in date — most useful axis for an admin viewing the period.
+      where.checkInDate = {};
+      if (from) where.checkInDate.gte = new Date(from as string);
+      if (to) {
+        const end = new Date(to as string);
+        end.setHours(23, 59, 59, 999);
+        where.checkInDate.lte = end;
+      }
+    }
 
     const bookings = await prisma.booking.findMany({
       where,

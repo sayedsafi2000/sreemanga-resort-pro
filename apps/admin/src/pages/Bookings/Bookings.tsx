@@ -45,6 +45,8 @@ const Bookings: React.FC = () => {
   const [rooms, setRooms] = useState<any[]>([]);
   const [guests, setGuests] = useState<any[]>([]);
   const [staff, setStaff] = useState<Array<{ id: string; name: string; role: string }>>([]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -62,7 +64,11 @@ const Bookings: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [bRes, rRes, gRes] = await Promise.all([api.get('/bookings'), api.get('/rooms'), api.get('/guests')]);
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const [bRes, rRes, gRes] = await Promise.all([api.get(`/bookings${qs}`), api.get('/rooms'), api.get('/guests')]);
       setBookings(unwrapList(bRes, ['bookings']));
       setRooms(unwrapList(rRes, ['rooms']));
       setGuests(unwrapList(gRes, ['guests']));
@@ -81,7 +87,8 @@ const Bookings: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -259,6 +266,35 @@ const Bookings: React.FC = () => {
       )}
 
       {tab === 'list' && (
+      <>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Check-in from</Label>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Check-in to</Label>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        {(dateFrom || dateTo) && (
+          <Button variant="outline" size="sm" onClick={() => { setDateFrom(''); setDateTo(''); }}>
+            Clear
+          </Button>
+        )}
+        <span className="ml-auto text-sm text-muted-foreground">
+          {bookings.length} booking{bookings.length === 1 ? '' : 's'}
+        </span>
+      </div>
       <Card>
         <CardContent className="p-0">
           <div className="space-y-3 p-3 md:hidden">
@@ -418,6 +454,7 @@ const Bookings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      </>
       )}
 
       <ManualBookingDialog

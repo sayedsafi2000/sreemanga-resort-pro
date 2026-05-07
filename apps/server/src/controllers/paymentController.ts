@@ -8,13 +8,22 @@ export const getAllPayments = async (
   next: NextFunction
 ) => {
   try {
-    const { status, method, bookingId } = req.query;
+    const { status, method, bookingId, from, to } = req.query;
 
     const where: any = {};
 
     if (status) where.status = status;
     if (method) where.method = method;
     if (bookingId) where.bookingId = bookingId;
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from as string);
+      if (to) {
+        const end = new Date(to as string);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
 
     const payments = await prisma.payment.findMany({
       where,
@@ -143,11 +152,15 @@ export const updatePayment = async (
 ) => {
   try {
     const { id } = req.params;
-    const { status, notes } = req.body;
+    const { status, notes, transactionId } = req.body;
 
     const payment = await prisma.payment.update({
       where: { id },
-      data: { status, notes },
+      data: {
+        ...(status !== undefined ? { status } : {}),
+        ...(notes !== undefined ? { notes } : {}),
+        ...(transactionId !== undefined ? { transactionId } : {}),
+      },
       include: {
         booking: true,
       },

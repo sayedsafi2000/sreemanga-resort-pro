@@ -26,16 +26,22 @@ const Payments: React.FC = () => {
   const [editingPayment, setEditingPayment] = useState<any>(null);
   const [form, setForm] = useState({ bookingId: '', amount: '', method: 'CASH', transactionId: '', notes: '' });
   const [editForm, setEditForm] = useState({ status: 'COMPLETED', transactionId: '', notes: '' });
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchData = async () => {
     try {
-      const [pRes, bRes] = await Promise.all([api.get('/payments'), api.get('/bookings')]);
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const [pRes, bRes] = await Promise.all([api.get(`/payments${qs}`), api.get('/bookings')]);
       setPayments(unwrapList(pRes, ['payments']));
       setBookings(unwrapList(bRes, ['bookings']));
     } catch (err) { console.error(err); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dateFrom, dateTo]);
 
   const openNew = () => {
     setForm({ bookingId: '', amount: '', method: 'CASH', transactionId: '', notes: '' });
@@ -103,6 +109,21 @@ const Payments: React.FC = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Payments</h1>
         <Button onClick={openNew}>Record Payment</Button>
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">From</Label>
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">To</Label>
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+        </div>
+        {(dateFrom || dateTo) && (
+          <Button variant="outline" size="sm" onClick={() => { setDateFrom(''); setDateTo(''); }}>
+            Clear
+          </Button>
+        )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Collected</CardTitle><DollarSign className="h-4 w-4 text-emerald-600" /></CardHeader><CardContent><div className="text-2xl font-bold">৳{totalCompleted.toLocaleString()}</div></CardContent></Card>
