@@ -47,6 +47,7 @@ const Bookings: React.FC = () => {
   const [staff, setStaff] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -63,6 +64,7 @@ const Bookings: React.FC = () => {
   });
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       if (dateFrom) params.set('from', dateFrom);
@@ -74,6 +76,8 @@ const Bookings: React.FC = () => {
       setGuests(unwrapList(gRes, ['guests']));
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
     // /api/users is SUPER_ADMIN only — fail quietly otherwise.
     try {
@@ -445,7 +449,11 @@ const Bookings: React.FC = () => {
                 {bookings.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={14} className="whitespace-normal py-8 text-center text-muted-foreground">
-                      No bookings found
+                      {loading
+                        ? 'Loading bookings...'
+                        : dateFrom || dateTo
+                          ? 'No bookings in selected range. Adjust the date filter.'
+                          : 'No bookings yet. Click New booking to add one.'}
                     </TableCell>
                   </TableRow>
                 )}

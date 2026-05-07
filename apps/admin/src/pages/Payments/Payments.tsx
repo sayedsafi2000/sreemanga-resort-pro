@@ -28,8 +28,10 @@ const Payments: React.FC = () => {
   const [editForm, setEditForm] = useState({ status: 'COMPLETED', transactionId: '', notes: '' });
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       if (dateFrom) params.set('from', dateFrom);
@@ -38,7 +40,11 @@ const Payments: React.FC = () => {
       const [pRes, bRes] = await Promise.all([api.get(`/payments${qs}`), api.get('/bookings')]);
       setPayments(unwrapList(pRes, ['payments']));
       setBookings(unwrapList(bRes, ['bookings']));
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dateFrom, dateTo]);
@@ -163,7 +169,11 @@ const Payments: React.FC = () => {
               {payments.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={editPayments ? 7 : 6} className="text-center py-8 text-muted-foreground">
-                    No payments found
+                    {loading
+                      ? 'Loading payments...'
+                      : dateFrom || dateTo
+                        ? 'No payments in selected range.'
+                        : 'No payments yet. Click Record Payment to add one.'}
                   </TableCell>
                 </TableRow>
               )}
