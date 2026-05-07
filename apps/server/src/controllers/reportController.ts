@@ -129,6 +129,56 @@ export const getOccupancyReport = async (
   }
 };
 
+export const getExpenseReport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where: any = { status: 'PAID' };
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
+    }
+
+    const expenses = await prisma.expense.findMany({
+      where,
+      include: { category: true },
+    });
+
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+    const expensesByDate: Record<string, number> = {};
+    expenses.forEach((e) => {
+      const date = e.date.toISOString().split('T')[0];
+      expensesByDate[date] = (expensesByDate[date] || 0) + e.amount;
+    });
+
+    const expensesByCategory: Record<string, number> = {};
+    expenses.forEach((e) => {
+      const name = e.category?.name || 'Uncategorized';
+      expensesByCategory[name] = (expensesByCategory[name] || 0) + e.amount;
+    });
+
+    res.json({
+      success: true,
+      totalExpenses,
+      totalCount: expenses.length,
+      expensesByDate,
+      expensesByCategory,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getBookingStats = async (
   req: Request,
   res: Response,

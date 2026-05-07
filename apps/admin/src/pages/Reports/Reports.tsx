@@ -45,6 +45,13 @@ type BookingStatsResp = {
   cancelledBookings?: number;
 };
 
+type ExpenseReportResp = {
+  totalExpenses?: number;
+  totalCount?: number;
+  expensesByDate?: Record<string, number>;
+  expensesByCategory?: Record<string, number>;
+};
+
 function firstOfMonth(): string {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
@@ -84,20 +91,23 @@ const Reports: React.FC = () => {
   const [rev, setRev] = useState<RevenueResp | null>(null);
   const [occ, setOcc] = useState<OccupancyResp | null>(null);
   const [bookings, setBookings] = useState<BookingStatsResp | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseReportResp | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const params = `?startDate=${startDate}&endDate=${endDate}`;
-      const [r, o, b] = await Promise.all([
+      const [r, o, b, e] = await Promise.all([
         api.get(`/reports/revenue${params}`),
         api.get(`/reports/occupancy${params}`),
         api.get(`/reports/bookings${params}`),
+        api.get(`/reports/expenses${params}`),
       ]);
       setRev(r.data || null);
       setOcc(o.data || null);
       setBookings(b.data || null);
+      setExpenses(e.data || null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -110,11 +120,28 @@ const Reports: React.FC = () => {
   }, [fetchAll]);
 
   const revenueChartData = useMemo(() => {
-    const map = rev?.revenueByDate || {};
-    return Object.entries(map)
-      .map(([date, value]) => ({ date, revenue: Number(value) || 0 }))
+    const revMap = rev?.revenueByDate || {};
+    const expMap = expenses?.expensesByDate || {};
+    const allDates = new Set<string>([...Object.keys(revMap), ...Object.keys(expMap)]);
+    return Array.from(allDates)
+      .map((date) => ({
+        date,
+        revenue: Number(revMap[date] ?? 0),
+        expenses: Number(expMap[date] ?? 0),
+      }))
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [rev]);
+  }, [rev, expenses]);
+
+  const expenseCategoryRows = useMemo(() => {
+    const map = expenses?.expensesByCategory || {};
+    return Object.entries(map)
+      .map(([category, amount]) => ({ category, amount: Number(amount) || 0 }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses]);
+
+  const totalRevenueValue = rev?.totalRevenue ?? 0;
+  const totalExpenseValue = expenses?.totalExpenses ?? 0;
+  const netProfit = totalRevenueValue - totalExpenseValue;
 
   const roomTypeRows = useMemo(() => {
     const map = rev?.revenueByRoomType || {};
@@ -181,16 +208,38 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Headline cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{fmtCurrency(rev?.totalRevenue ?? 0)}</p>
+            <p className="text-2xl font-bold">{fmtCurrency(totalRevenueValue)}</p>
             <p className="text-xs text-muted-foreground">
               {rev?.totalBookings ?? 0} paying bookings
             </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{fmtCurrency(totalExpenseValue)}</p>
+            <p className="text-xs text-muted-foreground">
+              {expenses?.totalCount ?? 0} expense rows (PAID)
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Net profit</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className={`text-2xl font-bold ${netProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              {fmtCurrency(netProfit)}
+            </p>
+            <p className="text-xs text-muted-foreground">Revenue − expenses</p>
           </CardContent>
         </Card>
         <Card>
@@ -210,19 +259,8 @@ const Reports: React.FC = () => {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{bookings?.totalBookings ?? 0}</p>
-            <p className="text-xs text-muted-foreground">In selected range</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{bookings?.cancelledBookings ?? 0}</p>
             <p className="text-xs text-muted-foreground">
-              {bookings?.totalBookings
-                ? `${(((bookings.cancelledBookings ?? 0) / bookings.totalBookings) * 100).toFixed(1)}% of total`
-                : '—'}
+              {bookings?.cancelledBookings ?? 0} cancelled
             </p>
           </CardContent>
         </Card>
@@ -248,10 +286,10 @@ const Reports: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Revenue chart */}
+      {/* Revenue + expenses chart */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Revenue over time</CardTitle>
+          <CardTitle>Revenue vs expenses over time</CardTitle>
           <Button variant="outline" size="sm" onClick={handleExportRevenue} disabled={!rev}>
             <Download className="h-4 w-4 mr-2" />
             CSV
@@ -260,7 +298,7 @@ const Reports: React.FC = () => {
         <CardContent>
           {revenueChartData.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">
-              No revenue in selected range.
+              No revenue or expenses in selected range.
             </p>
           ) : (
             <div className="h-72">
@@ -276,7 +314,16 @@ const Reports: React.FC = () => {
                   <Line
                     type="monotone"
                     dataKey="revenue"
+                    name="Revenue"
                     stroke="#16a34a"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="expenses"
+                    name="Expenses"
+                    stroke="#dc2626"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />
@@ -284,6 +331,46 @@ const Reports: React.FC = () => {
               </ResponsiveContainer>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Expenses by category */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Expenses by category</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">Share</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {expenseCategoryRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    No expenses in selected range.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                expenseCategoryRows.map((r) => {
+                  const share = totalExpenseValue > 0 ? (r.amount / totalExpenseValue) * 100 : 0;
+                  return (
+                    <TableRow key={r.category}>
+                      <TableCell className="font-medium">{r.category}</TableCell>
+                      <TableCell className="text-right">{fmtCurrency(r.amount)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {share.toFixed(1)}%
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 

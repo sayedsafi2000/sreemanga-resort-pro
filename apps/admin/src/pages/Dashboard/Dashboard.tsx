@@ -18,6 +18,7 @@ interface DashboardStats {
   todayCheckOuts: number;
   menuItems: number;
   pendingOrders: number;
+  monthExpenses: number;
 }
 
 const EMPTY_STATS: DashboardStats = {
@@ -31,6 +32,7 @@ const EMPTY_STATS: DashboardStats = {
   todayCheckOuts: 0,
   menuItems: 0,
   pendingOrders: 0,
+  monthExpenses: 0,
 };
 
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -61,14 +63,16 @@ const Dashboard: React.FC = () => {
           const orders = unwrapList<any>(oRes, ['orders']);
           base.pendingOrders = orders.filter((o: any) => o.status === 'PENDING').length;
         } else if (role === 'ACCOUNTANT') {
-          const [payRes, revRes] = await Promise.all([
+          const [payRes, revRes, expRes] = await Promise.all([
             api.get('/payments'),
             api.get('/reports/revenue'),
+            api.get('/expenditures/stats'),
           ]);
           const payments = unwrapList<any>(payRes, ['payments']);
           base.totalRevenue = Number(revRes.data?.totalRevenue ?? 0);
           base.pendingBookings = payments.filter((p: any) => p.status === 'PENDING').length;
           base.totalBookings = payments.filter((p: any) => p.status === 'COMPLETED').length;
+          base.monthExpenses = Number((expRes.data as any)?.stats?.monthTotal ?? 0);
         } else if (role === 'RECEPTIONIST') {
           const [roomsRes, bookingsRes, guestsRes] = await Promise.all([
             api.get('/rooms'), api.get('/bookings'), api.get('/guests'),
@@ -84,8 +88,9 @@ const Dashboard: React.FC = () => {
           base.todayCheckIns = bookings.filter((b: any) => new Date(b.checkInDate).toISOString().split('T')[0] === t).length;
           base.todayCheckOuts = bookings.filter((b: any) => new Date(b.checkOutDate).toISOString().split('T')[0] === t).length;
         } else {
-          const [roomsRes, bookingsRes, guestsRes, paymentsRes] = await Promise.all([
+          const [roomsRes, bookingsRes, guestsRes, paymentsRes, expRes] = await Promise.all([
             api.get('/rooms'), api.get('/bookings'), api.get('/guests'), api.get('/payments'),
+            api.get('/expenditures/stats').catch(() => null),
           ]);
           const rooms = unwrapList<any>(roomsRes, ['rooms']);
           const bookings = unwrapList<any>(bookingsRes, ['bookings']);
@@ -99,6 +104,7 @@ const Dashboard: React.FC = () => {
           base.totalRevenue = payments.filter((p: any) => p.status === 'COMPLETED').reduce((s: number, p: any) => s + (p.amount || 0), 0);
           base.todayCheckIns = bookings.filter((b: any) => new Date(b.checkInDate).toISOString().split('T')[0] === t).length;
           base.todayCheckOuts = bookings.filter((b: any) => new Date(b.checkOutDate).toISOString().split('T')[0] === t).length;
+          base.monthExpenses = Number((expRes?.data as any)?.stats?.monthTotal ?? 0);
         }
 
         setStats(base);
@@ -125,6 +131,7 @@ const Dashboard: React.FC = () => {
   } else if (role === 'ACCOUNTANT') {
     statCards = [
       { title: 'Revenue', value: `৳${stats.totalRevenue.toLocaleString()}`, sub: 'From reports', icon: DollarSign, color: 'text-emerald-600' },
+      { title: 'Spent this month', value: `৳${stats.monthExpenses.toLocaleString()}`, sub: 'Expenditures (PAID)', icon: TrendingUp, color: 'text-red-600' },
       { title: 'Completed payments', value: stats.totalBookings, sub: 'Count', icon: CalendarCheck, color: 'text-green-600' },
       { title: 'Pending payments', value: stats.pendingBookings, sub: 'Count', icon: TrendingUp, color: 'text-orange-600' },
     ];
@@ -142,6 +149,7 @@ const Dashboard: React.FC = () => {
       { title: 'Bookings', value: stats.totalBookings, sub: `${stats.pendingBookings} pending`, icon: CalendarCheck, color: 'text-green-600' },
       { title: 'Guests', value: stats.totalGuests, sub: 'Total registered', icon: Users, color: 'text-purple-600' },
       { title: 'Revenue', value: `৳${stats.totalRevenue.toLocaleString()}`, sub: 'Total collected', icon: DollarSign, color: 'text-emerald-600' },
+      { title: 'Spent this month', value: `৳${stats.monthExpenses.toLocaleString()}`, sub: 'Expenditures (PAID)', icon: TrendingUp, color: 'text-red-600' },
       { title: 'Check-ins Today', value: stats.todayCheckIns, sub: 'Expected arrivals', icon: TrendingUp, color: 'text-orange-600' },
       { title: 'Check-outs Today', value: stats.todayCheckOuts, sub: 'Expected departures', icon: Clock, color: 'text-red-600' },
     ];
