@@ -478,8 +478,26 @@ async function main() {
     { key: 'aboutShort_bn', value: 'শান্তিপূর্ণ আত্থতন্ত্রিভূত রিসোর্টে স্বাগত জানাই।', description: 'About short Bengali' },
     { key: 'aboutLong', value: 'Enjoy tea gardens, fresh air, and a peaceful stay at our Sreemangal resort.\n\nWe are located in the heart of tea country — surrounded by green hills and serene nature. Our rooms offer comfort with nature views, and our restaurant serves local Sylheti dishes.', description: 'About long' },
     { key: 'aboutLong_bn', value: 'আমাদের শ্রীমঙ্গলের রিসোর্টে চা বাগান, তাজা বাতাস ও শান্তিপূর্ণ থাকা উপভোগ করুন।\n\nআমরা চা দেশের হৃদয়ে অবস্থিত — সবুজ পাহাড় ও শান্ত প্রকৃতি দ্বারা বেষ্টিত। আমাদের রুমগুলো প্রকৃতির দৃশ্য সহ আরাম প্রদান করে, এবং আমাদের রেস্তোরা স্থানীয় সিলেটি পদ পরিবেশন করে।', description: 'About long Bengali' },
+    { key: 'logoUrl', value: '', description: 'Header logo image URL' },
+    { key: 'heroImage', value: '', description: 'Homepage hero / OG image URL' },
+    { key: 'restaurantTeaser', value: 'Seasonal dishes with local ingredients served fresh every day.', description: 'Restaurant section blurb' },
+    { key: 'socialFacebook', value: '', description: 'Facebook page URL' },
+    { key: 'socialInstagram', value: '', description: 'Instagram profile URL' },
+    { key: 'socialYoutube', value: '', description: 'YouTube channel URL' },
+    { key: 'testimonial1Quote', value: '', description: 'Testimonial 1 quote' },
+    { key: 'testimonial1Author', value: '', description: 'Testimonial 1 author' },
+    { key: 'testimonial1Role', value: '', description: 'Testimonial 1 role' },
+    { key: 'testimonial2Quote', value: '', description: 'Testimonial 2 quote' },
+    { key: 'testimonial2Author', value: '', description: 'Testimonial 2 author' },
+    { key: 'testimonial2Role', value: '', description: 'Testimonial 2 role' },
+    { key: 'testimonial3Quote', value: '', description: 'Testimonial 3 quote' },
+    { key: 'testimonial3Author', value: '', description: 'Testimonial 3 author' },
+    { key: 'testimonial3Role', value: '', description: 'Testimonial 3 role' },
   ];
   for (const s of settingKeys) {
+    // Preserve existing non-empty values; only seed when missing or blank.
+    const existing = await prisma.setting.findUnique({ where: { key: s.key } });
+    if (existing && existing.value && existing.value.trim().length > 0) continue;
     await prisma.setting.upsert({
       where: { key: s.key },
       update: { value: s.value, description: s.description },

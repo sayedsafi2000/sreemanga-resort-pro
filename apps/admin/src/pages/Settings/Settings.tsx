@@ -6,19 +6,108 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Save } from 'lucide-react';
 
-const FIELD_KEYS = [
-  'resortName',
-  'resortAddress',
-  'resortPhone',
-  'resortEmail',
-  'resortDescription',
-  'checkInTime',
-  'checkOutTime',
-  'mapEmbedUrl',
-] as const;
+type FieldType = 'text' | 'textarea' | 'url' | 'email' | 'time' | 'tel';
+
+type Field = {
+  key: string;
+  label: string;
+  type?: FieldType;
+  placeholder?: string;
+  hint?: string;
+};
+
+type Section = {
+  title: string;
+  description?: string;
+  fields: Field[];
+};
+
+const SECTIONS: Section[] = [
+  {
+    title: 'Branding',
+    description: 'Public site name, tagline, logo and hero image.',
+    fields: [
+      { key: 'resortName', label: 'Resort Name' },
+      { key: 'tagline', label: 'Tagline', placeholder: 'Nature retreat in Sreemangal' },
+      { key: 'logoUrl', label: 'Logo URL', type: 'url', hint: 'Public URL to header logo image.' },
+      { key: 'heroImage', label: 'Hero Image URL', type: 'url', hint: 'Public URL used as homepage hero / OG image.' },
+    ],
+  },
+  {
+    title: 'Contact',
+    fields: [
+      { key: 'resortAddress', label: 'Address' },
+      { key: 'resortPhone', label: 'Phone', type: 'tel' },
+      { key: 'resortEmail', label: 'Email', type: 'email' },
+    ],
+  },
+  {
+    title: 'Hours',
+    fields: [
+      { key: 'checkInTime', label: 'Check-in Time', type: 'time' },
+      { key: 'checkOutTime', label: 'Check-out Time', type: 'time' },
+    ],
+  },
+  {
+    title: 'About',
+    description: 'Long-form copy for the homepage and about sections.',
+    fields: [
+      { key: 'resortDescription', label: 'Short Description (admin only)', type: 'textarea' },
+      { key: 'aboutShort', label: 'About — short (homepage)', type: 'textarea' },
+      { key: 'aboutLong', label: 'About — long (about page)', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Restaurant',
+    fields: [
+      { key: 'restaurantTeaser', label: 'Restaurant Teaser', type: 'textarea', placeholder: 'Seasonal dishes with local ingredients...' },
+    ],
+  },
+  {
+    title: 'Map',
+    fields: [
+      { key: 'mapEmbedUrl', label: 'Google Maps Embed URL', type: 'url' },
+    ],
+  },
+  {
+    title: 'Social',
+    fields: [
+      { key: 'socialFacebook', label: 'Facebook URL', type: 'url' },
+      { key: 'socialInstagram', label: 'Instagram URL', type: 'url' },
+      { key: 'socialYoutube', label: 'YouTube URL', type: 'url' },
+    ],
+  },
+  {
+    title: 'Testimonials',
+    description: 'Up to three testimonials shown on the homepage. Quote + author required to render.',
+    fields: [
+      { key: 'testimonial1Quote', label: 'Testimonial 1 — Quote', type: 'textarea' },
+      { key: 'testimonial1Author', label: 'Testimonial 1 — Author' },
+      { key: 'testimonial1Role', label: 'Testimonial 1 — Role (optional)' },
+      { key: 'testimonial2Quote', label: 'Testimonial 2 — Quote', type: 'textarea' },
+      { key: 'testimonial2Author', label: 'Testimonial 2 — Author' },
+      { key: 'testimonial2Role', label: 'Testimonial 2 — Role (optional)' },
+      { key: 'testimonial3Quote', label: 'Testimonial 3 — Quote', type: 'textarea' },
+      { key: 'testimonial3Author', label: 'Testimonial 3 — Author' },
+      { key: 'testimonial3Role', label: 'Testimonial 3 — Role (optional)' },
+    ],
+  },
+  {
+    title: 'Bengali Translations',
+    description: 'Optional Bengali variants of brand and about copy.',
+    fields: [
+      { key: 'site_name_bn', label: 'Resort Name (Bengali)' },
+      { key: 'tagline_bn', label: 'Tagline (Bengali)' },
+      { key: 'aboutShort_bn', label: 'About — short (Bengali)', type: 'textarea' },
+      { key: 'aboutLong_bn', label: 'About — long (Bengali)', type: 'textarea' },
+    ],
+  },
+];
+
+const ALL_KEYS: string[] = SECTIONS.flatMap((s) => s.fields.map((f) => f.key));
 
 function emptySettingsRecord(): Record<string, string> {
-  return FIELD_KEYS.reduce<Record<string, string>>((acc, k) => {
+  return ALL_KEYS.reduce<Record<string, string>>((acc, k) => {
     acc[k] = '';
     return acc;
   }, {});
@@ -57,9 +146,8 @@ const Settings: React.FC = () => {
     setSaving(true);
     setMessage(null);
     try {
-      // Per-key upsert via existing API — reliable regardless of bulk route ordering.
       await Promise.all(
-        FIELD_KEYS.map((key) =>
+        ALL_KEYS.map((key) =>
           api.put(`/settings/${encodeURIComponent(key)}`, {
             value: settings[key] ?? '',
           })
@@ -82,49 +170,73 @@ const Settings: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
-
-  const fields = [
-    { key: 'resortName', label: 'Resort Name' },
-    { key: 'resortAddress', label: 'Address' },
-    { key: 'resortPhone', label: 'Phone' },
-    { key: 'resortEmail', label: 'Email' },
-    { key: 'resortDescription', label: 'Description', multiline: true },
-    { key: 'checkInTime', label: 'Check-in Time' },
-    { key: 'checkOutTime', label: 'Check-out Time' },
-    { key: 'mapEmbedUrl', label: 'Map Embed URL' },
-  ];
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <Button onClick={handleSave} disabled={saving}><Save className="h-4 w-4 mr-2" />{saving ? 'Saving...' : 'Save Changes'}</Button>
+      <div className="flex items-center justify-between sticky top-0 bg-background z-10 py-2">
+        <div>
+          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="text-sm text-muted-foreground">
+            Public site copy, contact, social, testimonials, Bengali translations.
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={saving}>
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
       </div>
+
       {message && (
-        <p className={`text-sm rounded-md px-3 py-2 ${message.type === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
+        <p
+          className={`text-sm rounded-md px-3 py-2 ${
+            message.type === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
+          }`}
+        >
           {message.text}
         </p>
       )}
-      <Card>
-        <CardHeader><CardTitle>Resort Information</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {fields.map((field) => (
-            <div key={field.key} className="space-y-2">
-              <Label>{field.label}</Label>
-              {field.multiline ? (
-                <textarea
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={settings[field.key] ?? ''}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                />
-              ) : (
-                <Input value={settings[field.key] ?? ''} onChange={(e) => handleChange(field.key, e.target.value)} />
-              )}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+
+      {SECTIONS.map((section) => (
+        <Card key={section.title}>
+          <CardHeader>
+            <CardTitle>{section.title}</CardTitle>
+            {section.description && (
+              <p className="text-sm text-muted-foreground">{section.description}</p>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {section.fields.map((field) => (
+              <div key={field.key} className="space-y-2">
+                <Label>{field.label}</Label>
+                {field.type === 'textarea' ? (
+                  <textarea
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={settings[field.key] ?? ''}
+                    placeholder={field.placeholder}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                  />
+                ) : (
+                  <Input
+                    type={field.type ?? 'text'}
+                    value={settings[field.key] ?? ''}
+                    placeholder={field.placeholder}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                  />
+                )}
+                {field.hint && (
+                  <p className="text-xs text-muted-foreground">{field.hint}</p>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 };
