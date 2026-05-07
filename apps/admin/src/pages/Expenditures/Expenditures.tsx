@@ -32,11 +32,51 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, TrendingUp, DollarSign, Calendar, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Search, TrendingUp, DollarSign, Calendar, Edit, Trash2, Loader2, Paperclip, X as XIcon } from 'lucide-react';
 
 type Category = { id: string; name: string; sortOrder: number };
-type Expense = { id: string; title: string; amount: number; categoryId: string; category: Category; date: string; paymentMethod: string; paidTo: string; description: string; status: string };
+type Expense = { id: string; title: string; amount: number; categoryId: string; category: Category; date: string; paymentMethod: string; paidTo: string; description: string; status: string; attachment?: string };
 type Stats = { todayTotal: number; monthTotal: number; categoryBreakdown: { categoryId: string; categoryName: string; total: number }[] };
+
+const MAX_RECEIPT_DIMENSION = 1600;
+const RECEIPT_JPEG_QUALITY = 0.85;
+
+async function fileToCompressedDataUrl(file: File): Promise<string> {
+  // Non-image files (e.g. PDFs) — passthrough as data URL.
+  if (!file.type.startsWith('image/')) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    });
+  }
+  // Resize images down to MAX_RECEIPT_DIMENSION on the longest side, JPEG quality 0.85,
+  // so receipts don't blow past the server's 10mb JSON body limit.
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error('Could not load image'));
+    i.src = dataUrl;
+  });
+  const longest = Math.max(img.width, img.height);
+  const scale = longest > MAX_RECEIPT_DIMENSION ? MAX_RECEIPT_DIMENSION / longest : 1;
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', RECEIPT_JPEG_QUALITY);
+}
 
 const paymentMethods = ['CASH', 'BKASH', 'NAGAD', 'CARD'] as const;
 const statuses = ['PAID', 'PENDING', 'CANCELLED'] as const;
@@ -71,7 +111,10 @@ export default function Expenditures() {
     paidTo: '',
     description: '',
     status: 'PAID',
+    attachment: '',
   });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const canEdit = true; // Would check role
 
@@ -145,7 +188,7 @@ export default function Expenditures() {
         await api.post('/expenditures', data);
       }
       setOpenExpense(false);
-      setExpenseForm({ title: '', amount: '', categoryId: '', date: new Date().toISOString().split('T')[0], paymentMethod: 'CASH', paidTo: '', description: '', status: 'PAID' });
+      setExpenseForm({ title: '', amount: '', categoryId: '', date: new Date().toISOString().split('T')[0], paymentMethod: 'CASH', paidTo: '', description: '', status: 'PAID', attachment: '' });
       setEditingExpense(null);
       fetchData();
     } catch (err) {
@@ -176,8 +219,23 @@ export default function Expenditures() {
       paidTo: e.paidTo || '',
       description: e.description || '',
       status: e.status,
+      attachment: e.attachment || '',
     });
     setOpenExpense(true);
+  };
+
+  const handleAttachmentSelect = async (file: File | null | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file);
+      setExpenseForm((f) => ({ ...f, attachment: dataUrl }));
+    } catch (err) {
+      console.error(err);
+      alert('Could not read file. Please try a smaller image.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const filteredExpenses = useMemo(() => {
@@ -312,9 +370,12 @@ export default function Expenditures() {
                   <TableRow>
                     <TableHead>Title</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Paid To</TableHead>
+                    <TableHead>Method</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Receipt</TableHead>
                     {canEdit && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -323,12 +384,28 @@ export default function Expenditures() {
                     <TableRow key={exp.id}>
                       <TableCell className="font-medium">{exp.title}</TableCell>
                       <TableCell>{exp.category?.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{exp.paidTo || '—'}</TableCell>
+                      <TableCell className="text-sm">{exp.paymentMethod || '—'}</TableCell>
                       <TableCell>{formatCurrency(exp.amount)}</TableCell>
                       <TableCell>{new Date(exp.date).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <Badge variant={exp.status === 'PAID' ? 'default' : 'secondary'}>
                           {exp.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {exp.attachment ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewUrl(exp.attachment ?? null)}
+                            className="block h-10 w-10 overflow-hidden rounded border border-border hover:ring-2 hover:ring-primary"
+                            title="View receipt"
+                          >
+                            <img src={exp.attachment} alt="Receipt" className="h-full w-full object-cover" />
+                          </button>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       {canEdit && (
                         <TableCell className="text-right">
@@ -344,7 +421,7 @@ export default function Expenditures() {
                   ))}
                   {filteredExpenses.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         No expenses found
                       </TableCell>
                     </TableRow>
@@ -437,6 +514,18 @@ export default function Expenditures() {
               Save
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Lightbox */}
+      <Dialog open={!!previewUrl} onOpenChange={(o) => !o && setPreviewUrl(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Receipt</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <img src={previewUrl} alt="Receipt" className="mx-auto max-h-[70vh] w-auto rounded" />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -539,6 +628,39 @@ export default function Expenditures() {
                 onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
                 placeholder="Optional notes..."
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2"><Paperclip className="h-4 w-4" /> Receipt (optional)</Label>
+              {expenseForm.attachment ? (
+                <div className="flex items-start gap-3">
+                  <img
+                    src={expenseForm.attachment}
+                    alt="Receipt preview"
+                    className="h-24 w-24 rounded border border-border object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setExpenseForm({ ...expenseForm, attachment: '' })}
+                  >
+                    <XIcon className="mr-2 h-4 w-4" />
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => handleAttachmentSelect(e.target.files?.[0])}
+                  disabled={uploading}
+                />
+              )}
+              {uploading && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Processing...
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
