@@ -356,3 +356,25 @@ p {
   height: 1px;
   background: linear-gradient(to right, transparent, #a6c2a6, transparent);
 }
+
+/* ── Template Three: Nature animations ─────────────────────────────────────── */
+
+@keyframes scrollLine {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.t3-scroll-line {
+  animation: scrollLine 1.8s ease-in-out infinite;
+}
+
+.t3-marquee {
+  animation: marquee 22s linear infinite;
+}
+

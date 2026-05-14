@@ -3,6 +3,10 @@ import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import NavbarT2 from '@/templates/template-two/components/Navbar';
+import FooterT2 from '@/templates/template-two/components/Footer';
+import NavbarT3 from '@/templates/template-three/components/Navbar';
+import FooterT3 from '@/templates/template-three/components/Footer';
 import JsonLd from '@/components/seo/JsonLd';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { getSettings } from '@/lib/resort-api';
@@ -45,6 +49,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSettings();
+  const isT2 = settings.activeTemplate === 'template-two';
+  const isT3 = settings.activeTemplate === 'template-three';
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -65,18 +71,42 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
-      <body className="font-sans overflow-x-hidden">
+      <body className={`font-sans overflow-x-hidden${isT2 ? ' bg-[#09100a] text-forest-100' : isT3 ? ' bg-[#030d04] text-[#e8f5e9]' : ''}`}>
         <JsonLd data={jsonLd} />
         <LanguageProvider>
-          <Navbar 
-              resortName={settings.resortName} 
-              resortNameBn={settings.resortNameBn} 
-              phone={settings.phone} 
-              email={settings.email} 
-              logoSrc={logo.src} 
+          {isT3 ? (
+            <NavbarT3
+              resortName={settings.resortName}
+              resortNameBn={settings.resortNameBn}
+              phone={settings.phone}
+              email={settings.email}
+              logoSrc={logo.src}
             />
+          ) : isT2 ? (
+            <NavbarT2
+              resortName={settings.resortName}
+              resortNameBn={settings.resortNameBn}
+              phone={settings.phone}
+              email={settings.email}
+              logoSrc={logo.src}
+            />
+          ) : (
+            <Navbar
+              resortName={settings.resortName}
+              resortNameBn={settings.resortNameBn}
+              phone={settings.phone}
+              email={settings.email}
+              logoSrc={logo.src}
+            />
+          )}
           <main className="min-h-screen">{children}</main>
-          <Footer settings={settings} logoSrc={logo.src} />
+          {isT3 ? (
+            <FooterT3 settings={settings} logoSrc={logo.src} />
+          ) : isT2 ? (
+            <FooterT2 settings={settings} logoSrc={logo.src} />
+          ) : (
+            <Footer settings={settings} logoSrc={logo.src} />
+          )}
         </LanguageProvider>
       </body>
     </html>

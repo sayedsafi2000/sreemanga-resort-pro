@@ -45,6 +45,7 @@ function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
     taglineBn: raw.tagline_bn || '',
     aboutShortBn: raw.aboutShort_bn || '',
     aboutLongBn: raw.aboutLong_bn || '',
+    activeTemplate: raw.activeTemplate || 'template-one',
   };
 }
 
@@ -57,7 +58,7 @@ async function safeJson<T>(res: Response): Promise<T> {
 }
 
 async function getSettingsUncached(): Promise<ResortSettings> {
-  const res = await fetch(`${apiBase()}/settings`, { next: { revalidate: 60 } });
+  const res = await fetch(`${apiBase()}/settings`, { cache: 'no-store' });
   const data = await safeJson<{ success: boolean; settings: Record<string, string> }>(res);
   return mapSettingsFromDb(data.settings);
 }

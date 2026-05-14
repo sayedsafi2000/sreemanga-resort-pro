@@ -67,6 +67,8 @@ export interface ResortSettings {
   taglineBn?: string;
   aboutShortBn?: string;
   aboutLongBn?: string;
+  /** Active frontend template key */
+  activeTemplate?: string;
 }
 
 export interface Testimonial {

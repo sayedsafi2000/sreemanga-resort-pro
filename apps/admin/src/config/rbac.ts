@@ -17,6 +17,7 @@ import {
   FileText,
   Wallet,
   Banknote,
+  Layout,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -65,6 +66,7 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/restaurant': ['SUPER_ADMIN', 'MANAGER', 'RESTAURANT_STAFF'],
   '/users': ['SUPER_ADMIN'],
   '/reports': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
+  '/templates': ['SUPER_ADMIN'],
   '/settings': ['SUPER_ADMIN'],
   '/gallery': ['SUPER_ADMIN'],
   '/nearby-explore': ['SUPER_ADMIN'],
@@ -101,6 +103,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
       { key: 'staff', label: 'Staff Management', path: '/users', icon: UserCog },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      { key: 'tmpl', label: 'Website Templates', path: '/templates', icon: Layout },
       { key: 'set', label: 'Settings', path: '/settings', icon: Settings },
     ],
     MANAGER: [

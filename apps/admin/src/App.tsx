@@ -17,6 +17,7 @@ import Blogs from '@/pages/Blogs/Blogs';
 import Expenditures from '@/pages/Expenditures/Expenditures';
 import StaffSalaries from '@/pages/StaffSalaries/StaffSalaries';
 import Unauthorized from '@/pages/Unauthorized/Unauthorized';
+import Templates from '@/pages/Templates/Templates';
 import Layout from '@/components/layout/Layout';
 import RoleGuard from '@/components/RoleGuard';
 import { Loader2 } from 'lucide-react';
@@ -51,6 +52,7 @@ const App: React.FC = () => {
         <Route path="/blogs" element={<ProtectedRoute><RoleGuard path="/blogs"><Blogs /></RoleGuard></ProtectedRoute>} />
         <Route path="/expenditures" element={<ProtectedRoute><RoleGuard path="/expenditures"><Expenditures /></RoleGuard></ProtectedRoute>} />
         <Route path="/staff-salaries" element={<ProtectedRoute><RoleGuard path="/staff-salaries"><StaffSalaries /></RoleGuard></ProtectedRoute>} />
+        <Route path="/templates" element={<ProtectedRoute><RoleGuard path="/templates"><Templates /></RoleGuard></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><RoleGuard path="/settings"><Settings /></RoleGuard></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><RoleGuard path="/users"><Users /></RoleGuard></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><RoleGuard path="/reports"><Reports /></RoleGuard></ProtectedRoute>} />
