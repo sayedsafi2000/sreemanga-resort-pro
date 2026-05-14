@@ -26,7 +26,7 @@ export default async function RoomsPage({
   const rooms = await getRooms(filter ? { type: filter } : undefined);
 
   return (
-    <div className="bg-cream pb-20 pt-10 sm:pt-14">
+    <div className="min-h-screen bg-cream pb-24 pt-10 sm:pt-14">
       <Container>
         <SectionHeading
           align="left"
@@ -78,8 +78,10 @@ function FilterChip({
     <Link
       href={href}
       scroll={false}
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-        active ? 'bg-forest-800 text-white shadow-card' : 'bg-white text-stone-700 shadow-card hover:bg-forest-50'
+      className={`rounded-full px-4 py-2 text-sm font-semibold shadow-card transition-all duration-200 hover:-translate-y-px ${
+        active
+          ? 'bg-forest-800 text-white shadow-soft'
+          : 'bg-white text-stone-600 hover:bg-forest-50 hover:text-forest-800'
       }`}
     >
       {children}

@@ -7,10 +7,19 @@ export const EXPENSE_PAYMENT_METHODS = ['CASH', 'BKASH', 'NAGAD', 'CARD'] as con
 // limit so we reject oversized payloads with a useful message instead of a 413.
 const ATTACHMENT_MAX_BYTES = 8_000_000;
 
+const categoryFieldSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  type: z.enum(['text', 'number', 'date', 'textarea', 'select']),
+  required: z.boolean().default(false),
+  options: z.array(z.string()).optional(),
+});
+
 export const expenditureCategorySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   isActive: z.boolean().optional(),
   sortOrder: z.number().optional(),
+  fields: z.array(categoryFieldSchema).optional(),
 });
 
 export const expenditureSchema = z.object({
@@ -23,6 +32,7 @@ export const expenditureSchema = z.object({
   description: z.string().optional(),
   attachment: z.string().max(ATTACHMENT_MAX_BYTES, 'Attachment too large (max 8mb)').optional(),
   status: z.enum(EXPENSE_STATUSES).default('PAID'),
+  metadata: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 });
 
 export const expenditureListQuerySchema = z.object({

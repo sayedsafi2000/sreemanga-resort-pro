@@ -33,7 +33,8 @@ export const authenticateToken = async (
     req.user = user;
     return next();
   } catch (error) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+    // Use 401 so clients (e.g. admin axios) can clear session and redirect to login.
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
 

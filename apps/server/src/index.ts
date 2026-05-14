@@ -20,6 +20,7 @@ import nearbySpotsRoutes from './routes/nearbySpotsRoutes';
 import blogRoutes from './routes/blogRoutes';
 import expenditureRoutes from './routes/expenditureRoutes';
 import salaryRoutes from './routes/salaryRoutes';
+import pendingPaymentRoutes from './routes/pendingPaymentRoutes';
 import { authenticateToken } from './middleware/auth';
 import { roleCheck } from './middleware/roleCheck';
 
@@ -29,7 +30,20 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
+  origin:
+    process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()) ||
+    [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3003',
+      'http://localhost:8000',
+      'http://localhost:8001',
+      'http://127.0.0.1:3002',
+      'http://127.0.0.1:3003',
+      'http://127.0.0.1:8000',
+      'http://127.0.0.1:8001',
+    ],
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -58,6 +72,7 @@ app.use('/api/blogs', authenticateToken, blogRoutes);
 app.use('/api/reports', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), reportRoutes);
 app.use('/api/expenditures', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), expenditureRoutes);
 app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), salaryRoutes);
+app.use('/api/pending-payments', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), pendingPaymentRoutes);
 
 // Error handling
 app.use(errorHandler);

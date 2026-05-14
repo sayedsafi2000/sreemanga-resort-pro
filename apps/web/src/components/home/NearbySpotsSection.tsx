@@ -1,13 +1,12 @@
 'use client';
 
-'use client';
-
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import SpotCoverImage from '@/components/explore/SpotCoverImage';
 import SectionHeading from '@/components/SectionHeading';
 import Container from '@/components/ui/Container';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useReveal } from '@/hooks/useReveal';
 import { cn } from '@/lib/utils';
 import type { NearbyExplorePayload } from '@/types/resort';
 
@@ -86,6 +85,7 @@ export default function NearbySpotsSection({ section, spots }: Props) {
   if (!spots.length) return null;
 
   const loop = [...spots, ...spots];
+  const { ref: headRef, visible: headVisible } = useReveal<HTMLDivElement>();
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-stone-warm via-cream to-[#eef3ec] dark:from-[#0a0f0c] dark:via-[#0d110d] dark:to-[#111711] py-10 sm:py-14">
@@ -100,12 +100,14 @@ export default function NearbySpotsSection({ section, spots }: Props) {
       <div className="pointer-events-none absolute inset-0 opacity-[0.2] grain" aria-hidden />
 
       <Container className="relative z-10">
-        <SectionHeading
-          eyebrow={section.eyebrow}
-          title={t(section.title, section.title)}
-          subtitle={t(section.subtitle, section.subtitle)}
-          decorate
-        />
+        <div ref={headRef} className={`reveal ${headVisible ? 'visible' : ''}`}>
+          <SectionHeading
+            eyebrow={section.eyebrow}
+            title={t(section.title, section.title)}
+            subtitle={t(section.subtitle, section.subtitle)}
+            decorate
+          />
+        </div>
       </Container>
 
       <div className="relative z-[1] mt-2">

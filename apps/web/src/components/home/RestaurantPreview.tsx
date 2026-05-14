@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import SectionHeading from '@/components/SectionHeading';
 import Container from '@/components/ui/Container';
 import { useLanguage } from '@/contexts/LanguageContext';
-import type { MenuItem } from '@/types/resort';
+import { useReveal, useRevealGroup } from '@/hooks/useReveal';
 import { cn } from '@/lib/utils';
-import diningPhoto from '@/assets/484791845_630037146473973_4981468135839957015_n.jpg';
+import type { MenuItem } from '@/types/resort';
 
 type Props = {
   teaser: string;
@@ -17,6 +16,11 @@ type Props = {
 export default function RestaurantPreview({ teaser, highlights }: Props) {
   const { t, tr } = useLanguage();
   const displayTeaser = teaser.includes('Seasonal') ? tr('restaurant', 'teaser') : t(teaser, teaser);
+
+  const { ref: headRef,  visible: headVisible  } = useReveal<HTMLDivElement>();
+  const { ref: descRef,  visible: descVisible  } = useReveal<HTMLDivElement>({ rootMargin: '0px 0px -30px 0px' });
+  const { ref: listRef,  visible: listVisible  } = useRevealGroup<HTMLUListElement>();
+  const { ref: ctaRef,   visible: ctaVisible   } = useReveal<HTMLDivElement>();
 
   return (
     <section className="relative overflow-hidden bg-[#0f2d18] py-10 text-white sm:py-14">
@@ -37,40 +41,55 @@ export default function RestaurantPreview({ teaser, highlights }: Props) {
         }}
       />
       <Container className="relative z-10">
-        <SectionHeading 
-          eyebrow={tr('dining', 'eyebrow')} 
-          title={tr('dining', 'title')} 
-          subtitle={displayTeaser} 
-          dark decorate 
-        />
 
-        <div className="flex flex-col gap-4">
+        <div ref={headRef} className={`reveal ${headVisible ? 'visible' : ''}`}>
+          <SectionHeading
+            eyebrow={tr('dining', 'eyebrow')}
+            title={tr('dining', 'title')}
+            subtitle={displayTeaser}
+            dark decorate
+          />
+        </div>
+
+        <div
+          ref={descRef}
+          className={`reveal ${descVisible ? 'visible' : ''} flex flex-col gap-4`}
+          style={{ transitionDelay: '80ms' }}
+        >
           <p className="text-base leading-relaxed text-forest-100">
             {tr('dining', 'desc')}
           </p>
         </div>
 
         <div>
-          <ul className="space-y-4">
+          <ul ref={listRef} className="mt-6 space-y-4">
             {highlights.slice(0, 4).map((item, i) => (
               <li
                 key={item.id}
                 className={cn(
+                  `reveal ${listVisible ? 'visible' : ''}`,
                   'flex items-baseline justify-between gap-4 rounded-xl border border-white/10 bg-white/10 px-5 py-3.5 shadow-inner backdrop-blur-md',
                   i === 0 && 'ring-1 ring-forest-300/55'
                 )}
+                style={{ transitionDelay: `${i * 80}ms` }}
               >
                 <span className="font-medium">{item.name}</span>
-                <span className="shrink-0 text-forest-200">${item.price.toLocaleString()}</span>
+                <span className="shrink-0 text-forest-200">৳{item.price.toLocaleString()}</span>
               </li>
             ))}
           </ul>
-          <Link
-            href="/restaurant"
-            className="mt-8 inline-flex rounded-full bg-white px-8 py-3 font-semibold text-forest-900 transition hover:bg-forest-50"
+          <div
+            ref={ctaRef}
+            className={`reveal ${ctaVisible ? 'visible' : ''} mt-8`}
+            style={{ transitionDelay: '120ms' }}
           >
-            {tr('dining', 'explore')}
-          </Link>
+            <Link
+              href="/restaurant"
+              className="inline-flex rounded-full bg-white px-8 py-3 font-semibold text-forest-900 transition hover:bg-forest-50 hover:-translate-y-px"
+            >
+              {tr('dining', 'explore')}
+            </Link>
+          </div>
         </div>
       </Container>
     </section>

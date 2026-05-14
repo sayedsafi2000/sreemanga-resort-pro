@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { getApiBaseUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,8 +28,7 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     // Pull support email from public settings so "Forgot password?" goes somewhere real.
-    const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/$/, '');
-    fetch(`${apiBase}/public/settings`)
+    fetch(`${getApiBaseUrl()}/public/settings`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const v = d?.settings?.resortEmail || d?.settings?.contact_email;

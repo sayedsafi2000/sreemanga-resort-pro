@@ -6,7 +6,7 @@ type Props = {
   subtitle?: string;
   align?: 'left' | 'center';
   dark?: boolean;
-  /** Adds a subtle green gradient accent under the title */
+  /** Adds a short botanical accent bar under the title */
   decorate?: boolean;
   /** Optional id for the title `h2` (e.g. `aria-labelledby`). */
   headingId?: string;
@@ -26,43 +26,56 @@ export default function SectionHeading({
       className={cn(
         'mb-10 max-w-2xl',
         align === 'center' && 'mx-auto text-center',
-        align === 'left' && 'text-left'
+        align === 'left'   && 'text-left'
       )}
     >
       {eyebrow && (
         <p
           className={cn(
-            'mb-2 text-xs font-semibold uppercase tracking-[0.2em]',
-            dark ? 'text-forest-200/90' : 'text-forest-700 dark:text-forest-400'
+            'mb-3 text-[11px] font-bold uppercase tracking-[0.25em]',
+            dark ? 'text-forest-200/90' : 'text-forest-600'
           )}
         >
           {eyebrow}
         </p>
       )}
+
       <h2
         id={headingId}
         className={cn(
-          'font-display text-3xl font-semibold tracking-tight sm:text-4xl',
-          dark ? 'text-white' : 'text-stone-900 dark:text-[#e4e4e3]'
+          'font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl',
+          dark ? 'text-white' : 'text-stone-900'
         )}
       >
         {title}
       </h2>
+
       {decorate && (
-        <span
+        <div
           className={cn(
-            'mt-4 block h-1.5 rounded-full',
-            align === 'center' ? 'mx-auto w-20' : 'w-20',
-            dark ? 'bg-gradient-to-r from-white/60 via-forest-200 to-forest-400' : 'bg-gradient-to-r from-forest-400 via-forest-600 to-forest-800'
+            'mt-4 flex items-center gap-2',
+            align === 'center' && 'justify-center'
           )}
           aria-hidden
-        />
+        >
+          <span className="h-px w-8 rounded-full bg-forest-300/70" />
+          <span className="h-1.5 w-1.5 rounded-full bg-forest-500/70" />
+          <span
+            className={cn(
+              'h-1 rounded-full bg-gradient-to-r from-forest-400 to-forest-700',
+              align === 'center' ? 'w-16' : 'w-20'
+            )}
+          />
+          <span className="h-1.5 w-1.5 rounded-full bg-forest-500/70" />
+          <span className="h-px w-8 rounded-full bg-forest-300/70" />
+        </div>
       )}
+
       {subtitle && (
         <p
           className={cn(
-            'mt-3 text-base leading-relaxed sm:text-lg',
-            dark ? 'text-forest-100/90' : 'text-stone-600 dark:text-[#a3a3a3]'
+            'mt-4 text-base leading-relaxed sm:text-lg',
+            dark ? 'text-forest-100/85' : 'text-stone-500'
           )}
         >
           {subtitle}

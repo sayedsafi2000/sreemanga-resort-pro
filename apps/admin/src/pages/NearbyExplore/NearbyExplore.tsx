@@ -75,7 +75,7 @@ const NearbyExplore: React.FC = () => {
   });
 
   const loadSettings = async () => {
-    const res = await api.get('/settings');
+    const res = await api.get('/public/settings');
     const map = (res.data as { settings?: Record<string, string> })?.settings ?? {};
     setSection({
       nearbySectionEyebrow: map.nearbySectionEyebrow ?? '',

@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Image from 'next/image';
 import type { GalleryItem } from '@/types/resort';
 import { cn } from '@/lib/utils';
 
@@ -31,10 +30,10 @@ export default function GalleryGrid({ items }: Props) {
             type="button"
             onClick={() => setCat(c)}
             className={cn(
-              'rounded-full px-4 py-2 text-sm font-semibold transition',
+              'rounded-full px-4 py-2 text-sm font-semibold shadow-card transition-all duration-200 hover:-translate-y-px',
               cat === c
-                ? 'bg-forest-800 text-white shadow-card'
-                : 'bg-white text-stone-700 shadow-card hover:bg-forest-50'
+                ? 'bg-forest-800 text-white shadow-soft'
+                : 'bg-white text-stone-600 hover:bg-forest-50 hover:text-forest-800'
             )}
           >
             {c}
@@ -47,14 +46,12 @@ export default function GalleryGrid({ items }: Props) {
             key={g.id}
             className="group relative aspect-[4/5] overflow-hidden rounded-2xl shadow-card"
           >
-            <Image
+            {/* Use native img — works with data: URLs and any http/https src */}
+            <img
               src={g.src}
               alt={g.alt}
-              fill
-              className="object-cover transition duration-500 group-hover:scale-105"
-              sizes="(max-width:768px) 50vw, 33vw"
+              className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
               loading="lazy"
-              unoptimized={g.src.startsWith('data:') || g.src.startsWith('http')}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900/55 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
             <span className="absolute bottom-3 left-3 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">

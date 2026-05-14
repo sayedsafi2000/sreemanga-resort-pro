@@ -1,9 +1,19 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+/**
+ * Normalizes VITE_API_URL so requests hit .../api/* (Express mounts routes under /api).
+ * Accepts e.g. http://host:8000 or http://host:8000/api
+ */
+export function getApiBaseUrl(): string {
+  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  const fallback = 'http://localhost:8000';
+  const base = (raw || fallback).replace(/\/+$/, '');
+  if (base.endsWith('/api')) return base;
+  return `${base}/api`;
+}
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

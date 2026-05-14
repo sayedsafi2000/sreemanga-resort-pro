@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Container from '@/components/ui/Container';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useReveal } from '@/hooks/useReveal';
 import { cn } from '@/lib/utils';
 import { CalendarHeart, Leaf, Sparkles } from 'lucide-react';
 
@@ -14,9 +15,11 @@ type Props = {
 
 export default function ContactCta({ phone, email, compactBottom }: Props) {
   const { t, tr } = useLanguage();
+  const { ref, visible } = useReveal<HTMLElement>({ rootMargin: '0px 0px -30px 0px' });
 
   return (
     <section
+      ref={ref}
       aria-label="Book your stay"
       className={cn(
         'relative z-20 w-full -mt-14 sm:-mt-20',
@@ -28,7 +31,11 @@ export default function ContactCta({ phone, email, compactBottom }: Props) {
 
           <Container className="relative z-10 py-8 sm:py-10 lg:py-12">
             <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
-              <div className="text-center lg:text-left">
+
+              {/* Left copy */}
+              <div
+                className={`reveal-left ${visible ? 'visible' : ''} text-center lg:text-left`}
+              >
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-500/15 px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.28em] text-amber-100 backdrop-blur-md lg:mx-0 mx-auto">
                   <Sparkles className="h-3.5 w-3.5 text-amber-200" aria-hidden />
                   {tr('cta', 'book')}
@@ -54,7 +61,11 @@ export default function ContactCta({ phone, email, compactBottom }: Props) {
                 </ul>
               </div>
 
-              <div className="relative mx-auto w-full max-w-md lg:mx-0 lg:ml-auto lg:mr-0">
+              {/* Right card */}
+              <div
+                className={`reveal-right ${visible ? 'visible' : ''} relative mx-auto w-full max-w-md lg:mx-0 lg:ml-auto lg:mr-0`}
+                style={{ transitionDelay: '120ms' }}
+              >
                 <div className="absolute -inset-px rounded-[1.75rem] bg-gradient-to-br from-forest-400/20 via-transparent to-amber-200/8 opacity-80 blur-md" aria-hidden />
                 <div className="relative overflow-hidden rounded-[1.65rem] border border-forest-600/35 bg-forest-950/75 p-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-2xl sm:rounded-[1.85rem] sm:p-9">
                   <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-forest-600/12 blur-2xl" aria-hidden />
@@ -62,7 +73,7 @@ export default function ContactCta({ phone, email, compactBottom }: Props) {
                   <p className="mt-2 text-center font-display text-2xl font-semibold text-cream">{tr('cta', 'reserveNow')}</p>
                   <p className="mt-2 text-center text-sm text-forest-100">{tr('cta', 'noPressure')}</p>
                   <div className="mt-8 flex flex-col gap-3">
-                    <Link href="/booking" className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-100 py-3.5 text-center text-base font-semibold text-forest-950 shadow-lg shadow-black/25 ring-2 ring-white/20 transition hover:bg-white hover:shadow-xl">
+                    <Link href="/booking" className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-100 py-3.5 text-center text-base font-semibold text-forest-950 shadow-lg shadow-black/25 ring-2 ring-white/20 transition hover:bg-white hover:shadow-xl hover:-translate-y-px">
                       <CalendarHeart className="h-5 w-5 text-forest-700 transition group-hover:scale-105" aria-hidden />
                       {tr('cta', 'bookDates')}
                     </Link>

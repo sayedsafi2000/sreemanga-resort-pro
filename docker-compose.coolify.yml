@@ -1,0 +1,13 @@
+# Coolify → "Docker Compose Location": docker-compose.coolify.yml
+#
+# Same stack as docker-compose.yml (expose only — no host port binds).
+#
+# Domains (Coolify UI): include internal port in the domain STRING for non-80 services:
+#   web:   https://....sslip.io:3002   |   api: https://....sslip.io:8000
+#   admin: https://....sslip.io       (nginx on 80)
+# See: https://coolify.io/docs/knowledge-base/docker/compose
+#
+# NEXT_PUBLIC_API_URL, VITE_API_URL, CORS_ORIGIN → your public API/admin/web URLs.
+
+include:
+  - docker-compose.yml

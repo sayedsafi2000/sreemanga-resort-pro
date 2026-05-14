@@ -36,6 +36,17 @@ export type SidebarItem = {
   openNewBooking?: boolean;
 };
 
+/** Layout renders category children under this key (fetched from API). */
+export const EXPENDITURE_SIDEBAR_KEY = 'exp';
+
+const expenditureParent: SidebarItem = {
+  key: EXPENDITURE_SIDEBAR_KEY,
+  label: 'Expenditures',
+  path: '/expenditures',
+  icon: Wallet,
+  tab: 'expenses',
+};
+
 const allRoles: StaffRole[] = [
   'SUPER_ADMIN',
   'MANAGER',
@@ -83,7 +94,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
-      { key: 'exp', label: 'Expenditures', path: '/expenditures', icon: Wallet },
+      expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'gal', label: 'Site gallery', path: '/gallery', icon: Images },
       { key: 'near', label: 'Nearby explore', path: '/nearby-explore', icon: Compass },
@@ -99,7 +110,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
-      { key: 'exp', label: 'Expenditures', path: '/expenditures', icon: Wallet },
+      expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
@@ -124,7 +135,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     ACCOUNTANT: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
-      { key: 'exp', label: 'Expenditures', path: '/expenditures', icon: Wallet },
+      expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
     ],
@@ -146,7 +157,7 @@ export function sidebarItemActive(pathname: string, search: string, item: Sideba
 
 export function navItemHref(item: SidebarItem): string {
   if (item.openNewBooking) return `${item.path}?new=1`;
-  if (item.tab) return `${item.path}?tab=${item.tab}`;
+  if (item.tab) return `${item.path}?tab=${encodeURIComponent(item.tab)}`;
   return item.path;
 }
 

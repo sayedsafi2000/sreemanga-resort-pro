@@ -34,7 +34,29 @@ export const getExpenditureCategories = async (_req: Request, res: Response, nex
 export const createExpenditureCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = expenditureCategorySchema.parse(req.body);
-    const category = await directPrisma.expenseCategory.create({ data });
+    const trimmedName = data.name.trim();
+    if (trimmedName === 'Staff Salary') {
+      const exists = await directPrisma.expenseCategory.findFirst({
+        where: { name: 'Staff Salary' },
+        select: { id: true },
+      });
+      if (exists) {
+        throw new AppError('Staff Salary category already exists.', 400);
+      }
+    }
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined) {
+      const agg = await directPrisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
+      sortOrder = (agg._max.sortOrder ?? 0) + 1;
+    }
+    const category = await directPrisma.expenseCategory.create({
+      data: {
+        name: trimmedName,
+        isActive: data.isActive ?? true,
+        sortOrder,
+        fields: data.fields ?? [],
+      },
+    });
     res.json({ success: true, category });
   } catch (error) {
     next(error);
@@ -44,10 +66,28 @@ export const createExpenditureCategory = async (req: Request, res: Response, nex
 export const updateExpenditureCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const existing = await directPrisma.expenseCategory.findUnique({ where: { id } });
+    if (!existing) {
+      throw new AppError('Category not found', 404);
+    }
     const data = expenditureCategorySchema.partial().parse(req.body);
+    if (existing.name === 'Staff Salary' && data.name !== undefined && data.name !== 'Staff Salary') {
+      throw new AppError(
+        'Staff Salary category name cannot be changed; payroll sync looks up this category by name.',
+        400
+      );
+    }
+    if (existing.name !== 'Staff Salary' && data.name === 'Staff Salary') {
+      throw new AppError('A Staff Salary category already exists. Choose another name.', 400);
+    }
     const category = await directPrisma.expenseCategory.update({
       where: { id },
-      data,
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        ...(data.fields !== undefined && { fields: data.fields }),
+      },
     });
     res.json({ success: true, category });
   } catch (error) {
@@ -58,6 +98,13 @@ export const updateExpenditureCategory = async (req: Request, res: Response, nex
 export const deleteExpenditureCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const existing = await directPrisma.expenseCategory.findUnique({ where: { id } });
+    if (existing?.name === 'Staff Salary') {
+      throw new AppError(
+        'Staff Salary category is used for payroll sync and cannot be deleted.',
+        400
+      );
+    }
     const expenseCount = await directPrisma.expense.count({ where: { categoryId: id } });
     if (expenseCount > 0) {
       throw new AppError(

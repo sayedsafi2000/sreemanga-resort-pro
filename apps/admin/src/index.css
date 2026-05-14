@@ -1,51 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-  }
+    /* ── Core palette ──────────────────────────────────────────────────────── */
+    --background: 210 20% 97%;
+    --foreground: 217 33% 10%;
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --card: 0 0% 100%;
+    --card-foreground: 217 33% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 33% 10%;
+
+    /* Emerald primary */
+    --primary: 161 72% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 16% 94%;
+    --secondary-foreground: 217 25% 25%;
+
+    --muted: 210 16% 94%;
+    --muted-foreground: 215 14% 50%;
+
+    --accent: 210 16% 93%;
+    --accent-foreground: 217 33% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 161 72% 35%;
+
+    --radius: 0.625rem;
+
+    /* ── Sidebar tokens ──────────────────────────────────────────────────── */
+    --sidebar-bg: 222 47% 9%;
+    --sidebar-text: 215 18% 58%;
+    --sidebar-text-active: 0 0% 98%;
+    --sidebar-item-active-bg: 161 72% 35%;
+    --sidebar-item-hover-bg: 220 20% 14%;
+    --sidebar-border: 220 20% 16%;
+
+    /* ── Shadows ─────────────────────────────────────────────────────────── */
+    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.05);
+    --shadow-dropdown: 0 8px 24px rgba(15, 23, 42, 0.1), 0 2px 8px rgba(15, 23, 42, 0.06);
+    --shadow-dialog: 0 20px 60px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.08);
   }
 }
 
@@ -53,7 +58,127 @@
   * {
     @apply border-border;
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    line-height: 1.6;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+}
+
+/* ── Custom scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(214 20% 80%);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(214 20% 65%);
+}
+
+/* ── Sidebar scrollbar (darker track) ────────────────────────────────────── */
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Premium card elevation ───────────────────────────────────────────────── */
+@layer components {
+  .card-base {
+    @apply rounded-xl bg-white border border-slate-100;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.2s ease;
+  }
+
+  .card-base:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* Stat card accent variants */
+  .stat-blue   { --stat-color: #3b82f6; --stat-bg: #eff6ff; }
+  .stat-green  { --stat-color: #059669; --stat-bg: #ecfdf5; }
+  .stat-purple { --stat-color: #7c3aed; --stat-bg: #f5f3ff; }
+  .stat-amber  { --stat-color: #d97706; --stat-bg: #fffbeb; }
+  .stat-rose   { --stat-color: #e11d48; --stat-bg: #fff1f2; }
+  .stat-teal   { --stat-color: #0d9488; --stat-bg: #f0fdfa; }
+
+  .stat-icon-bg {
+    background-color: var(--stat-bg, #ecfdf5);
+    color: var(--stat-color, #059669);
+  }
+
+  /* Table row hover */
+  .table-row-hover tr:hover td {
+    background-color: hsl(210 16% 98%);
+  }
+
+  /* Premium input focus */
+  .input-premium {
+    @apply transition-shadow duration-150;
+  }
+
+  .input-premium:focus {
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+  }
+}
+
+/* ── Smooth page transitions ──────────────────────────────────────────────── */
+.page-enter {
+  animation: pageEnter 0.18s ease both;
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Sidebar nav indicator ────────────────────────────────────────────────── */
+.nav-active-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 2px 2px 0;
+  background: #34d399;
+}
+
+/* ── Progress bar animation ───────────────────────────────────────────────── */
+@keyframes progressGrow {
+  from { width: 0; }
+}
+
+.progress-animated {
+  animation: progressGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Dialog ───────────────────────────────────────────────────────────────── */
+[data-radix-dialog-content] {
+  box-shadow: var(--shadow-dialog) !important;
 }

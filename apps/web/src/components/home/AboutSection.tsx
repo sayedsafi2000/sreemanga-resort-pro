@@ -5,6 +5,7 @@ import { Leaf, Mountain, Wind } from 'lucide-react';
 import SectionHeading from '@/components/SectionHeading';
 import Container from '@/components/ui/Container';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useReveal } from '@/hooks/useReveal';
 import { cn } from '@/lib/utils';
 import aboutMain from '@/assets/484617672_630330766444611_3236540395920013731_n.jpg';
 import aboutAccentA from '@/assets/488846677_644425541701800_5934371764185234027_n.jpg';
@@ -42,15 +43,18 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
     .split(/\n\n+/)
     .map((p) => p.trim())
     .filter(Boolean);
-  
   const displayAboutDesc = aboutLongBn ? t(aboutLong, aboutLongBn) : aboutLong;
+
+  const { ref: headRef,   visible: headVisible   } = useReveal<HTMLDivElement>();
+  const { ref: imgRef,    visible: imgVisible    } = useReveal<HTMLDivElement>({ threshold: 0.05 });
+  const { ref: copyRef,   visible: copyVisible   } = useReveal<HTMLDivElement>({ threshold: 0.05 });
 
   return (
     <section
       className="relative overflow-hidden py-12 sm:py-16"
       aria-labelledby="about-section-heading"
     >
-      {/* Background: warm paper → soft sage wash */}
+      {/* Background */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-stone-warm via-cream to-[#e6efe4] dark:bg-gradient-to-b dark:from-night-bg dark:via-night-bg dark:to-night-bg" aria-hidden />
       <div
         className="pointer-events-none absolute -left-40 top-1/4 h-[28rem] w-[28rem] rounded-full bg-forest-200/35 blur-[100px] dark:bg-forest-900/50"
@@ -62,17 +66,23 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
       />
       <div className="pointer-events-none absolute inset-0 opacity-[0.35] grain dark:opacity-[0.12]" aria-hidden />
 
-<Container className="relative z-10">
-        <SectionHeading
-          eyebrow={tr('sections', 'aboutEyebrow')}
-          title={tr('sections', 'aboutTitle')}
-          subtitle={displayAboutShort}
-          decorate
-        />
+      <Container className="relative z-10">
+        <div ref={headRef} className={`reveal ${headVisible ? 'visible' : ''}`}>
+          <SectionHeading
+            eyebrow={tr('sections', 'aboutEyebrow')}
+            title={tr('sections', 'aboutTitle')}
+            subtitle={displayAboutShort}
+            decorate
+          />
+        </div>
 
         <div className="mt-8 grid items-center gap-8 lg:mt-10 lg:grid-cols-12 lg:gap-8">
-          {/* Image collage */}
-          <div className="relative mx-auto w-full max-w-lg pb-20 sm:pb-24 lg:col-span-7 lg:mx-0 lg:max-w-none lg:pb-10">
+
+          {/* Image collage — slides in from left */}
+          <div
+            ref={imgRef}
+            className={`reveal-left ${imgVisible ? 'visible' : ''} relative mx-auto w-full max-w-lg pb-20 sm:pb-24 lg:col-span-7 lg:mx-0 lg:max-w-none lg:pb-10`}
+          >
             <div className="relative aspect-[4/5] w-full overflow-visible sm:aspect-[5/6] lg:aspect-[6/7] lg:min-h-[min(32rem,70vh)]">
               {/* Main frame */}
               <div className="eco-ring absolute inset-[0_12%_8%_0] overflow-hidden rounded-[2.25rem] bg-stone-300 shadow-[0_28px_70px_-28px_rgba(27,94,32,0.35)] sm:inset-[0_10%_6%_0]">
@@ -80,7 +90,7 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
                   src={aboutMain}
                   alt="Resort surrounded by tea gardens and green hills"
                   fill
-                  className="object-cover"
+                  className="object-cover transition-transform duration-700 ease-out hover:scale-[1.03]"
                   sizes="(max-width: 1024px) 90vw, 55vw"
                   priority={false}
                 />
@@ -91,12 +101,14 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
                 </p>
               </div>
 
-              {/* Top-right accent */}
+              {/* Top-right accent — delayed */}
               <div
                 className={cn(
+                  `reveal-scale ${imgVisible ? 'visible' : ''}`,
                   'absolute right-0 top-0 z-20 w-[38%] overflow-hidden rounded-2xl border-4 border-white shadow-2xl',
                   'ring-1 ring-forest-200/60 sm:rounded-[1.35rem] sm:border-[5px]'
                 )}
+                style={{ transitionDelay: '200ms' }}
               >
                 <div className="relative aspect-square w-full bg-stone-200">
                   <Image
@@ -109,13 +121,15 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
                 </div>
               </div>
 
-              {/* Bottom overlap card */}
+              {/* Bottom overlap card — delayed */}
               <div
                 className={cn(
+                  `reveal-scale ${imgVisible ? 'visible' : ''}`,
                   'absolute -bottom-1 right-[4%] z-10 w-[52%] rotate-[1.5deg] overflow-hidden rounded-2xl',
                   'border-[5px] border-cream bg-stone-200 shadow-[0_22px_50px_-12px_rgba(0,0,0,0.35)]',
                   'ring-1 ring-forest-900/10 sm:bottom-2 sm:rounded-[1.5rem]'
                 )}
+                style={{ transitionDelay: '350ms' }}
               >
                 <div className="relative aspect-[5/4] w-full">
                   <Image
@@ -130,14 +144,23 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
               </div>
 
               {/* Corner badge */}
-              <div className="absolute left-[2%] top-[8%] z-30 hidden rounded-full bg-white/95 px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-wider text-forest-800 shadow-lg ring-1 ring-forest-100 sm:block sm:px-4 sm:py-2 sm:text-xs">
+              <div
+                className={cn(
+                  `reveal ${imgVisible ? 'visible' : ''}`,
+                  'absolute left-[2%] top-[8%] z-30 hidden rounded-full bg-white/95 px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-wider text-forest-800 shadow-lg ring-1 ring-forest-100 sm:block sm:px-4 sm:py-2 sm:text-xs'
+                )}
+                style={{ transitionDelay: '500ms' }}
+              >
                 Tea garden stay
               </div>
             </div>
           </div>
 
-          {/* Copy + highlights */}
-          <div className="space-y-8 lg:col-span-5">
+          {/* Copy + highlights — slides in from right */}
+          <div
+            ref={copyRef}
+            className={`reveal-right ${copyVisible ? 'visible' : ''} space-y-8 lg:col-span-5`}
+          >
             <div className="relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/90 p-8 shadow-soft backdrop-blur-sm sm:rounded-[2rem] sm:p-9">
               <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-forest-100/80 blur-3xl" aria-hidden />
               <div className="relative">
@@ -152,10 +175,11 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
             </div>
 
             <ul className="grid gap-3">
-              {highlights.map(({ icon: Icon, title, desc }) => (
+              {highlights.map(({ icon: Icon, title, desc }, i) => (
                 <li
                   key={title.en}
-                  className="flex gap-3 rounded-2xl border border-forest-100/80 bg-gradient-to-br from-white to-forest-50/45 p-4 shadow-sm ring-1 ring-forest-900/[0.04] sm:p-5"
+                  className="flex gap-3 rounded-2xl border border-forest-100/80 bg-gradient-to-br from-white to-forest-50/45 p-4 shadow-sm ring-1 ring-forest-900/[0.04] sm:p-5 transition hover:-translate-y-0.5 hover:shadow-card"
+                  style={{ transitionDelay: `${120 + i * 80}ms` }}
                 >
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-forest-800 text-forest-100 shadow-inner">
                     <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />

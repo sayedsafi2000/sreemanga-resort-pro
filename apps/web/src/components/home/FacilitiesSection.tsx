@@ -4,40 +4,69 @@ import { Droplets, UtensilsCrossed, Trees, Dumbbell, Car, Wifi } from 'lucide-re
 import SectionHeading from '@/components/SectionHeading';
 import Container from '@/components/ui/Container';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useReveal, useRevealGroup } from '@/hooks/useReveal';
 
 const items = [
-  { icon: Droplets, key: 'pool' },
-  { icon: UtensilsCrossed, key: 'restaurant' },
-  { icon: Trees, key: 'garden' },
-  { icon: Dumbbell, key: 'wellness' },
-  { icon: Car, key: 'transport' },
-  { icon: Wifi, key: 'wifi' },
+  { icon: Droplets,        key: 'pool',       num: '01' },
+  { icon: UtensilsCrossed, key: 'restaurant',  num: '02' },
+  { icon: Trees,           key: 'garden',      num: '03' },
+  { icon: Dumbbell,        key: 'wellness',    num: '04' },
+  { icon: Car,             key: 'transport',   num: '05' },
+  { icon: Wifi,            key: 'wifi',        num: '06' },
 ];
 
 export default function FacilitiesSection() {
   const { tr } = useLanguage();
+  const { ref: headRef, visible: headVisible } = useReveal<HTMLDivElement>();
+  const { ref: gridRef, visible: gridVisible } = useRevealGroup<HTMLDivElement>();
 
   return (
-    <section className="relative overflow-hidden bg-white py-10 sm:py-14 dark:bg-[#0a0f0c]">
-      <div className="pointer-events-none absolute inset-0 grain opacity-40 dark:opacity-15" aria-hidden />
+    <section className="relative overflow-hidden bg-stone-warm py-12 sm:py-16">
+      <div className="pointer-events-none absolute inset-0 grain opacity-30" aria-hidden />
+      <div
+        className="pointer-events-none absolute -right-32 top-0 h-96 w-96 rounded-full bg-forest-200/25 blur-[100px]"
+        aria-hidden
+      />
+
       <Container className="relative z-10">
-        <SectionHeading
-          eyebrow={tr('facilities', 'eyebrow')}
-          title={tr('facilities', 'title')}
-          subtitle={tr('facilities', 'subtitle')}
-          decorate
-        />
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map(({ icon: Icon, key }) => (
+        <div ref={headRef} className={`reveal ${headVisible ? 'visible' : ''}`}>
+          <SectionHeading
+            eyebrow={tr('facilities', 'eyebrow')}
+            title={tr('facilities', 'title')}
+            subtitle={tr('facilities', 'subtitle')}
+            decorate
+          />
+        </div>
+
+        <div ref={gridRef} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map(({ icon: Icon, key, num }, i) => (
             <div
               key={key}
-              className="group rounded-[1.65rem] border border-forest-100/90 bg-gradient-to-br from-white via-cream to-forest-50/40 p-6 shadow-card transition hover:-translate-y-1 hover:shadow-soft dark:border-stone-800 dark:from-[#141a16] dark:via-[#141a16] dark:to-[#161d16]"
+              className={`reveal ${gridVisible ? 'visible' : ''} group relative overflow-hidden rounded-2xl border border-forest-100/70 bg-white/80 p-6 shadow-card backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-forest-200 hover:shadow-card-hover`}
+              style={{ transitionDelay: gridVisible ? `${i * 80}ms` : '0ms' }}
             >
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-forest-100 to-forest-200/80 text-forest-900 shadow-inner transition group-hover:rotate-2 group-hover:scale-105 dark:from-[#243329] dark:to-[#2d4136] dark:text-forest-100">
-                <Icon className="h-6 w-6" strokeWidth={1.5} aria-hidden />
+              {/* Faint number watermark */}
+              <span
+                className="pointer-events-none absolute -right-2 -top-3 select-none font-display text-7xl font-bold text-forest-100/50"
+                aria-hidden
+              >
+                {num}
               </span>
-              <h3 className="mt-4 font-display text-xl font-semibold text-stone-900 dark:text-[#e4e4e3]">{tr('facilities', key)}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-stone-600 dark:text-[#a3a3a3]">{tr('facilities', key + 'Desc')}</p>
+
+              {/* Icon — pops on card hover */}
+              <span className="relative inline-flex h-13 w-13 items-center justify-center rounded-2xl bg-gradient-to-br from-forest-100 to-forest-200/60 text-forest-800 shadow-inner-forest ring-1 ring-forest-200/80 transition-all duration-300 group-hover:scale-110 group-hover:from-forest-200 group-hover:to-forest-300/50 group-hover:rotate-[-6deg]">
+                <Icon className="h-6 w-6" strokeWidth={1.6} aria-hidden />
+              </span>
+
+              <h3 className="relative mt-4 font-display text-lg font-semibold text-stone-900">
+                {tr('facilities', key)}
+              </h3>
+              <p className="relative mt-1.5 text-sm leading-relaxed text-stone-500">
+                {tr('facilities', (key + 'Desc') as Parameters<typeof tr>[1])}
+              </p>
+
+              {/* Bottom accent bar — slides in on hover */}
+              <div className="absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 rounded-full bg-gradient-to-r from-forest-400 to-forest-700 transition-transform duration-300 group-hover:scale-x-100" />
             </div>
           ))}
         </div>

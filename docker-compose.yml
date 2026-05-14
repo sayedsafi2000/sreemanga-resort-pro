@@ -1,8 +1,14 @@
 # Full stack: Postgres + API + public web (Next) + admin (Vite).
 #
-# Coolify / VPS (no host port conflicts): use this file only. Map domains in Coolify
-# to container ports: api 8000, web 3002, admin 80. Set NEXT_PUBLIC_API_URL,
-# VITE_API_URL, CORS_ORIGIN to your real HTTPS URLs (not localhost).
+# Coolify / VPS (no host port conflicts): use this file, or docker-compose.coolify.yml
+# (same stack). Set NEXT_PUBLIC_API_URL, VITE_API_URL, CORS_ORIGIN to real HTTPS URLs.
+#
+# Coolify → Domains (per https://coolify.io/docs/knowledge-base/docker/compose ):
+#   Put the INTERNAL port in the domain field so Traefik routes correctly:
+#   - web:   https://your-web-host:3002   (port 3002 is required in the field)
+#   - api:   https://your-api-host:8000
+#   - admin: https://your-admin-host      (container listens on 80; no extra port)
+#   The :3002 / :8000 suffix tells Coolify the backend port; users still open 80/443 on the URL.
 #
 # Local with localhost:ports — also pass docker-compose.local.yml:
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
@@ -39,7 +45,7 @@ services:
       DATABASE_URL: postgresql://resort:resort@db:5432/resort_management?schema=public
       JWT_SECRET: ${JWT_SECRET:-change-me-use-long-random-string}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3002,http://localhost:3003,http://127.0.0.1:3002,http://127.0.0.1:3003}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3002,http://localhost:3003,http://localhost:8001,http://127.0.0.1:3002,http://127.0.0.1:3003,http://127.0.0.1:8001}
     depends_on:
       db:
         condition: service_healthy

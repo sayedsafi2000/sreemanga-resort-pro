@@ -4,7 +4,7 @@ import { format, startOfDay } from 'date-fns';
 import { BedDouble, CalendarDays, Loader2, Mail, Phone, UserRound, Users } from 'lucide-react';
 import 'react-day-picker/style.css';
 
-import api from '@/lib/api';
+import api, { getApiBaseUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -64,8 +64,7 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
   useEffect(() => {
     if (!open) return;
     // Pull payment account details from public settings; fall back to env vars / placeholders.
-    const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/$/, '');
-    fetch(`${apiBase}/public/settings`)
+    fetch(`${getApiBaseUrl()}/public/settings`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const s = d?.settings || {};

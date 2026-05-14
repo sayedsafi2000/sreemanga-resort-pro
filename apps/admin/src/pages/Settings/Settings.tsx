@@ -133,14 +133,24 @@ const Settings: React.FC = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await api.get('/settings');
+        // Same key/value map as GET /api/settings; no auth required (avoids 403 if token hiccups).
+        const res = await api.get('/public/settings');
         const map = (res.data as { settings?: Record<string, string> })?.settings;
         const merged =
           map && typeof map === 'object' ? { ...defaults, ...map } : { ...defaults };
         setSettings(merged);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
-        setMessage({ type: 'err', text: 'Failed to load settings.' });
+        const ax = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+        const detail =
+          ax.response?.data?.message ||
+          (ax.response?.status === 404
+            ? 'API not found. Set VITE_API_URL to your API root (e.g. http://localhost:8000 or …/api).'
+            : ax.message);
+        setMessage({
+          type: 'err',
+          text: detail ? `Failed to load settings: ${detail}` : 'Failed to load settings.',
+        });
       } finally {
         setLoading(false);
       }
@@ -163,7 +173,7 @@ const Settings: React.FC = () => {
           })
         )
       );
-      const res = await api.get('/settings');
+      const res = await api.get('/public/settings');
       const map = (res.data as { settings?: Record<string, string> })?.settings;
       const merged =
         map && typeof map === 'object' ? { ...defaults, ...map } : { ...defaults };
@@ -173,7 +183,8 @@ const Settings: React.FC = () => {
       console.error(err);
       const ax = err as { response?: { data?: { message?: string } } };
       const msg =
-        ax.response?.data?.message || 'Could not save settings. Check you are logged in as SUPER_ADMIN or MANAGER.';
+        ax.response?.data?.message ||
+        'Could not save settings. You must be logged in as SUPER_ADMIN (Settings API is restricted).';
       setMessage({ type: 'err', text: msg });
     } finally {
       setSaving(false);

@@ -308,9 +308,9 @@ export default function StaffSalaries() {
                     <TableCell className="font-medium">৳ {(s.amount || 0).toLocaleString()}</TableCell>
                     <TableCell>
                       {rowStatus === 'PAID' ? (
-                        <Badge className="bg-green-600">Paid</Badge>
+                        <Badge className="border-transparent bg-green-600 text-white hover:bg-green-600">Paid</Badge>
                       ) : rowStatus === 'CANCELLED' ? (
-                        <Badge className="bg-red-600">Cancelled</Badge>
+                        <Badge className="border-transparent bg-red-600 text-white hover:bg-red-600">Cancelled</Badge>
                       ) : (
                         <Badge variant="secondary">Pending</Badge>
                       )}

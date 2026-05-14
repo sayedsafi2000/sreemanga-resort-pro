@@ -20,13 +20,45 @@ type GalleryRow = {
   isActive: boolean;
 };
 
-const fileToDataUrl = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+// Compress images before storing — gallery thumbnails don't need full resolution.
+const MAX_DIM = 1400;
+const JPEG_Q  = 0.82;
+
+async function fileToCompressedDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    // Non-image files: return as-is (shouldn't happen with accept="image/*")
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result));
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result));
+    r.onerror = rej;
+    r.readAsDataURL(file);
   });
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('Image load failed'));
+    i.src = dataUrl;
+  });
+  const scale = Math.max(img.width, img.height) > MAX_DIM
+    ? MAX_DIM / Math.max(img.width, img.height)
+    : 1;
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width  = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', JPEG_Q);
+}
 
 const Gallery: React.FC = () => {
   const { user } = useAuth();
@@ -92,7 +124,7 @@ const Gallery: React.FC = () => {
 
   const handleFile = async (file?: File) => {
     if (!file) return;
-    const dataUrl = await fileToDataUrl(file);
+    const dataUrl = await fileToCompressedDataUrl(file);
     setForm((f) => ({ ...f, imageUrl: dataUrl }));
   };
 
@@ -173,8 +205,17 @@ const Gallery: React.FC = () => {
               {items.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>
-                    <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-muted">
-                      <img src={row.imageUrl} alt="" className="h-full w-full object-cover" />
+                    <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-muted flex items-center justify-center">
+                      {row.imageUrl ? (
+                        <img
+                          src={row.imageUrl.startsWith('/') ? `${import.meta.env.VITE_WEB_URL || 'http://localhost:3002'}${row.imageUrl}` : row.imageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

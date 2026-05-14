@@ -9,16 +9,32 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-// Lazy-resolved category id for "Staff Salary" (seeded). Cached for the process lifetime.
+// Lazy-resolved category id for "Staff Salary". Auto-created if missing.
 let _staffSalaryCategoryId: string | null = null;
 
-async function getStaffSalaryCategoryId(): Promise<string | null> {
+async function getStaffSalaryCategoryId(): Promise<string> {
   if (_staffSalaryCategoryId) return _staffSalaryCategoryId;
-  const cat = await directPrisma.expenseCategory.findFirst({
+
+  let cat = await directPrisma.expenseCategory.findFirst({
     where: { name: 'Staff Salary' },
     select: { id: true },
   });
-  if (cat) _staffSalaryCategoryId = cat.id;
+
+  if (!cat) {
+    // Auto-create the category so salary payments always sync to Expenditures.
+    const agg = await directPrisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
+    cat = await directPrisma.expenseCategory.create({
+      data: {
+        name: 'Staff Salary',
+        isActive: true,
+        sortOrder: (agg._max.sortOrder ?? 0) + 1,
+        fields: [],
+      },
+      select: { id: true },
+    });
+  }
+
+  _staffSalaryCategoryId = cat.id;
   return _staffSalaryCategoryId;
 }
 
@@ -44,10 +60,6 @@ async function syncSalaryExpense(salary: {
   notes?: string | null;
 }): Promise<void> {
   const categoryId = await getStaffSalaryCategoryId();
-  if (!categoryId) {
-    // Seed didn't run, or user renamed the category — silently skip rather than break salary saves.
-    return;
-  }
   const user = await directPrisma.user.findUnique({
     where: { id: salary.userId },
     select: { name: true },

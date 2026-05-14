@@ -1,14 +1,20 @@
 # Local browser access: publish API / web / admin to localhost.
 # Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
-# (Coolify and similar hosts should use only docker-compose.yml — no host port binds.)
+#
+# If 8000 / 3002 / 3003 are already taken (e.g. another stack), set in .env:
+#   RESORT_API_HOST_PORT=18000
+#   RESORT_WEB_HOST_PORT=13002
+#   RESORT_ADMIN_HOST_PORT=13003
+#
+# Coolify: use docker-compose.yml or docker-compose.coolify.yml only (not this file).
 
 services:
   api:
     ports:
-      - '8000:8000'
+      - '${RESORT_API_HOST_PORT:-8000}:8000'
   web:
     ports:
-      - '3002:3002'
+      - '${RESORT_WEB_HOST_PORT:-3002}:3002'
   admin:
     ports:
-      - '3003:80'
+      - '${RESORT_ADMIN_HOST_PORT:-3003}:80'

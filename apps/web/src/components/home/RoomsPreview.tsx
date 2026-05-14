@@ -5,39 +5,60 @@ import SectionHeading from '@/components/SectionHeading';
 import Container from '@/components/ui/Container';
 import RoomCard from '@/components/RoomCard';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useReveal, useRevealGroup } from '@/hooks/useReveal';
 import type { Room } from '@/types/resort';
 
-type Props = {
-  rooms: Room[];
-};
+type Props = { rooms: Room[] };
 
 export default function RoomsPreview({ rooms }: Props) {
-  const { t, tr } = useLanguage();
+  const { tr } = useLanguage();
   const top = rooms.slice(0, 4);
 
+  const { ref: headRef, visible: headVisible } = useReveal<HTMLDivElement>();
+  const { ref: gridRef, visible: gridVisible } = useRevealGroup<HTMLDivElement>();
+  const { ref: ctaRef, visible: ctaVisible } = useReveal<HTMLDivElement>();
+
   return (
-    <section className="relative -mt-[30px] overflow-hidden bg-stone-warm dark:bg-[#0a0f0c] py-12 sm:py-16">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-forest-100/35 to-transparent dark:from-forest-900/35" aria-hidden />
+    <section className="relative -mt-[30px] overflow-hidden bg-stone-warm py-14 sm:py-20">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-forest-100/30 to-transparent" aria-hidden />
+
       <Container className="relative z-10">
-        <SectionHeading
-          eyebrow={tr('sections', 'stay')}
-          title={tr('sections', 'stayTitle')}
-          subtitle={tr('sections', 'staySubtitle')}
-          decorate
-        />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+        {/* Heading reveal */}
+        <div
+          ref={headRef}
+          className={`reveal ${headVisible ? 'visible' : ''}`}
+        >
+          <SectionHeading
+            eyebrow={tr('sections', 'stay')}
+            title={tr('sections', 'stayTitle')}
+            subtitle={tr('sections', 'staySubtitle')}
+            decorate
+          />
+        </div>
+
+        {/* Cards — stagger from container observer */}
+        <div ref={gridRef} className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {top.map((room, i) => (
-            <RoomCard
+            <div
               key={room.id}
-              room={room}
-              className={i === 1 ? 'sm:translate-y-0 xl:-translate-y-2 xl:shadow-soft' : ''}
-            />
+              className={`reveal ${gridVisible ? 'visible' : ''}`}
+              style={{ transitionDelay: `${i * 90}ms` }}
+            >
+              <RoomCard room={room} />
+            </div>
           ))}
         </div>
-        <div className="mt-10 text-center">
+
+        {/* CTA */}
+        <div
+          ref={ctaRef}
+          className={`mt-10 text-center reveal ${ctaVisible ? 'visible' : ''}`}
+          style={{ transitionDelay: '200ms' }}
+        >
           <Link
             href="/rooms"
-            className="inline-flex items-center gap-2 rounded-full border border-forest-200 bg-forest-50 px-6 py-2.5 text-sm font-medium text-forest-800 transition hover:bg-forest-100"
+            className="inline-flex items-center gap-2 rounded-full border border-forest-200 bg-white px-7 py-3 text-sm font-semibold text-forest-800 shadow-card transition hover:bg-forest-50 hover:shadow-card-hover hover:-translate-y-px"
           >
             {tr('home', 'seeAllRooms')}
           </Link>
