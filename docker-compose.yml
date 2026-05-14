@@ -1,0 +1,68 @@
+# Full stack: Postgres + API + public web (Next) + admin (Vite).
+# Local: docker compose up --build
+# Then seed (once): docker compose run --rm api npx prisma db seed
+# Login (after seed): admin@resortnirjon.com / Admin@12345
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: resort
+      POSTGRES_PASSWORD: resort
+      POSTGRES_DB: resort_management
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U resort -d resort_management']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      PORT: '8000'
+      NODE_ENV: production
+      DATABASE_URL: postgresql://resort:resort@db:5432/resort_management?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-use-long-random-string}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3002,http://localhost:3003,http://127.0.0.1:3002,http://127.0.0.1:3003}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3002}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/public}
+        NEXT_PUBLIC_USE_DUMMY_API: ${NEXT_PUBLIC_USE_DUMMY_API:-false}
+    restart: unless-stopped
+    ports:
+      - '3002:3002'
+    depends_on:
+      - api
+
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+        VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:-http://localhost:3002}
+    restart: unless-stopped
+    ports:
+      - '3003:80'
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
