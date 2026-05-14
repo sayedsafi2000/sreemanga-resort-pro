@@ -1,0 +1,14 @@
+# Local browser access: publish API / web / admin to localhost.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+# (Coolify and similar hosts should use only docker-compose.yml — no host port binds.)
+
+services:
+  api:
+    ports:
+      - '8000:8000'
+  web:
+    ports:
+      - '3002:3002'
+  admin:
+    ports:
+      - '3003:80'

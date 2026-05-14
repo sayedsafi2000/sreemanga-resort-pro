@@ -1,5 +1,12 @@
 # Full stack: Postgres + API + public web (Next) + admin (Vite).
-# Local: docker compose up --build
+#
+# Coolify / VPS (no host port conflicts): use this file only. Map domains in Coolify
+# to container ports: api 8000, web 3002, admin 80. Set NEXT_PUBLIC_API_URL,
+# VITE_API_URL, CORS_ORIGIN to your real HTTPS URLs (not localhost).
+#
+# Local with localhost:ports — also pass docker-compose.local.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+#
 # Then seed (once): docker compose run --rm api npx prisma db seed
 # Login (after seed): admin@resortnirjon.com / Admin@12345
 
@@ -24,8 +31,8 @@ services:
       context: ./apps/server
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - '8000:8000'
+    expose:
+      - '8000'
     environment:
       PORT: '8000'
       NODE_ENV: production
@@ -46,8 +53,8 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/public}
         NEXT_PUBLIC_USE_DUMMY_API: ${NEXT_PUBLIC_USE_DUMMY_API:-false}
     restart: unless-stopped
-    ports:
-      - '3002:3002'
+    expose:
+      - '3002'
     depends_on:
       - api
 
@@ -59,8 +66,8 @@ services:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
         VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:-http://localhost:3002}
     restart: unless-stopped
-    ports:
-      - '3003:80'
+    expose:
+      - '80'
     depends_on:
       - api
 
