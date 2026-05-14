@@ -36,7 +36,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
@@ -63,7 +63,7 @@ app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER',
 app.use(errorHandler);
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 

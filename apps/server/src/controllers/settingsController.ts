@@ -3,7 +3,7 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 
 export const getAllSettings = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ) => {

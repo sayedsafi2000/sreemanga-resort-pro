@@ -12,6 +12,6 @@ export const roleCheck = (allowedRoles: string[]) => {
       });
     }
 
-    next();
+    return next();
   };
 };

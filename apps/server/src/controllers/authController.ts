@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type Secret, type SignOptions } from 'jsonwebtoken';
 import prisma from '../utils/prisma';
 import { loginSchema, registerSchema } from '../validators/authValidator';
 import { AppError } from '../middleware/errorHandler';
@@ -28,10 +28,13 @@ export const login = async (
       throw new AppError('Invalid credentials', 401);
     }
 
+    const signOptions: SignOptions = {
+      expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'],
+    };
     const token = jwt.sign(
       { userId: user.id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      JWT_SECRET as Secret,
+      signOptions
     );
 
     const { password: _, ...userWithoutPassword } = user;

@@ -4,7 +4,7 @@ import { guestSchema } from '../validators/guestValidator';
 import { AppError } from '../middleware/errorHandler';
 
 export const getAllGuests = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ) => {

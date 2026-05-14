@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
-import { AppError } from '../middleware/errorHandler';
 
 export const getRevenueReport = async (
   req: Request,
