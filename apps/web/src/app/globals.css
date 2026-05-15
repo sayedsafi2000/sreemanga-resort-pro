@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Font CSS variables — fonts loaded via <link> in layout.tsx (browser-side) */
+:root {
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
 /* ── Base ──────────────────────────────────────────────────────────────────── */
 
 html {
