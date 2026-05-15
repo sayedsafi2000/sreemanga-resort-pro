@@ -3,9 +3,9 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 
-# Override Coolify's NODE_ENV=production for build stage
-ARG NODE_ENV=development
-
+# Force development so devDependencies (vite, typescript) are always installed
+# regardless of what Coolify injects via --build-arg NODE_ENV=production
+ENV NODE_ENV=development
 RUN npm ci
 
 COPY . .
@@ -15,7 +15,6 @@ ARG VITE_PUBLIC_SITE_URL=http://localhost:3002
 
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_PUBLIC_SITE_URL=$VITE_PUBLIC_SITE_URL
-ENV NODE_ENV=$NODE_ENV
 
 RUN npm run build
 
