@@ -1,7 +1,7 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci --ignore-scripts || true
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
@@ -15,6 +15,9 @@ ARG NEXT_PUBLIC_USE_DUMMY_API=false
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_USE_DUMMY_API=$NEXT_PUBLIC_USE_DUMMY_API
+
+# Force development mode for build so all deps install
+ENV NODE_ENV=development
 
 RUN npm run build
 

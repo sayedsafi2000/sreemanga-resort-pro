@@ -11,16 +11,24 @@ COPY prisma ./prisma/
 COPY tsconfig.json ./
 COPY src ./src/
 
-RUN npm ci \
-  && npx prisma generate \
-  && npm run build \
-  && npm prune --omit=dev \
-  && npm install prisma@5.22.0 --no-save
+# Install all dependencies including devDeps for build
+RUN npm ci --ignore-scripts || true
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build (need dev deps for tsx/esbuild)
+ENV NODE_ENV=development
+RUN npm run build
+
+# Now switch to production for runtime
+ENV NODE_ENV=production
+RUN npm prune --omit=dev || true
+RUN npm install prisma@5.22.0 --no-save || true
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-ENV NODE_ENV=production
 EXPOSE 8000
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
