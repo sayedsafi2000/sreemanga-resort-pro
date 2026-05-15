@@ -24,7 +24,9 @@ RUN npx prisma generate
 ENV NODE_ENV=$NODE_ENV
 RUN npm run build
 
-# Now switch to production for runtime
+# Now switch to production for runtime but keep tsx for seeding
+RUN npm install tsx --save-dev --no-save || true
+
 ENV NODE_ENV=production
 RUN npm prune --omit=dev || true
 RUN npm install prisma@5.22.0 --no-save || true

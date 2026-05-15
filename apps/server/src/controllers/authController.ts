@@ -55,7 +55,7 @@ export const register = async (
   next: NextFunction
 ) => {
   try {
-    const { name, email, password } = registerSchema.parse(req.body);
+    const { name, email, password, role } = registerSchema.parse(req.body);
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -72,7 +72,7 @@ export const register = async (
         name,
         email,
         password: hashedPassword,
-        role: 'RECEPTIONIST',
+        role: role || 'RECEPTIONIST',
       },
     });
 

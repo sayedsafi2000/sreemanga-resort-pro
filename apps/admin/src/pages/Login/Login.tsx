@@ -6,13 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Hotel, Loader2 } from 'lucide-react';
+import { Hotel, Loader2, UserPlus } from 'lucide-react';
 
 const REMEMBER_KEY = 'resort_admin_remember_email';
 
+const ROLES = [
+  { value: 'SUPER_ADMIN', label: 'Super Admin' },
+  { value: 'MANAGER', label: 'Manager' },
+  { value: 'RECEPTIONIST', label: 'Receptionist' },
+  { value: 'HOUSEKEEPING', label: 'Housekeeping' },
+  { value: 'RESTAURANT_STAFF', label: 'Restaurant Staff' },
+  { value: 'ACCOUNTANT', label: 'Accountant' },
+];
+
 const Login: React.FC = () => {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) || '');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('RECEPTIONIST');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(() => Boolean(localStorage.getItem(REMEMBER_KEY)));
@@ -27,19 +39,16 @@ const Login: React.FC = () => {
   }, [user, navigate]);
 
   useEffect(() => {
-    // Pull support email from public settings so "Forgot password?" goes somewhere real.
     fetch(`${getApiBaseUrl()}/public/settings`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const v = d?.settings?.resortEmail || d?.settings?.contact_email;
         if (typeof v === 'string') setSupportEmail(v);
       })
-      .catch(() => {
-        /* non-blocking */
-      });
+      .catch(() => { /* non-blocking */ });
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -58,10 +67,32 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+      setMode('login');
+      setError('');
+      alert('Registration successful! Please login.');
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const supportMailto = supportEmail
-    ? `mailto:${supportEmail}?subject=${encodeURIComponent('Resort Admin — password reset request')}&body=${encodeURIComponent(
-        'Please reset the password for the following admin account:\n\nEmail: \nReason: \n'
-      )}`
+    ? `mailto:${supportEmail}?subject=${encodeURIComponent('Resort Admin — password reset request')}&body=${encodeURIComponent('Please reset the password for the following admin account:\n\nEmail: \nReason: \n')}`
     : undefined;
 
   return (
@@ -71,97 +102,160 @@ const Login: React.FC = () => {
         <Card className="w-full max-w-md rounded-2xl border-emerald-200/60 bg-white/85 text-card-foreground shadow-[0_20px_80px_rgba(6,95,70,0.2)] backdrop-blur-md">
           <CardHeader className="space-y-4 pb-4 text-center">
             <div className="mx-auto inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium tracking-wide text-emerald-700">
-              Welcome back
+              {mode === 'login' ? 'Welcome back' : 'Create account'}
             </div>
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600/10 ring-1 ring-emerald-500/20">
-              <Hotel className="h-9 w-9 text-emerald-700" />
+              {mode === 'login' ? <Hotel className="h-9 w-9 text-emerald-700" /> : <UserPlus className="h-9 w-9 text-emerald-700" />}
             </div>
             <div className="space-y-1">
-              <CardTitle className="text-3xl font-bold tracking-tight text-emerald-900">Resort Admin</CardTitle>
+              <CardTitle className="text-3xl font-bold tracking-tight text-emerald-900">
+                {mode === 'login' ? 'Resort Admin' : 'Register'}
+              </CardTitle>
               <CardDescription className="text-sm text-emerald-700/80">
-                Sign in to manage your resort operations
+                {mode === 'login' ? 'Sign in to manage your resort operations' : 'Create a new admin account'}
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                {error}
-              </div>
+            {mode === 'login' ? (
+              <form onSubmit={handleLogin} className="space-y-5">
+                {error && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                    {error}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium text-emerald-900">Email address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@resortnirjon.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-sm font-medium text-emerald-900">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center space-x-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-emerald-800/80">Remember me</span>
+                  </label>
+                  {supportMailto ? (
+                    <a href={supportMailto} className="text-sm text-emerald-700 hover:text-emerald-900 hover:underline">
+                      Forgot password?
+                    </a>
+                  ) : (
+                    <span className="text-sm text-emerald-700/50 cursor-not-allowed" title="Support email not configured yet">
+                      Forgot password?
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  className="h-11 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition hover:from-emerald-700 hover:to-teal-700"
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign In
+                </Button>
+                <p className="text-center text-sm text-emerald-800/80">
+                  Don't have an account?{' '}
+                  <button type="button" onClick={() => { setMode('register'); setError(''); }} className="font-medium text-emerald-700 hover:text-emerald-900 hover:underline">
+                    Register here
+                  </button>
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-5">
+                {error && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                    {error}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium text-emerald-900">Full Name</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="regEmail" className="text-sm font-medium text-emerald-900">Email address</Label>
+                  <Input
+                    id="regEmail"
+                    type="email"
+                    placeholder="admin@resortnirjon.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="regPassword" className="text-sm font-medium text-emerald-900">Password</Label>
+                  <Input
+                    id="regPassword"
+                    type="password"
+                    placeholder="••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role" className="text-sm font-medium text-emerald-900">Role</Label>
+                  <select
+                    id="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    required
+                    className="h-11 w-full rounded-xl border-transparent bg-white/95 px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  type="submit"
+                  className="h-11 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition hover:from-emerald-700 hover:to-teal-700"
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Register
+                </Button>
+                <p className="text-center text-sm text-emerald-800/80">
+                  Already have an account?{' '}
+                  <button type="button" onClick={() => { setMode('login'); setError(''); }} className="font-medium text-emerald-700 hover:text-emerald-900 hover:underline">
+                    Login here
+                  </button>
+                </p>
+              </form>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-emerald-900">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@resortnirjon.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-emerald-900">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="flex items-center space-x-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <span className="text-emerald-800/80">Remember me</span>
-              </label>
-              {supportMailto ? (
-                <a
-                  href={supportMailto}
-                  className="text-sm text-emerald-700 hover:text-emerald-900 hover:underline"
-                >
-                  Forgot password?
-                </a>
-              ) : (
-                <span
-                  className="text-sm text-emerald-700/50 cursor-not-allowed"
-                  title="Support email not configured yet"
-                >
-                  Forgot password?
-                </span>
-              )}
-            </div>
-            <Button
-              type="submit"
-              className="h-11 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition hover:from-emerald-700 hover:to-teal-700"
-              disabled={loading}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign In
-            </Button>
-            <p className="mt-1 border-t border-emerald-100 pt-3 text-center text-sm text-emerald-800/80">
-              Need help?{' '}
-              {supportMailto ? (
-                <a
-                  href={supportMailto}
-                  className="font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
-                >
-                  Contact support
-                </a>
-              ) : (
-                <span className="font-medium text-emerald-700/50">Contact support</span>
-              )}
-            </p>
-          </form>
           </CardContent>
         </Card>
       </div>
