@@ -39,6 +39,12 @@ services:
     restart: unless-stopped
     expose:
       - '8000'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/public/rooms"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     environment:
       PORT: '8000'
       NODE_ENV: production
@@ -61,6 +67,12 @@ services:
     restart: unless-stopped
     expose:
       - '3002'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
       - api
 
@@ -74,6 +86,12 @@ services:
     restart: unless-stopped
     expose:
       - '80'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     depends_on:
       - api
 
