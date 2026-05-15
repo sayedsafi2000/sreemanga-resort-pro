@@ -1,9 +1,8 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-# Override Coolify's NODE_ENV=production for build stage
-ARG NODE_ENV=development
-RUN npm ci
+# Override Coolify's NODE_ENV=production injection inline
+RUN NODE_ENV=development npm ci --include=dev
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
@@ -17,15 +16,15 @@ ARG NEXT_PUBLIC_USE_DUMMY_API=false
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_USE_DUMMY_API=$NEXT_PUBLIC_USE_DUMMY_API
-ENV NODE_ENV=$NODE_ENV
 
-RUN npm run build
+# Use direct binary path with inline NODE_ENV=development
+RUN NODE_ENV=development ./node_modules/.bin/next build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3002
+ENV PORT=80
 ENV HOSTNAME=0.0.0.0
 
 RUN apt-get update \
@@ -37,6 +36,6 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
 
-EXPOSE 3002
+EXPOSE 80
 
 CMD ["node", "server.js"]
