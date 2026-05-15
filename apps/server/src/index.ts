@@ -65,7 +65,7 @@ app.use('/api/bookings', authenticateToken, bookingRoutes);
 app.use('/api/guests', authenticateToken, guestRoutes);
 app.use('/api/payments', authenticateToken, paymentRoutes);
 app.use('/api/restaurant', authenticateToken, restaurantRoutes);
-app.use('/api/settings', authenticateToken, roleCheck(['SUPER_ADMIN']), settingsRoutes);
+app.use('/api/settings', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), settingsRoutes);
 app.use('/api/gallery', authenticateToken, galleryRoutes);
 app.use('/api/nearby-spots', authenticateToken, nearbySpotsRoutes);
 app.use('/api/blogs', authenticateToken, blogRoutes);
