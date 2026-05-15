@@ -6,8 +6,9 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Override Coolify's NODE_ENV=production for build stage
-ARG NODE_ENV=development
+# Force development so devDependencies (tsx, esbuild, typescript) are always installed
+# regardless of what Coolify injects via --build-arg NODE_ENV=production
+ENV NODE_ENV=development
 
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
@@ -21,7 +22,6 @@ RUN npm ci
 RUN npx prisma generate
 
 # Build (need dev deps for tsx/esbuild)
-ENV NODE_ENV=$NODE_ENV
 RUN npm run build
 
 # Now switch to production for runtime but keep tsx for seeding
