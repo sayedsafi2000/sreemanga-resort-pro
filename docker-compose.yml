@@ -46,7 +46,6 @@ services:
       retries: 3
       start_period: 30s
     environment:
-      PORT: '8000'
       NODE_ENV: production
       DATABASE_URL: postgresql://resort:resort@db:5432/resort_management?schema=public
       JWT_SECRET: ${JWT_SECRET:-change-me-use-long-random-string}
@@ -67,6 +66,12 @@ services:
     restart: unless-stopped
     expose:
       - '3002'
+    environment:
+      # Force web to start on 3002 — the Dockerfile's ENV PORT=3002 can be
+      # overridden by Coolify-injected env vars, so we set it explicitly here.
+      PORT: '3002'
+      HOSTNAME: '0.0.0.0'
+      NODE_ENV: production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002"]
       interval: 30s
