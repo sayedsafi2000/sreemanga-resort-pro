@@ -19,18 +19,6 @@ function apiBase(): string {
   return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/public').replace(/\/$/, '');
 }
 
-// Resilient fetch wrapper. Returns null on any failure (network, non-2xx, parse error)
-// so build never crashes when the API is unreachable (e.g. during Coolify build).
-async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(url, init);
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
 function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
   return {
     resortName: raw.resortName || "Nirjon Nature's Hideout",
@@ -61,12 +49,18 @@ function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
   };
 }
 
+async function safeJson<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
 async function getSettingsUncached(): Promise<ResortSettings> {
-  const data = await safeFetch<{ success: boolean; settings: Record<string, string> }>(
-    `${apiBase()}/settings`,
-    { cache: 'no-store' },
-  );
-  return mapSettingsFromDb(data?.settings || {});
+  const res = await fetch(`${apiBase()}/settings`, { cache: 'no-store' });
+  const data = await safeJson<{ success: boolean; settings: Record<string, string> }>(res);
+  return mapSettingsFromDb(data.settings);
 }
 
 export const getSettings = cache(getSettingsUncached);
@@ -75,28 +69,30 @@ async function getRoomsUncached(filters?: { type?: RoomType | string }): Promise
   const q = new URLSearchParams();
   if (filters?.type) q.set('type', filters.type);
   const url = `${apiBase()}/rooms${q.toString() ? `?${q}` : ''}`;
-  const data = await safeFetch<{ success: boolean; rooms: Room[] }>(url, { next: { revalidate: 15 } });
-  return data?.rooms || [];
+  const res = await fetch(url, { next: { revalidate: 15 } });
+  const data = await safeJson<{ success: boolean; rooms: Room[] }>(res);
+  return data.rooms;
 }
 
 export const getRooms = cache(getRoomsUncached);
 
 async function getRoomByIdUncached(id: string): Promise<Room | null> {
-  const data = await safeFetch<{ success: boolean; room: Room }>(
-    `${apiBase()}/rooms/${id}`,
-    { next: { revalidate: 15 } },
-  );
-  return data?.room ?? null;
+  const res = await fetch(`${apiBase()}/rooms/${id}`, { next: { revalidate: 15 } });
+  if (res.status === 404) return null;
+  const data = await safeJson<{ success: boolean; room: Room }>(res);
+  return data.room;
 }
 
 export const getRoomById = cache(getRoomByIdUncached);
 
 async function getGalleryUncached(): Promise<GalleryItem[]> {
-  const data = await safeFetch<{
+  const res = await fetch(`${apiBase()}/gallery`, { next: { revalidate: 15 } });
+  if (!res.ok) return [];
+  const data = await safeJson<{
     success: boolean;
     items: Array<{ id: string; imageUrl: string; alt: string; category: string }>;
-  }>(`${apiBase()}/gallery`, { next: { revalidate: 15 } });
-  const rows = data?.items || [];
+  }>(res);
+  const rows = data.items || [];
   return rows.map((row) => ({
     id: row.id,
     src: row.imageUrl,
@@ -108,33 +104,39 @@ async function getGalleryUncached(): Promise<GalleryItem[]> {
 export const getGallery = cache(getGalleryUncached);
 
 const defaultNearbySection = (): NearbyExplorePayload['section'] => ({
-  eyebrow: 'Explore · Around',
+eyebrow: 'Explore · Around',
   title: 'Best places to explore around Nirjon Nature Hideout',
   subtitle:
     'Just a step out from the resort—jungles, tea gardens, waterfalls & light tea scents. Click the cards to read more.',
+
   footnote:
     'Distance is approximate by car route—may vary with traffic & roads. Winter at Baikka bill brings more bird activity.',
 });
 
 async function getNearbyExploreUncached(): Promise<NearbyExplorePayload> {
-  const data = await safeFetch<{
-    success: boolean;
-    section: NearbyExplorePayload['section'];
-    spots: NearbyExplorePayload['spots'];
-  }>(`${apiBase()}/nearby-explore`, { next: { revalidate: 60 } });
-
-  if (!data) return { section: defaultNearbySection(), spots: [] };
-
-  const sec = data.section || defaultNearbySection();
-  return {
-    section: {
-      eyebrow: sec.eyebrow || defaultNearbySection().eyebrow,
-      title: sec.title || defaultNearbySection().title,
-      subtitle: sec.subtitle || defaultNearbySection().subtitle,
-      footnote: sec.footnote || defaultNearbySection().footnote,
-    },
-    spots: Array.isArray(data.spots) ? data.spots : [],
-  };
+  try {
+    const res = await fetch(`${apiBase()}/nearby-explore`, { next: { revalidate: 60 } });
+    if (!res.ok) {
+      return { section: defaultNearbySection(), spots: [] };
+    }
+    const data = await safeJson<{
+      success: boolean;
+      section: NearbyExplorePayload['section'];
+      spots: NearbyExplorePayload['spots'];
+    }>(res);
+    const sec = data.section || defaultNearbySection();
+    return {
+      section: {
+        eyebrow: sec.eyebrow || defaultNearbySection().eyebrow,
+        title: sec.title || defaultNearbySection().title,
+        subtitle: sec.subtitle || defaultNearbySection().subtitle,
+        footnote: sec.footnote || defaultNearbySection().footnote,
+      },
+      spots: Array.isArray(data.spots) ? data.spots : [],
+    };
+  } catch {
+    return { section: defaultNearbySection(), spots: [] };
+  }
 }
 
 export const getNearbyExplore = cache(getNearbyExploreUncached);
@@ -142,30 +144,32 @@ export const getNearbyExplore = cache(getNearbyExploreUncached);
 export async function getNearbySpotBySlug(slug: string): Promise<NearbySpotDetail | null> {
   const clean = slug.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(clean)) return null;
-  const data = await safeFetch<{ success: boolean; spot: NearbySpotDetail }>(
-    `${apiBase()}/nearby-spots/${encodeURIComponent(clean)}`,
-    { cache: 'no-store' },
-  );
-  return data?.spot ?? null;
+  try {
+    const res = await fetch(`${apiBase()}/nearby-spots/${encodeURIComponent(clean)}`, {
+      cache: 'no-store',
+    });
+    if (res.status === 404) return null;
+    const data = await safeJson<{ success: boolean; spot: NearbySpotDetail }>(res);
+    return data.spot ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function getRestaurantMenuUncached(category?: string): Promise<MenuItem[]> {
   const url = `${apiBase()}/menu${category ? `?category=${encodeURIComponent(category)}` : ''}`;
-  const data = await safeFetch<{ success: boolean; menuItems: MenuItem[] }>(url, {
-    next: { revalidate: 30 },
-  });
-  return data?.menuItems || [];
+  const res = await fetch(url, { next: { revalidate: 30 } });
+  const data = await safeJson<{ success: boolean; menuItems: MenuItem[] }>(res);
+  return data.menuItems;
 }
 
 export const getRestaurantMenu = cache(getRestaurantMenuUncached);
 
 export async function getTestimonials(): Promise<Testimonial[]> {
-  const data = await safeFetch<{ success: boolean; settings: Record<string, string> }>(
-    `${apiBase()}/settings`,
-    { next: { revalidate: 60 } },
-  );
-  const raw = data?.settings || {};
-  return [1, 2, 3]
+  const res = await fetch(`${apiBase()}/settings`, { next: { revalidate: 60 } });
+  const data = await safeJson<{ success: boolean; settings: Record<string, string> }>(res);
+  const raw = data.settings || {};
+  const items: Testimonial[] = [1, 2, 3]
     .map((n) => ({
       id: `t${n}`,
       quote: raw[`testimonial${n}Quote`] || '',
@@ -173,29 +177,26 @@ export async function getTestimonials(): Promise<Testimonial[]> {
       role: raw[`testimonial${n}Role`] || undefined,
     }))
     .filter((t) => t.quote && t.author);
+  return items;
 }
 
 export async function submitPublicBooking(payload: PublicBookingInput): Promise<{ ok: boolean; message: string }> {
-  try {
-    const res = await fetch(`${apiBase()}/bookings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      let msg = 'Could not complete booking.';
-      try {
-        const j = await res.json();
-        msg = j.message || msg;
-      } catch {
-        /* ignore */
-      }
-      return { ok: false, message: msg };
+  const res = await fetch(`${apiBase()}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let msg = 'Could not complete booking.';
+    try {
+      const j = await res.json();
+      msg = j.message || msg;
+    } catch {
+      /* ignore */
     }
-    return { ok: true, message: 'Booking submitted successfully. We will contact you shortly.' };
-  } catch {
-    return { ok: false, message: 'Network error. Please try again.' };
+    return { ok: false, message: msg };
   }
+  return { ok: true, message: 'Booking submitted successfully. We will contact you shortly.' };
 }
 
 export async function getRoomAvailabilityCalendar(params?: {
@@ -203,16 +204,25 @@ export async function getRoomAvailabilityCalendar(params?: {
   from?: string;
   days?: number;
 }): Promise<RoomAvailabilityCalendar[]> {
-  const q = new URLSearchParams();
-  if (params?.roomId) q.set('roomId', params.roomId);
-  if (params?.from) q.set('from', params.from);
-  q.set('days', String(Math.min(Math.max(params?.days ?? 60, 1), 90)));
+  try {
+    const q = new URLSearchParams();
+    if (params?.roomId) q.set('roomId', params.roomId);
+    if (params?.from) q.set('from', params.from);
+    q.set('days', String(Math.min(Math.max(params?.days ?? 60, 1), 90)));
 
-  const data = await safeFetch<{ success: boolean; rooms: RoomAvailabilityCalendar[] }>(
-    `${apiBase()}/rooms/availability-calendar?${q.toString()}`,
-    { next: { revalidate: 0 }, cache: 'no-store' },
-  );
-  return data?.rooms || [];
+    const res = await fetch(`${apiBase()}/rooms/availability-calendar?${q.toString()}`, {
+      next: { revalidate: 0 },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      return [];
+    }
+    const data = (await res.json()) as { success: boolean; rooms: RoomAvailabilityCalendar[] };
+    return data.rooms || [];
+  } catch {
+    return [];
+  }
 }
 
 export async function submitContactForm(_payload: ContactFormInput): Promise<{ ok: boolean; message: string }> {
@@ -220,11 +230,14 @@ export async function submitContactForm(_payload: ContactFormInput): Promise<{ o
 }
 
 async function getBlogsUncached(): Promise<BlogListItem[]> {
-  const data = await safeFetch<{ success: boolean; blogs: BlogListItem[] }>(
-    `${apiBase()}/blogs`,
-    { next: { revalidate: 60 } },
-  );
-  return data?.blogs || [];
+  try {
+    const res = await fetch(`${apiBase()}/blogs`, { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    const data = await safeJson<{ success: boolean; blogs: BlogListItem[] }>(res);
+    return data.blogs || [];
+  } catch {
+    return [];
+  }
 }
 
 export const getBlogs = cache(getBlogsUncached);
@@ -232,9 +245,14 @@ export const getBlogs = cache(getBlogsUncached);
 export async function getBlogBySlug(slug: string): Promise<BlogDetail | null> {
   const clean = slug.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(clean)) return null;
-  const data = await safeFetch<{ success: boolean; blog: BlogDetail }>(
-    `${apiBase()}/blogs/${encodeURIComponent(clean)}`,
-    { cache: 'no-store' },
-  );
-  return data?.blog ?? null;
+  try {
+    const res = await fetch(`${apiBase()}/blogs/${encodeURIComponent(clean)}`, {
+      cache: 'no-store',
+    });
+    if (res.status === 404) return null;
+    const data = await safeJson<{ success: boolean; blog: BlogDetail }>(res);
+    return data.blog ?? null;
+  } catch {
+    return null;
+  }
 }

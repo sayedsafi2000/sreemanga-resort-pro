@@ -1,16 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Skip type errors and lint warnings during build for CI reliability.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  output: 'standalone',
   images: {
+    // Allow any remote hostname — gallery/blog images come from the admin panel
+    // and can be stored as external URLs or served from the API server.
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
-      { protocol: 'http', hostname: '**' },
+      { protocol: 'http',  hostname: '**' },
     ],
   },
 };

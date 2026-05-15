@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -11,6 +12,17 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { getSettings } from '@/lib/resort-api';
 import { siteUrl } from '@/lib/site';
 import logo from '@/assets/logo.jpg';
+
+const display = Cormorant_Garamond({
+  subsets: ['latin'],
+  variable: '--font-display',
+  weight: ['400', '500', '600', '700'],
+});
+
+const sans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-sans',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -58,15 +70,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   };
 
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body className={`font-sans overflow-x-hidden${isT2 ? ' bg-[#09100a] text-forest-100' : isT3 ? ' bg-[#030d04] text-[#e8f5e9]' : ''}`}>
         <JsonLd data={jsonLd} />
         <LanguageProvider>
