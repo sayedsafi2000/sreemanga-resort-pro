@@ -15,14 +15,14 @@ COPY tsconfig.json ./
 COPY src ./src/
 
 # Install all dependencies including devDeps for build
-RUN npm ci
+# Use NODE_ENV=development inline to ignore any Coolify-injected NODE_ENV=production
+RUN NODE_ENV=development npm ci --include=dev
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build (need dev deps for tsx/esbuild)
-ENV NODE_ENV=$NODE_ENV
-RUN npm run build
+# Build (need dev deps for tsx/esbuild) - use direct binary path
+RUN NODE_ENV=development ./node_modules/.bin/tsc
 
 # Now switch to production for runtime but keep tsx for seeding
 RUN npm install tsx --save-dev --no-save || true
