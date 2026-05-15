@@ -9,6 +9,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Use bash so PIPESTATUS is available
+SHELL ["/bin/bash", "-c"]
+
 ARG NEXT_PUBLIC_SITE_URL=http://localhost:3002
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/public
 ARG NEXT_PUBLIC_USE_DUMMY_API=false
@@ -17,7 +20,16 @@ ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_USE_DUMMY_API=$NEXT_PUBLIC_USE_DUMMY_API
 
-RUN NODE_ENV=development ./node_modules/.bin/next build
+# Run next build. If it fails, dump the last 200 lines of build output
+# directly into the Docker error stream so Coolify shows the real error.
+RUN NODE_ENV=development ./node_modules/.bin/next build 2>&1 | tee /tmp/build.log; \
+    BUILD_EXIT=${PIPESTATUS[0]}; \
+    if [ "$BUILD_EXIT" != "0" ]; then \
+      echo "================ BUILD FAILED — last 200 lines ================" >&2; \
+      tail -n 200 /tmp/build.log >&2; \
+      echo "================================================================" >&2; \
+      exit "$BUILD_EXIT"; \
+    fi
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
