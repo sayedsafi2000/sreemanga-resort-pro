@@ -3,10 +3,9 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 
-# Force development so devDependencies (vite, typescript) are always installed
-# regardless of what Coolify injects via --build-arg NODE_ENV=production
-ENV NODE_ENV=development
-RUN npm ci
+# Use --include=dev to force devDependencies install regardless of NODE_ENV
+# Coolify injects NODE_ENV=production as a build-arg which would skip devDeps
+RUN npm ci --include=dev
 
 COPY . .
 
