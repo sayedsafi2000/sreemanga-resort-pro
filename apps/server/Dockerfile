@@ -6,8 +6,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Use --include=dev to force devDependencies install regardless of NODE_ENV
-# Coolify injects NODE_ENV=production as a build-arg which would skip devDeps
+# Force install of devDependencies regardless of NODE_ENV being injected by Coolify.
 ENV NODE_ENV=development
 
 COPY package.json package-lock.json* ./
@@ -15,13 +14,16 @@ COPY prisma ./prisma/
 COPY tsconfig.json ./
 COPY src ./src/
 
-RUN npm ci --include=dev
+RUN npm config set production false \
+ && npm config set fund false \
+ && npm config set audit false \
+ && npm install --include=dev --no-audit --no-fund
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN ./node_modules/.bin/prisma generate
 
-# Build (need dev deps for tsx/esbuild)
-RUN npm run build
+# Build (need dev deps for tsx/typescript) - use direct binary path
+RUN ./node_modules/.bin/tsc
 
 # Now switch to production for runtime but keep tsx for seeding
 RUN npm install tsx --save-dev --no-save || true
