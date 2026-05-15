@@ -1,12 +1,9 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-# Force install of devDependencies regardless of NODE_ENV being injected by Coolify.
-# npm config set production=false overrides any NODE_ENV=production env-var.
-RUN npm config set production false \
- && npm config set fund false \
- && npm config set audit false \
- && npm install --include=dev --no-audit --no-fund
+# Inline NODE_ENV=development overrides any NODE_ENV=production injected by Coolify
+# for this single command, forcing devDependencies to install.
+RUN NODE_ENV=development npm install --include=dev --no-audit --no-fund
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
@@ -20,10 +17,9 @@ ARG NEXT_PUBLIC_USE_DUMMY_API=false
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_USE_DUMMY_API=$NEXT_PUBLIC_USE_DUMMY_API
-ENV NODE_ENV=development
 
-# Use direct binary path so npm script wrapper doesn't strip PATH
-RUN ./node_modules/.bin/next build
+# Use direct binary path with inline NODE_ENV=development
+RUN NODE_ENV=development ./node_modules/.bin/next build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
