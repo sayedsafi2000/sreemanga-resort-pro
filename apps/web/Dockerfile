@@ -1,7 +1,9 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --ignore-scripts || true
+# Override Coolify's NODE_ENV=production for build stage
+ARG NODE_ENV=development
+RUN npm ci
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
@@ -15,9 +17,7 @@ ARG NEXT_PUBLIC_USE_DUMMY_API=false
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_USE_DUMMY_API=$NEXT_PUBLIC_USE_DUMMY_API
-
-# Force development mode for build so all deps install
-ENV NODE_ENV=development
+ENV NODE_ENV=$NODE_ENV
 
 RUN npm run build
 

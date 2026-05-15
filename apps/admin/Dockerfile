@@ -2,7 +2,11 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --ignore-scripts || true
+
+# Override Coolify's NODE_ENV=production for build stage
+ARG NODE_ENV=development
+
+RUN npm ci
 
 COPY . .
 
@@ -11,9 +15,7 @@ ARG VITE_PUBLIC_SITE_URL=http://localhost:3002
 
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_PUBLIC_SITE_URL=$VITE_PUBLIC_SITE_URL
-
-# Force development mode for build so all deps install
-ENV NODE_ENV=development
+ENV NODE_ENV=$NODE_ENV
 
 RUN npm run build
 
