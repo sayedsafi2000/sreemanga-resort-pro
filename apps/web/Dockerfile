@@ -20,14 +20,13 @@ RUN NODE_ENV=development npm ci --include=dev
 COPY . .
 
 # Build with NODE_ENV=production so Next.js uses production react-dom server.
-# (NODE_ENV=development during build causes prerender failures in Next 14.2.)
 RUN NODE_ENV=production ./node_modules/.bin/next build
 
-# Runtime
+# Runtime — use a unique port (3002) so Traefik can distinguish web from admin (which also runs on 80).
 ENV NODE_ENV=production
-ENV PORT=80
+ENV PORT=3002
 ENV HOSTNAME=0.0.0.0
 
-EXPOSE 80
+EXPOSE 3002
 
-CMD ["./node_modules/.bin/next", "start", "-p", "80", "-H", "0.0.0.0"]
+CMD ["./node_modules/.bin/next", "start", "-p", "3002", "-H", "0.0.0.0"]

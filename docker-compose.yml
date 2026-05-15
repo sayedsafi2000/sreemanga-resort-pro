@@ -65,13 +65,7 @@ services:
         NEXT_PUBLIC_USE_DUMMY_API: ${NEXT_PUBLIC_USE_DUMMY_API:-false}
     restart: unless-stopped
     expose:
-      - '80'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - '3002'
     depends_on:
       - api
 
