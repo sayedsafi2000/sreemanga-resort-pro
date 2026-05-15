@@ -18,8 +18,19 @@ ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_USE_DUMMY_API=$NEXT_PUBLIC_USE_DUMMY_API
 
-# Use direct binary path with inline NODE_ENV=development
-RUN NODE_ENV=development ./node_modules/.bin/next build
+# Run next build with full diagnostic output on failure.
+# This makes the actual build error visible in Coolify logs.
+RUN set -e; \
+    echo "=== Starting next build ==="; \
+    echo "Node: $(node --version), NPM: $(npm --version)"; \
+    echo "NODE_ENV=$NODE_ENV (will override to development for build)"; \
+    NODE_ENV=development ./node_modules/.bin/next build 2>&1 || { \
+      echo "=== BUILD FAILED — diagnostic info ==="; \
+      echo "--- next.config.js ---"; cat next.config.js 2>&1 || true; \
+      echo "--- node_modules/.bin sample ---"; ls node_modules/.bin/ 2>&1 | head -20 || true; \
+      echo "--- env NEXT_PUBLIC_* ---"; env | grep NEXT_PUBLIC || true; \
+      exit 1; \
+    }
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
