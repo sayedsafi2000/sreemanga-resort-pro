@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 
 type Props = {
   rooms: Room[];
+  variant?: 'light' | 'dark';
 };
 
 const CALENDAR_DAYS = 90;
@@ -22,10 +23,11 @@ const BANK_ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '1234
 const BANK_NAME = process.env.NEXT_PUBLIC_BANK_NAME || 'Dutch-Bangla Bank';
 const BANK_BRANCH = process.env.NEXT_PUBLIC_BANK_BRANCH || 'Sreemangal Branch';
 
-export default function BookingForm({ rooms }: Props) {
+export default function BookingForm({ rooms, variant = 'light' }: Props) {
   const router = useRouter();
   const sp = useSearchParams();
   const defaultRoom = sp.get('room') || '';
+  const isDark = variant === 'dark';
 
   const [roomId, setRoomId] = useState(defaultRoom || rooms[0]?.id || '');
   const [guestName, setGuestName] = useState('');
@@ -140,40 +142,63 @@ export default function BookingForm({ rooms }: Props) {
     }
   }
 
-  const glassField =
-    'rounded-2xl border border-white/50 bg-white/45 shadow-inner shadow-white/20 outline-none backdrop-blur-sm ring-forest-500/30 transition focus:border-forest-400/80 focus:bg-white/60 focus:ring-2';
+  const glassField = isDark
+    ? 'rounded-xl border border-forest-900/60 bg-[#0a130b] text-forest-100 shadow-inner outline-none ring-forest-500/40 transition placeholder:text-forest-700 focus:border-forest-600 focus:bg-[#0d1a0e] focus:ring-2'
+    : 'rounded-2xl border border-white/50 bg-white/45 shadow-inner shadow-white/20 outline-none backdrop-blur-sm ring-forest-500/30 transition focus:border-forest-400/80 focus:bg-white/60 focus:ring-2';
+
+  const labelClass = isDark
+    ? 'mb-2 flex items-center gap-2 text-sm font-semibold text-forest-200'
+    : 'mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700';
+
+  const iconClass = isDark ? 'h-4 w-4 text-forest-400' : 'h-4 w-4 text-forest-700';
+
+  const formClass = isDark
+    ? 'relative overflow-hidden border border-forest-900/60 bg-[#0a130b] p-6 shadow-[0_24px_80px_-28px_rgba(0,0,0,0.6)] sm:p-9'
+    : 'relative overflow-hidden rounded-[2rem] border border-white/55 bg-white/40 p-6 shadow-[0_24px_80px_-28px_rgba(27,94,32,0.18),inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-2xl sm:rounded-[2.25rem] sm:p-9';
 
   return (
     <form
       onSubmit={onSubmit}
-      className="relative overflow-hidden rounded-[2rem] border border-white/55 bg-white/40 p-6 shadow-[0_24px_80px_-28px_rgba(27,94,32,0.18),inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-2xl sm:rounded-[2.25rem] sm:p-9"
+      className={formClass}
     >
-      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-forest-400/18 blur-3xl" aria-hidden />
-      <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-forest-200/25 blur-3xl" aria-hidden />
+      {!isDark && (
+        <>
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-forest-400/18 blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-forest-200/25 blur-3xl" aria-hidden />
+        </>
+      )}
       <div className="relative z-[1]">
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="sm:col-span-2">
-          <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <BedDouble className="h-4 w-4 text-forest-700" />
+          <span className={labelClass}>
+            <BedDouble className={iconClass} />
             Room
           </span>
           <select
             required
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
-            className={cn('w-full px-4 py-3 text-stone-900', glassField)}
+            className={cn('w-full px-4 py-3', isDark ? 'text-forest-100' : 'text-stone-900', glassField)}
           >
             {rooms.map((r) => (
-              <option key={r.id} value={r.id}>
+              <option key={r.id} value={r.id} className={isDark ? 'bg-[#0a130b] text-forest-100' : ''}>
                 {r.name} — ${r.price.toLocaleString()}/night
               </option>
             ))}
           </select>
         </label>
 
-        <div className="sm:col-span-2 space-y-3 rounded-2xl border border-white/50 bg-white/35 p-4 shadow-inner backdrop-blur-sm">
-          <p className="text-sm font-semibold text-stone-700">Payment preference</p>
-          <div className="flex flex-wrap gap-4 text-sm">
+        <div className={cn(
+          'sm:col-span-2 space-y-3 p-4 shadow-inner',
+          isDark
+            ? 'border border-forest-900/60 bg-[#0d1a0e]'
+            : 'rounded-2xl border border-white/50 bg-white/35 backdrop-blur-sm'
+        )}>
+          <p className={cn(
+            'text-sm font-semibold',
+            isDark ? 'text-forest-200' : 'text-stone-700'
+          )}>Payment preference</p>
+          <div className={cn('flex flex-wrap gap-4 text-sm', isDark ? 'text-forest-200' : '')}>
             <label className="flex items-center gap-2">
               <input
                 type="radio"
@@ -195,9 +220,14 @@ export default function BookingForm({ rooms }: Props) {
           </div>
           {preferredPaymentTiming === 'INSTANT' && (
             <div className="space-y-2">
-              <p className="text-xs text-stone-500">Choose a payment method</p>
-              <div className="flex flex-wrap gap-3 text-sm">
-                <label className="flex items-center gap-2 rounded-full border px-3 py-1.5">
+              <p className={cn('text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>
+                Choose a payment method
+              </p>
+              <div className={cn('flex flex-wrap gap-3 text-sm', isDark ? 'text-forest-200' : '')}>
+                <label className={cn(
+                  'flex items-center gap-2 rounded-full px-3 py-1.5',
+                  isDark ? 'border border-forest-900/60 bg-[#0a130b]' : 'border'
+                )}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -206,7 +236,10 @@ export default function BookingForm({ rooms }: Props) {
                   />
                   <span>bKash</span>
                 </label>
-                <label className="flex items-center gap-2 rounded-full border px-3 py-1.5">
+                <label className={cn(
+                  'flex items-center gap-2 rounded-full px-3 py-1.5',
+                  isDark ? 'border border-forest-900/60 bg-[#0a130b]' : 'border'
+                )}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -216,35 +249,43 @@ export default function BookingForm({ rooms }: Props) {
                   <span>Bank Transfer</span>
                 </label>
               </div>
-              <div className="rounded-xl border border-forest-200/50 bg-forest-50/60 p-3 text-sm text-stone-700 backdrop-blur-sm">
+              <div className={cn(
+                'p-3 text-sm',
+                isDark
+                  ? 'border border-forest-900/60 bg-[#0a130b] text-forest-200'
+                  : 'rounded-xl border border-forest-200/50 bg-forest-50/60 text-stone-700 backdrop-blur-sm'
+              )}>
                 {preferredPaymentMethod === 'BKASH' ? (
                   <div className="space-y-1">
-                    <p className="font-semibold text-forest-800">Send via bKash Personal</p>
+                    <p className={cn('font-semibold', isDark ? 'text-forest-100' : 'text-forest-800')}>
+                      Send via bKash Personal
+                    </p>
                     <p>
                       Number: <span className="font-semibold">{BKASH_NUMBER}</span>
                     </p>
-                    <p className="text-xs text-stone-600">Send money, then submit your transaction ID below.</p>
+                    <p className={cn('text-xs', isDark ? 'text-forest-400' : 'text-stone-600')}>
+                      Send money, then submit your transaction ID below.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <p className="font-semibold text-forest-800">Send via Bank Transfer</p>
-                    <p>
-                      Bank: <span className="font-semibold">{BANK_NAME}</span>
+                    <p className={cn('font-semibold', isDark ? 'text-forest-100' : 'text-forest-800')}>
+                      Send via Bank Transfer
                     </p>
-                    <p>
-                      Branch: <span className="font-semibold">{BANK_BRANCH}</span>
-                    </p>
-                    <p>
-                      A/C Name: <span className="font-semibold">{BANK_ACCOUNT_NAME}</span>
-                    </p>
-                    <p>
-                      A/C Number: <span className="font-semibold">{BANK_ACCOUNT_NUMBER}</span>
-                    </p>
+                    <p>Bank: <span className="font-semibold">{BANK_NAME}</span></p>
+                    <p>Branch: <span className="font-semibold">{BANK_BRANCH}</span></p>
+                    <p>A/C Name: <span className="font-semibold">{BANK_ACCOUNT_NAME}</span></p>
+                    <p>A/C Number: <span className="font-semibold">{BANK_ACCOUNT_NUMBER}</span></p>
                   </div>
                 )}
               </div>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-stone-700">Transaction ID</span>
+                <span className={cn(
+                  'mb-2 block text-xs font-semibold',
+                  isDark ? 'text-forest-200' : 'text-stone-700'
+                )}>
+                  Transaction ID
+                </span>
                 <input
                   required={preferredPaymentTiming === 'INSTANT'}
                   value={paymentTransactionId}
@@ -254,7 +295,12 @@ export default function BookingForm({ rooms }: Props) {
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-stone-700">Transaction Screenshot (optional)</span>
+                <span className={cn(
+                  'mb-2 block text-xs font-semibold',
+                  isDark ? 'text-forest-200' : 'text-stone-700'
+                )}>
+                  Transaction Screenshot (optional)
+                </span>
                 <input
                   type="file"
                   accept="image/*"
@@ -263,7 +309,10 @@ export default function BookingForm({ rooms }: Props) {
                     void onProofUpload(file);
                   }}
                   className={cn(
-                    'w-full rounded-xl border border-dashed border-white/60 bg-white/40 px-3 py-2 text-xs text-stone-700 backdrop-blur-sm'
+                    'w-full px-3 py-2 text-xs',
+                    isDark
+                      ? 'rounded-xl border border-dashed border-forest-900/60 bg-[#0a130b] text-forest-300'
+                      : 'rounded-xl border border-dashed border-white/60 bg-white/40 text-stone-700 backdrop-blur-sm'
                   )}
                 />
                 {paymentProofImage && (
@@ -275,17 +324,28 @@ export default function BookingForm({ rooms }: Props) {
         </div>
 
         <div className="sm:col-span-2">
-          <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <CalendarDays className="h-4 w-4 text-forest-700" />
+          <span className={labelClass}>
+            <CalendarDays className={iconClass} />
             Stay dates
           </span>
-          <p className="mb-3 text-xs text-stone-500">
+          <p className={cn(
+            'mb-3 text-xs',
+            isDark ? 'text-forest-400' : 'text-stone-500'
+          )}>
             Select check-in and check-out. Booked days cannot be selected.
           </p>
           {calLoading ? (
-            <div className="h-64 animate-pulse rounded-2xl bg-stone-100" />
+            <div className={cn(
+              'h-64 animate-pulse',
+              isDark ? 'rounded-xl bg-[#0d1a0e]' : 'rounded-2xl bg-stone-100'
+            )} />
           ) : (
-            <div className="flex justify-center overflow-x-auto rounded-2xl border border-white/50 bg-white/35 p-3 shadow-inner backdrop-blur-sm">
+            <div className={cn(
+              'flex justify-center overflow-x-auto p-3 shadow-inner',
+              isDark
+                ? 'border border-forest-900/60 bg-[#0d1a0e]'
+                : 'rounded-2xl border border-white/50 bg-white/35 backdrop-blur-sm'
+            )}>
               <DayPicker
                 mode="range"
                 required={false}
@@ -295,7 +355,23 @@ export default function BookingForm({ rooms }: Props) {
                 numberOfMonths={1}
                 pagedNavigation
                 defaultMonth={todayStart}
-                classNames={{
+                classNames={isDark ? {
+                  month: 'space-y-3',
+                  caption: 'flex items-center justify-between px-2',
+                  caption_label: 'text-sm font-semibold text-forest-100',
+                  nav_button:
+                    'h-8 w-8 rounded-full border border-forest-900/60 bg-[#0a130b] text-forest-300 hover:bg-forest-900/40 hover:text-forest-100',
+                  table: 'w-full border-collapse',
+                  head_cell: 'text-[11px] font-semibold text-forest-500',
+                  cell: 'text-center text-sm',
+                  day: 'h-9 w-9 rounded-full text-forest-200 hover:bg-forest-900/40',
+                  day_selected: 'bg-forest-600 text-white hover:bg-forest-600',
+                  day_range_start: 'bg-forest-600 text-white',
+                  day_range_end: 'bg-forest-600 text-white',
+                  day_range_middle: 'bg-forest-900/50 text-forest-100',
+                  day_disabled: 'text-forest-800 line-through',
+                  day_today: 'ring-1 ring-forest-500',
+                } : {
                   month: 'space-y-3',
                   caption: 'flex items-center justify-between px-2',
                   caption_label: 'text-sm font-semibold text-stone-800',
@@ -318,8 +394,8 @@ export default function BookingForm({ rooms }: Props) {
         </div>
 
         <label>
-          <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <Users className="h-4 w-4 text-forest-700" />
+          <span className={labelClass}>
+            <Users className={iconClass} />
             Adults
           </span>
           <input
@@ -332,8 +408,8 @@ export default function BookingForm({ rooms }: Props) {
           />
         </label>
         <label>
-          <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <Users className="h-4 w-4 text-forest-700" />
+          <span className={labelClass}>
+            <Users className={iconClass} />
             Children
           </span>
           <input
@@ -347,8 +423,8 @@ export default function BookingForm({ rooms }: Props) {
         </label>
 
         <label className="sm:col-span-2">
-          <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <UserRound className="h-4 w-4 text-forest-700" />
+          <span className={labelClass}>
+            <UserRound className={iconClass} />
             Full name
           </span>
           <input
@@ -362,8 +438,8 @@ export default function BookingForm({ rooms }: Props) {
         </label>
 
         <label>
-          <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <Phone className="h-4 w-4 text-forest-700" />
+          <span className={labelClass}>
+            <Phone className={iconClass} />
             Phone
           </span>
           <input
@@ -376,8 +452,8 @@ export default function BookingForm({ rooms }: Props) {
           />
         </label>
         <label>
-          <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <Mail className="h-4 w-4 text-forest-700" />
+          <span className={labelClass}>
+            <Mail className={iconClass} />
             Email (optional)
           </span>
           <input
@@ -394,7 +470,10 @@ export default function BookingForm({ rooms }: Props) {
         type="submit"
         disabled={status === 'loading' || rooms.length === 0}
         className={cn(
-          'mt-8 w-full rounded-full border border-forest-600/40 bg-forest-700 py-4 font-semibold text-white shadow-lg shadow-forest-950/30 ring-1 ring-white/15 transition hover:bg-forest-800 hover:shadow-xl disabled:opacity-60'
+          'mt-8 w-full py-4 font-semibold transition disabled:opacity-60',
+          isDark
+            ? 'border border-forest-700 bg-forest-700 text-white hover:bg-forest-600'
+            : 'rounded-full border border-forest-600/40 bg-forest-700 text-white shadow-lg shadow-forest-950/30 ring-1 ring-white/15 hover:bg-forest-800 hover:shadow-xl'
         )}
       >
         {status === 'loading' ? 'Sending…' : 'Request booking'}
@@ -404,7 +483,9 @@ export default function BookingForm({ rooms }: Props) {
         <p
           className={cn(
             'mt-4 text-center text-sm',
-            status === 'ok' ? 'text-forest-800' : 'text-red-700'
+            status === 'ok'
+              ? isDark ? 'text-forest-300' : 'text-forest-800'
+              : isDark ? 'text-rose-400' : 'text-red-700'
           )}
           role="status"
         >
@@ -412,13 +493,29 @@ export default function BookingForm({ rooms }: Props) {
         </p>
       )}
 
-      <div className="mt-8 rounded-2xl border border-white/45 bg-forest-50/50 p-4 shadow-inner backdrop-blur-sm">
-        <h3 className="text-sm font-semibold text-stone-800">Availability preview</h3>
-        <p className="mt-1 text-xs text-stone-600">
+      <div className={cn(
+        'mt-8 p-4 shadow-inner',
+        isDark
+          ? 'border border-forest-900/60 bg-[#0a130b]'
+          : 'rounded-2xl border border-white/45 bg-forest-50/50 backdrop-blur-sm'
+      )}>
+        <h3 className={cn(
+          'text-sm font-semibold',
+          isDark ? 'text-forest-100' : 'text-stone-800'
+        )}>
+          Availability preview
+        </h3>
+        <p className={cn(
+          'mt-1 text-xs',
+          isDark ? 'text-forest-400' : 'text-stone-600'
+        )}>
           Green = free · Red = booked/pending (first 30 days shown)
         </p>
         {calLoading ? (
-          <div className="mt-3 h-14 animate-pulse rounded-xl bg-stone-100" />
+          <div className={cn(
+            'mt-3 h-14 animate-pulse',
+            isDark ? 'rounded-xl bg-[#0d1a0e]' : 'rounded-xl bg-stone-100'
+          )} />
         ) : calendar ? (
           <div className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-6">
             {calendar.availability.slice(0, 30).map((d) => (
@@ -427,8 +524,8 @@ export default function BookingForm({ rooms }: Props) {
                 className={cn(
                   'rounded-lg px-2 py-1.5 text-center text-xs font-medium',
                   d.status === 'FREE'
-                    ? 'bg-forest-100 text-forest-800'
-                    : 'bg-rose-100 text-rose-800'
+                    ? isDark ? 'bg-forest-900/60 text-forest-200' : 'bg-forest-100 text-forest-800'
+                    : isDark ? 'bg-rose-900/40 text-rose-300' : 'bg-rose-100 text-rose-800'
                 )}
                 title={d.bookingStatus ? `Booked (${d.bookingStatus})` : 'Free'}
               >
@@ -440,7 +537,12 @@ export default function BookingForm({ rooms }: Props) {
             ))}
           </div>
         ) : (
-          <p className="mt-3 text-xs text-stone-500">Availability unavailable right now.</p>
+          <p className={cn(
+            'mt-3 text-xs',
+            isDark ? 'text-forest-500' : 'text-stone-500'
+          )}>
+            Availability unavailable right now.
+          </p>
         )}
       </div>
       </div>

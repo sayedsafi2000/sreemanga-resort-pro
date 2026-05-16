@@ -32,15 +32,13 @@ export default async function BookingPage() {
               No rooms available to book online right now. Please call us.
             </p>
           ) : (
-            <div className="border border-forest-900/60 bg-[#0a130b] p-6 sm:p-8">
-              <Suspense
-                fallback={
-                  <div className="h-64 animate-pulse border border-forest-900/40 bg-forest-950/50" aria-hidden />
-                }
-              >
-                <BookingForm rooms={rooms} />
-              </Suspense>
-            </div>
+            <Suspense
+              fallback={
+                <div className="h-64 animate-pulse border border-forest-900/40 bg-forest-950/50" aria-hidden />
+              }
+            >
+              <BookingForm rooms={rooms} variant="dark" />
+            </Suspense>
           )}
         </div>
       </div>

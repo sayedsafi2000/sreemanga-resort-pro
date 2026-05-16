@@ -200,6 +200,23 @@ const Bookings: React.FC = () => {
   const getGuestName = (id: string) => guests.find((g: any) => g.id === id)?.name || id;
   const getGuestPhone = (b: any) => b.guest?.phone || guests.find((g: any) => g.id === b.guestId)?.phone || '-';
   const getGuestEmail = (b: any) => b.guest?.email || guests.find((g: any) => g.id === b.guestId)?.email || '-';
+
+  // Today's room status — which rooms are occupied right now and which are free.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const occupiedRoomIds = new Set<string>();
+  for (const b of bookings) {
+    if (b.status !== 'CHECKED_IN' && b.status !== 'CONFIRMED') continue;
+    const ci = new Date(b.checkInDate);
+    const co = new Date(b.checkOutDate);
+    ci.setHours(0, 0, 0, 0);
+    co.setHours(0, 0, 0, 0);
+    if (ci <= today && today < co) {
+      occupiedRoomIds.add(b.roomId);
+    }
+  }
+  const occupiedRooms = rooms.filter((r: any) => occupiedRoomIds.has(r.id));
+  const freeRooms = rooms.filter((r: any) => !occupiedRoomIds.has(r.id));
   const getPaymentPref = (b: any) => {
     if (!b.preferredPaymentTiming) return '—';
     if (b.preferredPaymentTiming === 'INSTANT') {
@@ -271,6 +288,70 @@ const Bookings: React.FC = () => {
 
       {tab === 'list' && (
       <>
+      {/* Today's room status — quick summary of which rooms are occupied vs free */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <Card className="border-emerald-200 bg-emerald-50/40">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+                  Free today
+                </p>
+                <p className="mt-1 text-2xl font-bold text-emerald-900">
+                  {freeRooms.length}
+                  <span className="ml-1 text-sm font-normal text-emerald-700">/ {rooms.length}</span>
+                </p>
+              </div>
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                ✓
+              </span>
+            </div>
+            {freeRooms.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {freeRooms.map((r: any) => (
+                  <span
+                    key={r.id}
+                    className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-0.5 text-xs font-medium text-emerald-800"
+                  >
+                    {r.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="border-rose-200 bg-rose-50/40">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-rose-700">
+                  Occupied today
+                </p>
+                <p className="mt-1 text-2xl font-bold text-rose-900">
+                  {occupiedRooms.length}
+                  <span className="ml-1 text-sm font-normal text-rose-700">/ {rooms.length}</span>
+                </p>
+              </div>
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                ●
+              </span>
+            </div>
+            {occupiedRooms.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {occupiedRooms.map((r: any) => (
+                  <span
+                    key={r.id}
+                    className="inline-flex items-center rounded-full border border-rose-200 bg-white px-2.5 py-0.5 text-xs font-medium text-rose-800"
+                  >
+                    {r.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Check-in from</Label>
