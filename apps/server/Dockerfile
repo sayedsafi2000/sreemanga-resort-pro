@@ -28,13 +28,13 @@ RUN NODE_ENV=development ./node_modules/.bin/tsc
 RUN npm install tsx --save-dev --no-save || true
 
 ENV NODE_ENV=production
-ENV PORT=80
+ENV PORT=3000
 RUN npm prune --omit=dev || true
 RUN npm install prisma@5.22.0 --no-save || true
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-EXPOSE 80
+EXPOSE 3000
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

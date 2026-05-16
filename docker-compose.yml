@@ -38,7 +38,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     expose:
-      - '80'
+      - '3000'
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://resort:resort@db:5432/resort_management?schema=public
