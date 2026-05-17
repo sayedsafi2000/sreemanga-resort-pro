@@ -182,7 +182,7 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
           >
             {rooms.map((r) => (
               <option key={r.id} value={r.id} className={isDark ? 'bg-[#0a130b] text-forest-100' : ''}>
-                {r.name} — ${r.price.toLocaleString()}/night
+                {r.name} — ৳{r.price.toLocaleString()}/night
               </option>
             ))}
           </select>
