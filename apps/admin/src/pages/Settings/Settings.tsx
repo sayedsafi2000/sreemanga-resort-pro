@@ -200,14 +200,15 @@ const Settings: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between sticky top-0 bg-background z-10 py-2">
+      <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
         <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="eyebrow mb-1">Configuration</p>
+          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
           <p className="text-sm text-muted-foreground">
             Public site copy, contact, social, testimonials, Bengali translations.
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button variant="ink" onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>

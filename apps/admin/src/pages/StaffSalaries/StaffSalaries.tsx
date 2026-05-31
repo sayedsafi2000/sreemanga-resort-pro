@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { DollarSign, Check, X, Loader2 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { InitialsAvatar } from '@/components/ui/avatar';
 
 type User = { id: string; name: string; role: string };
 type StaffWithSalary = {
@@ -190,64 +192,59 @@ export default function StaffSalaries() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Staff Salaries</h1>
-          <p className="text-sm text-muted-foreground">Manage monthly staff salary payments</p>
-        </div>
-        <div className="flex gap-2">
-          <Select value={String(year)} onValueChange={v => setYear(v)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[2024, 2025, 2026].map(y => (
-                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={String(month)} onValueChange={v => setMonth(v)}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((m, i) => (
-                <SelectItem key={i + 1} value={(i + 1).toString()}>{m}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Finance"
+        title="Staff Salaries"
+        description="Manage monthly staff salary payments and payroll runs."
+        actions={
+          <div className="flex gap-2">
+            <Select value={String(year)} onValueChange={v => setYear(v)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[2024, 2025, 2026].map(y => (
+                  <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={String(month)} onValueChange={v => setMonth(v)}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((m, i) => (
+                  <SelectItem key={i + 1} value={(i + 1).toString()}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Salary ({months[Number(month) - 1]} {year})</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳ {totalSalary.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Paid Staff</CardTitle>
-            <Check className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{paidCount} / {staff.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <X className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{staff.length - paidCount}</div>
-          </CardContent>
-        </Card>
+        <div className="card-base card-lift p-5 fade-up fade-up-1">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Total Salary ({months[Number(month) - 1]} {year})</p>
+            <span className="stat-blue stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><DollarSign className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-3xl font-bold tracking-tight value-pop">৳ {totalSalary.toLocaleString()}</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-2">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Paid Staff</p>
+            <span className="stat-green stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><Check className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-3xl font-bold tracking-tight value-pop">{paidCount} / {staff.length}</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-3">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Pending</p>
+            <span className="stat-rose stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><X className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-3xl font-bold tracking-tight value-pop">{staff.length - paidCount}</p>
+        </div>
       </div>
 
       {/* Staff List */}
@@ -301,7 +298,12 @@ export default function StaffSalaries() {
                         onChange={() => toggleSelected(s.user.id)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{s.user.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2.5">
+                        <InitialsAvatar name={s.user.name} className="h-8 w-8" />
+                        {s.user.name}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{ROLE_LABELS[s.user.role] || s.user.role}</Badge>
                     </TableCell>

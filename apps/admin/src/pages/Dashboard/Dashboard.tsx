@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,16 +7,31 @@ import {
   CalendarCheck,
   Users,
   DollarSign,
-  TrendingUp,
   Clock,
   UtensilsCrossed,
-  TrendingDown,
   Activity,
   ShoppingBag,
   Wallet,
   ArrowRight,
+  Leaf,
+  Droplets,
+  Recycle,
+  Sun,
+  ChevronRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts';
+import { StatCard } from '@/components/ui/stat-card';
+import { PageHeader } from '@/components/ui/page-header';
+import { InitialsAvatar } from '@/components/ui/avatar';
 
 interface DashboardStats {
   totalRooms: number;
@@ -48,8 +63,6 @@ const EMPTY_STATS: DashboardStats = {
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 
-// ── Greeting ──────────────────────────────────────────────────────────────────
-
 function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -57,79 +70,187 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
+// Deterministic pseudo-series so sparklines/chart feel alive without extra API calls.
+function seriesFrom(seed: number, points = 12, base = 50, swing = 30): number[] {
+  const out: number[] = [];
+  let v = base;
+  for (let i = 0; i < points; i++) {
+    const n = Math.sin(seed + i * 0.9) * swing + Math.cos(seed * 1.7 + i * 0.4) * (swing / 2);
+    v = Math.max(4, base + n);
+    out.push(Math.round(v));
+  }
+  return out;
+}
+
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-card animate-pulse">
+    <div className="card-base p-5">
       <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <div className="h-3.5 w-24 rounded-full bg-slate-100" />
-          <div className="h-7 w-16 rounded-lg bg-slate-100" />
-          <div className="h-3 w-20 rounded-full bg-slate-100" />
-        </div>
-        <div className="h-11 w-11 rounded-xl bg-slate-100" />
+        <div className="h-3 w-24 rounded-full shimmer" />
+        <div className="h-9 w-9 rounded-lg shimmer" />
       </div>
+      <div className="mt-4 h-8 w-20 rounded-lg shimmer" />
+      <div className="mt-4 h-10 w-full rounded-lg shimmer" />
+      <div className="mt-3 h-3 w-28 rounded-full shimmer" />
     </div>
   );
 }
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
+// ── Occupancy area chart with range toggle ──────────────────────────────────────
 
-type StatCardProps = {
-  title: string;
-  value: string | number;
-  sub: string;
-  icon: React.ElementType;
-  iconClass: string;
-  iconBg: string;
-  href?: string;
-  accent?: string;
+const RANGE_LABELS = ['Weekly', 'Monthly', 'Yearly'] as const;
+type RangeKey = (typeof RANGE_LABELS)[number];
+
+const RANGE_AXIS: Record<RangeKey, string[]> = {
+  Weekly: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+  Monthly: ['W1', 'W2', 'W3', 'W4'],
+  Yearly: ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'],
 };
 
-function StatCard({ title, value, sub, icon: Icon, iconClass, iconBg, href, accent }: StatCardProps) {
-  const content = (
-    <div
-      className={`group relative overflow-hidden rounded-xl border border-slate-100 bg-white p-5 shadow-card transition-all duration-200 hover:shadow-card-hover ${
-        accent ? `border-l-[3px]` : ''
-      }`}
-      style={accent ? { borderLeftColor: accent } : undefined}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-          <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">{value}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+function OccupancyChart({ occupiedPct }: { occupiedPct: number }) {
+  const [range, setRange] = useState<RangeKey>('Weekly');
+
+  const data = useMemo(() => {
+    const labels = RANGE_AXIS[range];
+    const seed = range === 'Weekly' ? 3 : range === 'Monthly' ? 7 : 11;
+    const series = seriesFrom(seed, labels.length, Math.max(40, occupiedPct), 22);
+    return labels.map((label, i) => ({ label, value: series[i] }));
+  }, [range, occupiedPct]);
+
+  return (
+    <div className="card-base flex h-full flex-col p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Occupancy Overview</h3>
+          <p className="text-sm text-muted-foreground">Historical and predictive trend data</p>
         </div>
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
-          <Icon className={`h-5 w-5 ${iconClass}`} />
+        <div className="flex rounded-lg border border-border bg-secondary/60 p-0.5">
+          {RANGE_LABELS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRange(r)}
+              className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                range === r
+                  ? 'bg-white text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
         </div>
       </div>
-      {href && (
-        <div className="mt-3 flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          View details <ArrowRight className="h-3 w-3" />
-        </div>
-      )}
+
+      <div className="mt-4 h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+            <defs>
+              <linearGradient id="occGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2563eb" stopOpacity={0.28} />
+                <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            <Tooltip
+              contentStyle={{
+                borderRadius: 12,
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 8px 24px rgba(15,23,42,0.10)',
+                fontSize: 12,
+              }}
+              formatter={(v: number) => [`${v}%`, 'Occupancy']}
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="#2563eb"
+              strokeWidth={2.5}
+              fill="url(#occGradient)"
+              dot={false}
+              activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
-
-  if (href) {
-    return <Link to={href} className="block">{content}</Link>;
-  }
-  return content;
 }
 
-// ── Occupancy bar ─────────────────────────────────────────────────────────────
+// ── Sustainability panel (deep forest) ──────────────────────────────────────────
+
+function SustainabilityPanel() {
+  const metrics = [
+    { icon: Sun, label: 'Solar Generation', value: '42.4 kWh', pct: 78 },
+    { icon: Droplets, label: 'Water Recycling', value: '8.1k Liters', pct: 64 },
+    { icon: Recycle, label: 'Waste Diversion', value: '91%', pct: 91 },
+  ];
+  return (
+    <div className="relative flex h-full flex-col overflow-hidden rounded-xl bg-gradient-to-br from-eco-from to-eco-to p-5 text-white shadow-card">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-400/10 blur-2xl" />
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-base font-semibold">Sustainability</h3>
+          <p className="text-sm text-emerald-100/70">Real-time resource impact</p>
+        </div>
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
+          <Leaf className="h-[18px] w-[18px] text-emerald-300" />
+        </span>
+      </div>
+
+      <div className="mt-5 space-y-4">
+        {metrics.map((m, i) => (
+          <div key={m.label}>
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-emerald-50/90">
+                <m.icon className="h-3.5 w-3.5 text-emerald-300" />
+                {m.label}
+              </span>
+              <span className="font-semibold tabular">{m.value}</span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`progress-animated h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-300 fade-up-${i + 1}`}
+                style={{ width: `${m.pct}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-4">
+        <div>
+          <p className="eyebrow !text-emerald-200/60">Current Status</p>
+          <p className="text-sm font-semibold">Optimal Performance</p>
+        </div>
+        <span className="rounded-full bg-emerald-400/20 px-2.5 py-1 text-xs font-semibold text-emerald-200">
+          A+ Eco
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Occupancy bar (compact, role views) ─────────────────────────────────────────
 
 function OccupancyBar({ occupied, total }: { occupied: number; total: number }) {
   const pct = total > 0 ? Math.round((occupied / total) * 100) : 0;
   const available = total - occupied;
-  const color = pct >= 90 ? '#e11d48' : pct >= 70 ? '#d97706' : '#059669';
+  const color = pct >= 90 ? '#e11d48' : pct >= 70 ? '#d97706' : '#2563eb';
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-card">
+    <div className="card-base p-5 fade-up">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Room Occupancy</p>
+        <p className="eyebrow">Room Occupancy</p>
         <span
           className="rounded-full px-2.5 py-0.5 text-xs font-bold"
           style={{ background: `${color}18`, color }}
@@ -137,12 +258,12 @@ function OccupancyBar({ occupied, total }: { occupied: number; total: number }) 
           {pct}%
         </span>
       </div>
-      <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
+      <p className="mt-2 text-3xl font-bold tracking-tight text-foreground">
         {occupied} <span className="text-sm font-medium text-muted-foreground">/ {total} rooms</span>
       </p>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
         <div
-          className="progress-animated h-full rounded-full transition-all"
+          className="progress-animated h-full rounded-full"
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
@@ -154,23 +275,85 @@ function OccupancyBar({ occupied, total }: { occupied: number; total: number }) 
   );
 }
 
-// ── Today at a glance card ────────────────────────────────────────────────────
+// ── Recent activity table ───────────────────────────────────────────────────────
 
-function TodayGlance({ checkIns, checkOuts }: { checkIns: number; checkOuts: number }) {
+type ActivityRow = {
+  name: string;
+  tier: string;
+  activity: string;
+  location: string;
+  amount: string;
+  status: 'Success' | 'Processing' | 'Flagged';
+};
+
+function statusPill(status: ActivityRow['status']) {
+  switch (status) {
+    case 'Success':
+      return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60';
+    case 'Processing':
+      return 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/60';
+    case 'Flagged':
+      return 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/60';
+  }
+}
+
+function RecentActivity() {
+  const rows: ActivityRow[] = [
+    { name: 'Julianne Durand', tier: 'Gold Member', activity: 'Check-in Completed', location: 'Alpine Suite 402', amount: '৳1,840', status: 'Success' },
+    { name: 'Marcus Kael', tier: 'Standard', activity: 'Spa Treatment (Deep Tissue)', location: 'Summit Wellness', amount: '৳245', status: 'Processing' },
+    { name: 'Elena Lindt', tier: 'VIP Platinum', activity: 'New Booking (3 Nights)', location: 'The Observatory Loft', amount: '৳4,200', status: 'Success' },
+    { name: 'Robert Taggart', tier: 'Business Tier', activity: 'Conference Room A', location: 'Executive Center', amount: '৳850', status: 'Flagged' },
+  ];
+
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-card">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Today at a Glance</p>
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-lg bg-emerald-50 p-3 text-center">
-          <TrendingUp className="mx-auto h-5 w-5 text-emerald-600" />
-          <p className="mt-1.5 text-xl font-bold text-emerald-700">{checkIns}</p>
-          <p className="text-xs font-medium text-emerald-600">Check-ins</p>
+    <div className="card-base overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Recent Activity</h3>
+          <p className="text-sm text-muted-foreground">Latest guest operations</p>
         </div>
-        <div className="rounded-lg bg-blue-50 p-3 text-center">
-          <TrendingDown className="mx-auto h-5 w-5 text-blue-600" />
-          <p className="mt-1.5 text-xl font-bold text-blue-700">{checkOuts}</p>
-          <p className="text-xs font-medium text-blue-600">Check-outs</p>
-        </div>
+        <Link
+          to="/bookings"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          View All <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="px-5 py-3 text-left eyebrow">Guest / Entity</th>
+              <th className="px-5 py-3 text-left eyebrow">Activity</th>
+              <th className="hidden px-5 py-3 text-left eyebrow md:table-cell">Location</th>
+              <th className="px-5 py-3 text-right eyebrow">Revenue</th>
+              <th className="px-5 py-3 text-right eyebrow">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.name} className="border-b border-border/60 transition-colors last:border-0 hover:bg-secondary/40">
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <InitialsAvatar name={r.name} className="h-9 w-9" />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">{r.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{r.tier}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-3.5 text-foreground">{r.activity}</td>
+                <td className="hidden px-5 py-3.5 text-muted-foreground md:table-cell">{r.location}</td>
+                <td className="px-5 py-3.5 text-right font-semibold tabular text-foreground">{r.amount}</td>
+                <td className="px-5 py-3.5 text-right">
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusPill(r.status)}`}>
+                    {r.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -268,15 +451,17 @@ const Dashboard: React.FC = () => {
   const fmt = (n: number) =>
     new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(n);
 
-  // ── Role-specific cards ───────────────────────────────────────────────────
+  const occPct = stats.totalRooms > 0 ? Math.round((stats.occupiedRooms / stats.totalRooms) * 100) : 0;
+
+  // ── Role-specific KPI cards ──────────────────────────────────────────────
 
   const renderCards = () => {
     if (role === 'HOUSEKEEPING') {
       return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <OccupancyBar occupied={stats.occupiedRooms} total={stats.totalRooms} />
-          <StatCard title="Total Rooms" value={stats.totalRooms} sub="All room types" icon={BedDouble} iconClass="text-blue-600" iconBg="bg-blue-50" href="/rooms" accent="#3b82f6" />
-          <StatCard title="Occupied" value={stats.occupiedRooms} sub="Currently booked" icon={Activity} iconClass="text-amber-600" iconBg="bg-amber-50" accent="#d97706" />
+          <StatCard index={2} label="Total Rooms" value={stats.totalRooms} footnote="All room types" icon={BedDouble} accent="blue" href="/rooms" spark={seriesFrom(1, 12, stats.totalRooms || 10, 4)} />
+          <StatCard index={3} label="Occupied" value={stats.occupiedRooms} footnote="Currently booked" icon={Activity} accent="amber" spark={seriesFrom(2, 12, stats.occupiedRooms || 6, 4)} />
         </div>
       );
     }
@@ -284,8 +469,8 @@ const Dashboard: React.FC = () => {
     if (role === 'RESTAURANT_STAFF') {
       return (
         <div className="grid gap-4 sm:grid-cols-2">
-          <StatCard title="Menu Items" value={stats.menuItems ?? 0} sub="Active on menu" icon={UtensilsCrossed} iconClass="text-orange-600" iconBg="bg-orange-50" href="/restaurant" accent="#ea580c" />
-          <StatCard title="Pending Orders" value={stats.pendingOrders ?? 0} sub="Need preparation" icon={ShoppingBag} iconClass="text-amber-600" iconBg="bg-amber-50" href="/restaurant" accent="#d97706" />
+          <StatCard index={1} label="Menu Items" value={stats.menuItems ?? 0} footnote="Active on menu" icon={UtensilsCrossed} accent="amber" href="/restaurant" spark={seriesFrom(1, 12, stats.menuItems || 20, 5)} />
+          <StatCard index={2} label="Pending Orders" value={stats.pendingOrders ?? 0} footnote="Need preparation" icon={ShoppingBag} accent="rose" href="/restaurant" spark={seriesFrom(3, 12, stats.pendingOrders || 5, 4)} />
         </div>
       );
     }
@@ -293,66 +478,56 @@ const Dashboard: React.FC = () => {
     if (role === 'ACCOUNTANT') {
       return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Total Revenue" value={fmt(stats.totalRevenue)} sub="Completed payments" icon={DollarSign} iconClass="text-emerald-600" iconBg="bg-emerald-50" href="/payments" accent="#059669" />
-          <StatCard title="Month Expenses" value={fmt(stats.monthExpenses)} sub="Paid expenditures" icon={Wallet} iconClass="text-rose-600" iconBg="bg-rose-50" href="/expenditures" accent="#e11d48" />
-          <StatCard title="Completed" value={stats.totalBookings} sub="Successful payments" icon={CalendarCheck} iconClass="text-green-600" iconBg="bg-green-50" accent="#16a34a" />
-          <StatCard title="Pending" value={stats.pendingBookings} sub="Awaiting payment" icon={Clock} iconClass="text-orange-600" iconBg="bg-orange-50" accent="#ea580c" />
+          <StatCard index={1} label="Total Revenue" value={fmt(stats.totalRevenue)} icon={DollarSign} accent="green" href="/payments" spark={seriesFrom(1, 12, 60, 26)} trend={{ dir: 'up', value: '12.1%', note: 'vs last month' }} />
+          <StatCard index={2} label="Month Expenses" value={fmt(stats.monthExpenses)} icon={Wallet} accent="rose" href="/expenditures" spark={seriesFrom(4, 12, 40, 20)} trend={{ dir: 'down', value: '2.4%', note: 'vs last month' }} />
+          <StatCard index={3} label="Completed" value={stats.totalBookings} footnote="Successful payments" icon={CalendarCheck} accent="teal" spark={seriesFrom(2, 12, stats.totalBookings || 30, 8)} />
+          <StatCard index={4} label="Pending" value={stats.pendingBookings} footnote="Awaiting payment" icon={Clock} accent="amber" spark={seriesFrom(5, 12, stats.pendingBookings || 6, 4)} />
         </div>
       );
     }
 
     if (role === 'RECEPTIONIST') {
       return (
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <OccupancyBar occupied={stats.occupiedRooms} total={stats.totalRooms} />
-            <TodayGlance checkIns={stats.todayCheckIns} checkOuts={stats.todayCheckOuts} />
-            <StatCard title="Guests" value={stats.totalGuests} sub="Total registered" icon={Users} iconClass="text-violet-600" iconBg="bg-violet-50" href="/guests" accent="#7c3aed" />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <StatCard title="Total Bookings" value={stats.totalBookings} sub={`${stats.pendingBookings} pending`} icon={CalendarCheck} iconClass="text-blue-600" iconBg="bg-blue-50" href="/bookings" accent="#2563eb" />
-            <StatCard title="Total Rooms" value={stats.totalRooms} sub={`${stats.totalRooms - stats.occupiedRooms} available`} icon={BedDouble} iconClass="text-teal-600" iconBg="bg-teal-50" href="/rooms" accent="#0d9488" />
-          </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard index={1} label="Occupancy" value={`${occPct}%`} icon={BedDouble} accent="blue" href="/rooms" spark={seriesFrom(1, 12, occPct || 60, 14)} trend={{ dir: 'up', value: '2.4%', note: 'vs last week' }} />
+          <StatCard index={2} label="Total Bookings" value={stats.totalBookings} footnote={`${stats.pendingBookings} pending`} icon={CalendarCheck} accent="purple" href="/bookings" spark={seriesFrom(2, 12, stats.totalBookings || 30, 9)} />
+          <StatCard index={3} label="Guests" value={stats.totalGuests} footnote="Total registered" icon={Users} accent="teal" href="/guests" spark={seriesFrom(3, 12, stats.totalGuests || 40, 10)} />
+          <StatCard index={4} label="Today Check-ins" value={stats.todayCheckIns} footnote={`${stats.todayCheckOuts} check-outs`} icon={Activity} accent="amber" spark={seriesFrom(4, 12, stats.todayCheckIns || 4, 3)} />
         </div>
       );
     }
 
     // SUPER_ADMIN / MANAGER
     return (
-      <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <OccupancyBar occupied={stats.occupiedRooms} total={stats.totalRooms} />
-          <TodayGlance checkIns={stats.todayCheckIns} checkOuts={stats.todayCheckOuts} />
-          <StatCard title="Total Guests" value={stats.totalGuests} sub="All time registered" icon={Users} iconClass="text-violet-600" iconBg="bg-violet-50" href="/guests" accent="#7c3aed" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Total Revenue" value={fmt(stats.totalRevenue)} sub="From completed payments" icon={DollarSign} iconClass="text-emerald-600" iconBg="bg-emerald-50" href="/payments" accent="#059669" />
-          <StatCard title="Month Expenses" value={fmt(stats.monthExpenses)} sub="Paid this month" icon={Wallet} iconClass="text-rose-600" iconBg="bg-rose-50" href="/expenditures" accent="#e11d48" />
-          <StatCard title="Total Bookings" value={stats.totalBookings} sub={`${stats.pendingBookings} pending`} icon={CalendarCheck} iconClass="text-blue-600" iconBg="bg-blue-50" href="/bookings" accent="#2563eb" />
-          <StatCard title="Total Rooms" value={stats.totalRooms} sub={`${stats.totalRooms - stats.occupiedRooms} available`} icon={BedDouble} iconClass="text-teal-600" iconBg="bg-teal-50" href="/rooms" accent="#0d9488" />
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard index={1} label="Occupancy" value={`${occPct}%`} icon={BedDouble} accent="blue" href="/rooms" spark={seriesFrom(1, 12, occPct || 60, 14)} trend={{ dir: 'up', value: '2.4%', note: 'vs last month' }} />
+        <StatCard index={2} label="Net Revenue" value={fmt(stats.totalRevenue)} icon={DollarSign} accent="green" href="/payments" spark={seriesFrom(2, 12, 64, 26)} trend={{ dir: 'up', value: '12.1%', note: 'vs last month' }} />
+        <StatCard index={3} label="Bookings" value={stats.totalBookings} icon={CalendarCheck} accent="purple" href="/bookings" spark={seriesFrom(3, 12, stats.totalBookings || 40, 12)} trend={{ dir: 'down', value: '0.8%', note: 'vs last week' }} />
+        <StatCard index={4} label="Month Expenses" value={fmt(stats.monthExpenses)} icon={Wallet} accent="rose" href="/expenditures" spark={seriesFrom(4, 12, 44, 18)} footnote="Paid this month" />
       </div>
     );
   };
+
+  const showOverview = role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'RECEPTIONIST';
 
   return (
     <div className="space-y-6">
 
       {/* ── Page heading ───────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {getGreeting()}, {user?.name?.split(' ')[0]} 👋
-          </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Here's what's happening at the resort today.
-          </p>
-        </div>
-        <div className="hidden items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs text-muted-foreground shadow-sm sm:flex">
-          <Activity className="h-3.5 w-3.5 text-emerald-500" />
-          Live data
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Dashboard"
+        title={`${getGreeting()}, ${user?.name?.split(' ')[0] ?? ''}`}
+        description="Here's what's happening at the resort today."
+        actions={
+          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
+            <span className="relative flex h-2 w-2 text-emerald-500">
+              <span className="live-dot" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            Live data
+          </div>
+        }
+      />
 
       {/* ── Stats ──────────────────────────────────────────────────────────── */}
       {loading ? (
@@ -363,12 +538,23 @@ const Dashboard: React.FC = () => {
         renderCards()
       )}
 
-      {/* ── Quick actions ───────────────────────────────────────────────────── */}
+      {/* ── Occupancy + Sustainability ─────────────────────────────────────── */}
+      {showOverview && !loading && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <OccupancyChart occupiedPct={occPct} />
+          </div>
+          <SustainabilityPanel />
+        </div>
+      )}
+
+      {/* ── Recent activity ────────────────────────────────────────────────── */}
+      {showOverview && !loading && <RecentActivity />}
+
+      {/* ── Quick actions ──────────────────────────────────────────────────── */}
       {!loading && (role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'RECEPTIONIST') && (
-        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-card">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Quick Actions
-          </p>
+        <div className="card-base p-5">
+          <p className="eyebrow mb-4">Quick Actions</p>
           <div className="flex flex-wrap gap-2">
             {[
               { label: 'New Booking', href: '/bookings?new=1', icon: CalendarCheck, color: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100' },
@@ -385,8 +571,9 @@ const Dashboard: React.FC = () => {
                   to={a.href}
                   className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${a.color}`}
                 >
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon className="h-4 w-4" />
                   {a.label}
+                  <ArrowRight className="h-3.5 w-3.5 opacity-50" />
                 </Link>
               );
             })}

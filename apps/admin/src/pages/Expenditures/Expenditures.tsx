@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { PageHeader } from '@/components/ui/page-header';
 import {
   Plus,
   Search,
@@ -780,26 +781,25 @@ export default function Expenditures() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold">Expenditures</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Track expenses and schedule upcoming payments
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {overdueCount > 0 && (
-            <Badge variant="destructive" className="gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {overdueCount} overdue
-            </Badge>
-          )}
-          <Button variant="outline" size="sm" onClick={() => setOpenCategoryManager(true)}>
-            <Settings2 className="mr-2 h-4 w-4" />
-            Manage Categories
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Finance"
+        title="Financial Operations"
+        description="Track expenses and schedule upcoming payments."
+        actions={
+          <>
+            {overdueCount > 0 && (
+              <Badge variant="destructive" className="gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {overdueCount} overdue
+              </Badge>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setOpenCategoryManager(true)}>
+              <Settings2 className="mr-2 h-4 w-4" />
+              Manage Categories
+            </Button>
+          </>
+        }
+      />
 
       {loadError && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -836,47 +836,39 @@ export default function Expenditures() {
       {tab === 'overview' && (
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Today's Expense</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats?.todayTotal || 0)}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">This Month</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats?.monthTotal || 0)}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Pending Bills</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{activePendingPayments.length}</div>
-                {overdueCount > 0 && (
-                  <p className="text-xs text-red-600 mt-0.5">{overdueCount} overdue</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(activePendingPayments.reduce((s, p) => s + p.amount, 0))}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="card-base card-lift p-5 fade-up fade-up-1">
+              <div className="flex items-start justify-between">
+                <p className="eyebrow">Today's Expense</p>
+                <span className="stat-blue stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><TrendingUp className="h-[18px] w-[18px]" /></span>
+              </div>
+              <p className="mt-3 text-3xl font-bold tracking-tight value-pop">{formatCurrency(stats?.todayTotal || 0)}</p>
+            </div>
+            <div className="card-base card-lift p-5 fade-up fade-up-2">
+              <div className="flex items-start justify-between">
+                <p className="eyebrow">This Month</p>
+                <span className="stat-purple stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><Calendar className="h-[18px] w-[18px]" /></span>
+              </div>
+              <p className="mt-3 text-3xl font-bold tracking-tight value-pop">{formatCurrency(stats?.monthTotal || 0)}</p>
+            </div>
+            <div className="card-base card-lift p-5 fade-up fade-up-3">
+              <div className="flex items-start justify-between">
+                <p className="eyebrow">Pending Bills</p>
+                <span className="stat-amber stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><Clock className="h-[18px] w-[18px]" /></span>
+              </div>
+              <p className="mt-3 text-3xl font-bold tracking-tight value-pop">{activePendingPayments.length}</p>
+              {overdueCount > 0 && (
+                <p className="mt-1 text-xs text-red-600">{overdueCount} overdue</p>
+              )}
+            </div>
+            <div className="card-base card-lift p-5 fade-up fade-up-4">
+              <div className="flex items-start justify-between">
+                <p className="eyebrow">Pending Amount</p>
+                <span className="stat-rose stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><DollarSign className="h-[18px] w-[18px]" /></span>
+              </div>
+              <p className="mt-3 text-3xl font-bold tracking-tight value-pop">
+                {formatCurrency(activePendingPayments.reduce((s, p) => s + p.amount, 0))}
+              </p>
+            </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -996,7 +988,7 @@ export default function Expenditures() {
               >
                 Export CSV
               </Button>
-              <Button onClick={() => { setEditingExpense(null); setExpenseForm({ ...DEFAULT_EXPENSE_FORM }); setExpenseMetadata({}); setOpenExpense(true); }}>
+              <Button onClick={() => { setEditingExpense(null); setExpenseForm({ ...DEFAULT_EXPENSE_FORM }); setExpenseMetadata({}); setOpenExpense(true); }} variant="ink">
                 <Plus className="mr-2 h-4 w-4" /> Add Expense
               </Button>
             </div>

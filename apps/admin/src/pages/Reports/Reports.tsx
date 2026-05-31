@@ -21,7 +21,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, DollarSign, Wallet, TrendingUp, TrendingDown, BedDouble, CalendarCheck } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 type RevenueResp = {
   totalRevenue?: number;
@@ -174,96 +175,84 @@ const Reports: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Reports</h1>
-          <p className="text-sm text-muted-foreground">
-            Revenue, occupancy, and booking stats over the selected date range.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs">From</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-40"
-            />
+      <PageHeader
+        eyebrow="Analytics"
+        title="Reports"
+        description="Revenue, occupancy, and booking stats over the selected date range."
+        actions={
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">From</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">To</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <Button variant="outline" onClick={fetchAll} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">To</Label>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-40"
-            />
-          </div>
-          <Button variant="outline" onClick={fetchAll} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Headline cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total revenue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{fmtCurrency(totalRevenueValue)}</p>
-            <p className="text-xs text-muted-foreground">
-              {rev?.totalBookings ?? 0} paying bookings
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total expenses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{fmtCurrency(totalExpenseValue)}</p>
-            <p className="text-xs text-muted-foreground">
-              {expenses?.totalCount ?? 0} expense rows (PAID)
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Net profit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${netProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-              {fmtCurrency(netProfit)}
-            </p>
-            <p className="text-xs text-muted-foreground">Revenue − expenses</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Occupancy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{(occ?.occupancyRate ?? 0).toFixed(1)}%</p>
-            <p className="text-xs text-muted-foreground">
-              {occ?.occupiedRoomNights ?? 0} of {occ?.totalRoomNights ?? 0} room-nights
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total bookings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{bookings?.totalBookings ?? 0}</p>
-            <p className="text-xs text-muted-foreground">
-              {bookings?.cancelledBookings ?? 0} cancelled
-            </p>
-          </CardContent>
-        </Card>
+        <div className="card-base card-lift p-5 fade-up fade-up-1">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Total revenue</p>
+            <span className="stat-green stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><DollarSign className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight value-pop">{fmtCurrency(totalRevenueValue)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{rev?.totalBookings ?? 0} paying bookings</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-2">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Total expenses</p>
+            <span className="stat-rose stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><Wallet className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight value-pop">{fmtCurrency(totalExpenseValue)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{expenses?.totalCount ?? 0} expense rows (PAID)</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-3">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Net profit</p>
+            <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${netProfit < 0 ? 'stat-rose' : 'stat-green'} stat-icon-bg`}>
+              {netProfit < 0 ? <TrendingDown className="h-[18px] w-[18px]" /> : <TrendingUp className="h-[18px] w-[18px]" />}
+            </span>
+          </div>
+          <p className={`mt-3 text-2xl font-bold tracking-tight value-pop ${netProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+            {fmtCurrency(netProfit)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">Revenue − expenses</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-4">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Occupancy</p>
+            <span className="stat-blue stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><BedDouble className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight value-pop">{(occ?.occupancyRate ?? 0).toFixed(1)}%</p>
+          <p className="mt-1 text-xs text-muted-foreground">{occ?.occupiedRoomNights ?? 0} of {occ?.totalRoomNights ?? 0} room-nights</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-5">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Total bookings</p>
+            <span className="stat-purple stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><CalendarCheck className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight value-pop">{bookings?.totalBookings ?? 0}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{bookings?.cancelledBookings ?? 0} cancelled</p>
+        </div>
       </div>
 
       {/* Booking stats breakdown */}

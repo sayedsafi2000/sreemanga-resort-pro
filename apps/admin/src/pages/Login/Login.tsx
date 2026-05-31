@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Hotel, Loader2, UserPlus } from 'lucide-react';
+import { Mountain, Loader2, UserPlus } from 'lucide-react';
 
 const REMEMBER_KEY = 'resort_admin_remember_email';
 
@@ -96,22 +96,22 @@ const Login: React.FC = () => {
     : undefined;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-100 to-teal-200">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.18),transparent_38%),radial-gradient(circle_at_80%_15%,rgba(20,184,166,0.14),transparent_36%),radial-gradient(circle_at_50%_80%,rgba(5,150,105,0.18),transparent_42%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(37,99,235,0.22),transparent_40%),radial-gradient(circle_at_80%_15%,rgba(79,70,229,0.16),transparent_38%),radial-gradient(circle_at_50%_85%,rgba(37,99,235,0.18),transparent_44%)]" />
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-md rounded-2xl border-emerald-200/60 bg-white/85 text-card-foreground shadow-[0_20px_80px_rgba(6,95,70,0.2)] backdrop-blur-md">
+        <Card className="w-full max-w-md rounded-2xl border-white/10 bg-white/95 text-card-foreground shadow-[0_24px_80px_rgba(2,6,23,0.5)] backdrop-blur-md">
           <CardHeader className="space-y-4 pb-4 text-center">
-            <div className="mx-auto inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium tracking-wide text-emerald-700">
+            <div className="mx-auto inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium tracking-wide text-blue-700">
               {mode === 'login' ? 'Welcome back' : 'Create account'}
             </div>
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600/10 ring-1 ring-emerald-500/20">
-              {mode === 'login' ? <Hotel className="h-9 w-9 text-emerald-700" /> : <UserPlus className="h-9 w-9 text-emerald-700" />}
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/30">
+              {mode === 'login' ? <Mountain className="h-9 w-9 text-white" /> : <UserPlus className="h-9 w-9 text-white" />}
             </div>
             <div className="space-y-1">
-              <CardTitle className="text-3xl font-bold tracking-tight text-emerald-900">
+              <CardTitle className="text-3xl font-bold tracking-tight text-slate-900">
                 {mode === 'login' ? 'Resort Admin' : 'Register'}
               </CardTitle>
-              <CardDescription className="text-sm text-emerald-700/80">
+              <CardDescription className="text-sm text-slate-500">
                 {mode === 'login' ? 'Sign in to manage your resort operations' : 'Create a new admin account'}
               </CardDescription>
             </div>
@@ -125,7 +125,7 @@ const Login: React.FC = () => {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium text-emerald-900">Email address</Label>
+                  <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email address</Label>
                   <Input
                     id="email"
                     type="email"
@@ -133,11 +133,11 @@ const Login: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="h-11 rounded-xl"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-medium text-emerald-900">Password</Label>
+                  <Label htmlFor="password" className="text-sm font-medium text-slate-700">Password</Label>
                   <Input
                     id="password"
                     type="password"
@@ -145,7 +145,7 @@ const Login: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="h-11 rounded-xl"
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -154,31 +154,31 @@ const Login: React.FC = () => {
                       type="checkbox"
                       checked={remember}
                       onChange={(e) => setRemember(e.target.checked)}
-                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                      className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
                     />
-                    <span className="text-emerald-800/80">Remember me</span>
+                    <span className="text-slate-600">Remember me</span>
                   </label>
                   {supportMailto ? (
-                    <a href={supportMailto} className="text-sm text-emerald-700 hover:text-emerald-900 hover:underline">
+                    <a href={supportMailto} className="text-sm text-primary hover:text-blue-700 hover:underline">
                       Forgot password?
                     </a>
                   ) : (
-                    <span className="text-sm text-emerald-700/50 cursor-not-allowed" title="Support email not configured yet">
+                    <span className="text-sm text-slate-400 cursor-not-allowed" title="Support email not configured yet">
                       Forgot password?
                     </span>
                   )}
                 </div>
                 <Button
                   type="submit"
-                  className="h-11 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition hover:from-emerald-700 hover:to-teal-700"
+                  className="h-11 w-full rounded-xl text-base font-semibold"
                   disabled={loading}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign In
                 </Button>
-                <p className="text-center text-sm text-emerald-800/80">
+                <p className="text-center text-sm text-slate-500">
                   Don't have an account?{' '}
-                  <button type="button" onClick={() => { setMode('register'); setError(''); }} className="font-medium text-emerald-700 hover:text-emerald-900 hover:underline">
+                  <button type="button" onClick={() => { setMode('register'); setError(''); }} className="font-medium text-primary hover:text-blue-700 hover:underline">
                     Register here
                   </button>
                 </p>
@@ -191,7 +191,7 @@ const Login: React.FC = () => {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium text-emerald-900">Full Name</Label>
+                  <Label htmlFor="name" className="text-sm font-medium text-slate-700">Full Name</Label>
                   <Input
                     id="name"
                     type="text"
@@ -199,11 +199,11 @@ const Login: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="h-11 rounded-xl"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="regEmail" className="text-sm font-medium text-emerald-900">Email address</Label>
+                  <Label htmlFor="regEmail" className="text-sm font-medium text-slate-700">Email address</Label>
                   <Input
                     id="regEmail"
                     type="email"
@@ -211,11 +211,11 @@ const Login: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="h-11 rounded-xl"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="regPassword" className="text-sm font-medium text-emerald-900">Password</Label>
+                  <Label htmlFor="regPassword" className="text-sm font-medium text-slate-700">Password</Label>
                   <Input
                     id="regPassword"
                     type="password"
@@ -223,17 +223,17 @@ const Login: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="h-11 rounded-xl border-transparent bg-white/95 shadow-sm placeholder:text-emerald-900/40 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="h-11 rounded-xl"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role" className="text-sm font-medium text-emerald-900">Role</Label>
+                  <Label htmlFor="role" className="text-sm font-medium text-slate-700">Role</Label>
                   <select
                     id="role"
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
                     required
-                    className="h-11 w-full rounded-xl border-transparent bg-white/95 px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="h-11 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm shadow-inner-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
                   >
                     {ROLES.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -242,15 +242,15 @@ const Login: React.FC = () => {
                 </div>
                 <Button
                   type="submit"
-                  className="h-11 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition hover:from-emerald-700 hover:to-teal-700"
+                  className="h-11 w-full rounded-xl text-base font-semibold"
                   disabled={loading}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Register
                 </Button>
-                <p className="text-center text-sm text-emerald-800/80">
+                <p className="text-center text-sm text-slate-500">
                   Already have an account?{' '}
-                  <button type="button" onClick={() => { setMode('login'); setError(''); }} className="font-medium text-emerald-700 hover:text-emerald-900 hover:underline">
+                  <button type="button" onClick={() => { setMode('login'); setError(''); }} className="font-medium text-primary hover:text-blue-700 hover:underline">
                     Login here
                   </button>
                 </p>

@@ -9,6 +9,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
         // ── Semantic tokens (map to CSS vars) ──────────────────────────────
@@ -25,6 +26,10 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+        },
+        ink: {
+          DEFAULT: "hsl(var(--ink))",
+          foreground: "hsl(var(--ink-foreground))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -49,11 +54,18 @@ const config: Config = {
         // ── Sidebar-specific tokens ─────────────────────────────────────
         sidebar: {
           bg: "hsl(var(--sidebar-bg))",
+          accent: "hsl(var(--sidebar-bg-accent))",
           text: "hsl(var(--sidebar-text))",
           "text-active": "hsl(var(--sidebar-text-active))",
           "item-active": "hsl(var(--sidebar-item-active-bg))",
           "item-hover": "hsl(var(--sidebar-item-hover-bg))",
           border: "hsl(var(--sidebar-border))",
+        },
+
+        // ── Eco / sustainability panel ──────────────────────────────────
+        eco: {
+          from: "hsl(var(--eco-from))",
+          to: "hsl(var(--eco-to))",
         },
       },
 
@@ -90,12 +102,17 @@ const config: Config = {
           from: { opacity: "0", transform: "translateX(-8px)" },
           to: { opacity: "1", transform: "translateX(0)" },
         },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.18s ease both",
         "slide-in-left": "slide-in-left 0.18s ease both",
+        "fade-up": "fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both",
       },
     },
   },

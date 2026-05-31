@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { InitialsAvatar } from '@/components/ui/avatar';
 
 const allRoles = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT'];
 
@@ -75,10 +77,14 @@ const Users: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Staff Management</h1>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add User</Button>
-      </div>
+      <PageHeader
+        eyebrow="Administration"
+        title="Staff Management"
+        description="Manage admin accounts, roles, and access."
+        actions={
+          <Button variant="ink" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add User</Button>
+        }
+      />
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -92,7 +98,12 @@ const Users: React.FC = () => {
                 const lockSa = u.role === 'SUPER_ADMIN' && authUser?.role !== 'SUPER_ADMIN';
                 return (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2.5">
+                        <InitialsAvatar name={u.name} className="h-8 w-8" />
+                        {u.name}
+                      </div>
+                    </TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell><Badge variant={roleColor(u.role) as any}>{u.role}</Badge></TableCell>
                     <TableCell className="text-right">

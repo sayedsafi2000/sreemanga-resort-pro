@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,51 +6,60 @@
 
 @layer base {
   :root {
-    /* ── Core palette ──────────────────────────────────────────────────────── */
-    --background: 210 20% 97%;
-    --foreground: 217 33% 10%;
+    /* ── Core palette (Institutional Blue) ─────────────────────────────────── */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 217 33% 10%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 217 33% 10%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Emerald primary */
-    --primary: 161 72% 35%;
+    /* Royal blue primary */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 16% 94%;
-    --secondary-foreground: 217 25% 25%;
+    /* Near-black "institutional" surface (Export / Record / New Receipt buttons) */
+    --ink: 222 47% 11%;
+    --ink-foreground: 0 0% 100%;
 
-    --muted: 210 16% 94%;
-    --muted-foreground: 215 14% 50%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 33% 20%;
 
-    --accent: 210 16% 93%;
-    --accent-foreground: 217 33% 10%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --destructive: 0 84% 60%;
+    --accent: 214 100% 97%;
+    --accent-foreground: 221 83% 53%;
+
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 161 72% 35%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
-    /* ── Sidebar tokens ──────────────────────────────────────────────────── */
-    --sidebar-bg: 222 47% 9%;
-    --sidebar-text: 215 18% 58%;
-    --sidebar-text-active: 0 0% 98%;
-    --sidebar-item-active-bg: 161 72% 35%;
-    --sidebar-item-hover-bg: 220 20% 14%;
-    --sidebar-border: 220 20% 16%;
+    /* ── Sidebar tokens (deep navy) ────────────────────────────────────────── */
+    --sidebar-bg: 222 47% 11%;
+    --sidebar-bg-accent: 222 44% 14%;
+    --sidebar-text: 215 20% 65%;
+    --sidebar-text-active: 0 0% 100%;
+    --sidebar-item-active-bg: 221 83% 53%;
+    --sidebar-item-hover-bg: 217 33% 17%;
+    --sidebar-border: 217 33% 20%;
 
-    /* ── Shadows ─────────────────────────────────────────────────────────── */
-    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-    --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.05);
-    --shadow-dropdown: 0 8px 24px rgba(15, 23, 42, 0.1), 0 2px 8px rgba(15, 23, 42, 0.06);
-    --shadow-dialog: 0 20px 60px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.08);
+    /* ── Sustainability / eco panel (deep forest) ──────────────────────────── */
+    --eco-from: 158 64% 14%;
+    --eco-to: 162 70% 9%;
+
+    /* ── Shadows ───────────────────────────────────────────────────────────── */
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+    --shadow-card-hover: 0 8px 24px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.06);
+    --shadow-dropdown: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+    --shadow-dialog: 0 24px 70px rgba(15, 23, 42, 0.22), 0 6px 18px rgba(15, 23, 42, 0.10);
   }
 }
 
@@ -74,14 +83,20 @@
 
   h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.02em;
-    line-height: 1.25;
+    line-height: 1.2;
+  }
+
+  /* Tabular numbers everywhere figures matter */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   }
 }
 
 /* ── Custom scrollbar ─────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -89,37 +104,44 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(214 20% 80%);
-  border-radius: 3px;
+  background: hsl(214 20% 82%);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(214 20% 65%);
+  background: hsl(214 20% 68%);
 }
 
-/* ── Sidebar scrollbar (darker track) ────────────────────────────────────── */
 .sidebar-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
 }
 
-/* ── Premium card elevation ───────────────────────────────────────────────── */
 @layer components {
-  .card-base {
-    @apply rounded-xl bg-white border border-slate-100;
-    box-shadow: var(--shadow-card);
-    transition: box-shadow 0.2s ease;
+  /* ── Eyebrow / institutional label ─────────────────────────────────────── */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
 
+  /* ── Premium card elevation ────────────────────────────────────────────── */
+  .card-base {
+    @apply rounded-xl bg-card border border-border;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
   .card-base:hover {
     box-shadow: var(--shadow-card-hover);
   }
+  .card-lift:hover {
+    transform: translateY(-2px);
+  }
 
   /* Stat card accent variants */
-  .stat-blue   { --stat-color: #3b82f6; --stat-bg: #eff6ff; }
+  .stat-blue   { --stat-color: #2563eb; --stat-bg: #eff6ff; }
   .stat-green  { --stat-color: #059669; --stat-bg: #ecfdf5; }
   .stat-purple { --stat-color: #7c3aed; --stat-bg: #f5f3ff; }
   .stat-amber  { --stat-color: #d97706; --stat-bg: #fffbeb; }
@@ -127,55 +149,98 @@
   .stat-teal   { --stat-color: #0d9488; --stat-bg: #f0fdfa; }
 
   .stat-icon-bg {
-    background-color: var(--stat-bg, #ecfdf5);
-    color: var(--stat-color, #059669);
+    background-color: var(--stat-bg, #eff6ff);
+    color: var(--stat-color, #2563eb);
   }
 
-  /* Table row hover */
   .table-row-hover tr:hover td {
-    background-color: hsl(210 16% 98%);
-  }
-
-  /* Premium input focus */
-  .input-premium {
-    @apply transition-shadow duration-150;
-  }
-
-  .input-premium:focus {
-    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+    background-color: hsl(210 40% 98%);
   }
 }
 
-/* ── Smooth page transitions ──────────────────────────────────────────────── */
+/* ── Page transition ──────────────────────────────────────────────────────── */
 .page-enter {
-  animation: pageEnter 0.18s ease both;
+  animation: pageEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-
 @keyframes pageEnter {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Sidebar nav indicator ────────────────────────────────────────────────── */
-.nav-active-indicator::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
-  border-radius: 0 2px 2px 0;
-  background: #34d399;
+/* ── Staggered fade-in-up (stat cards / grid items) ───────────────────────── */
+.fade-up {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up-1 { animation-delay: 0.04s; }
+.fade-up-2 { animation-delay: 0.10s; }
+.fade-up-3 { animation-delay: 0.16s; }
+.fade-up-4 { animation-delay: 0.22s; }
+.fade-up-5 { animation-delay: 0.28s; }
+.fade-up-6 { animation-delay: 0.34s; }
+
+/* ── Sparkline draw ───────────────────────────────────────────────────────── */
+.spark-draw {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: sparkDraw 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes sparkDraw {
+  to { stroke-dashoffset: 0; }
+}
+.spark-fill {
+  opacity: 0;
+  animation: sparkFill 0.6s ease 0.7s forwards;
+}
+@keyframes sparkFill {
+  to { opacity: 1; }
 }
 
-/* ── Progress bar animation ───────────────────────────────────────────────── */
+/* ── Progress bar grow ────────────────────────────────────────────────────── */
 @keyframes progressGrow {
   from { width: 0; }
 }
-
 .progress-animated {
-  animation: progressGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: progressGrow 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Count / value pop ────────────────────────────────────────────────────── */
+.value-pop {
+  animation: valuePop 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes valuePop {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Shimmer skeleton ─────────────────────────────────────────────────────── */
+.shimmer {
+  background: linear-gradient(90deg, hsl(210 40% 96%) 25%, hsl(210 40% 92%) 37%, hsl(210 40% 96%) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* ── Soft pulse (live dot) ────────────────────────────────────────────────── */
+.live-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.5;
+  animation: livePulse 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes livePulse {
+  0%   { transform: scale(1); opacity: 0.5; }
+  70%  { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
 
 /* ── Dialog ───────────────────────────────────────────────────────────────── */

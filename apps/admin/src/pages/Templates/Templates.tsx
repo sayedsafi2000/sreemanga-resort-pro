@@ -3,7 +3,8 @@ import api from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Loader2, Layout, Layers, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Layers, AlertCircle } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 type TemplateKey = 'template-one' | 'template-two' | 'template-three';
 
@@ -203,19 +204,13 @@ const Templates: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <Layout className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">Website Templates</h1>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose the frontend design for your public website. Changes take effect immediately.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Configuration"
+        title="Website Templates"
+        description="Choose the frontend design for your public website. Changes take effect immediately."
+      />
 
       {/* Toast notification */}
       {toast && (

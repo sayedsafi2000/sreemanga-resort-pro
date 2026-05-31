@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 const SECTION_KEYS = [
   'nearbySectionEyebrow',
@@ -228,14 +229,12 @@ const NearbyExplore: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Nearby explore (public site)</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Section title and footnote appear on the home page; each spot appears in the carousel and has its own page at{' '}
-          <code className="text-xs">/explore/[slug]</code> on the guest website. Replace image URLs anytime.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Content"
+        title="Nearby Explore"
+        description="Section title and footnote appear on the home page; each spot appears in the carousel and has its own page at /explore/[slug] on the guest website."
+      />
 
       <Card>
         <CardHeader>
@@ -282,8 +281,8 @@ const NearbyExplore: React.FC = () => {
       </Card>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold">Places</h2>
-        <Button onClick={openNew}>
+        <h2 className="text-lg font-semibold">Places</h2>
+        <Button variant="ink" onClick={openNew}>
           <Plus className="mr-2 h-4 w-4" />
           Add place
         </Button>

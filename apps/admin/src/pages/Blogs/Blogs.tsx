@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Pencil, Trash2, Eye, Star } from 'lucide-react';
 import { marked } from 'marked';
+import { PageHeader } from '@/components/ui/page-header';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -187,14 +188,15 @@ const Blogs: React.FC = () => {
   if (!isSuper) return <div>Access denied</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Blog Posts</h1>
-          <p className="text-muted-foreground">Manage articles & news</p>
-        </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> New Blog</Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Content"
+        title="Blog Posts"
+        description="Manage articles and news shown on the public website."
+        actions={
+          <Button variant="ink" onClick={openNew}><Plus className="h-4 w-4 mr-2" /> New Blog</Button>
+        }
+      />
 
       {/* Blog Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

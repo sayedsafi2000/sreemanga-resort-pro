@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Pencil } from 'lucide-react';
+import { DollarSign, Pencil, Wallet, Clock, Hash } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { InitialsAvatar } from '@/components/ui/avatar';
 
 const paymentMethods = ['CASH', 'CARD', 'BKASH', 'NAGAD'];
 const paymentStatuses = ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'];
@@ -105,6 +107,31 @@ const Payments: React.FC = () => {
 
   const totalCompleted = payments.filter((p: any) => p.status === 'COMPLETED').reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
+  // Breakdown of payment methods by count — drives the tracking panel bars.
+  const methodBreakdown = (() => {
+    const counts: Record<string, number> = {};
+    payments.forEach((p: any) => {
+      const m = p.method || 'OTHER';
+      counts[m] = (counts[m] || 0) + 1;
+    });
+    const total = payments.length || 1;
+    const palette: Record<string, string> = {
+      CARD: 'bg-blue-500',
+      CASH: 'bg-amber-500',
+      BKASH: 'bg-pink-500',
+      NAGAD: 'bg-orange-500',
+      OTHER: 'bg-slate-400',
+    };
+    return Object.entries(counts)
+      .map(([method, count]) => ({
+        method,
+        count,
+        pct: Math.round((count / total) * 100),
+        color: palette[method] || 'bg-slate-400',
+      }))
+      .sort((a, b) => b.count - a.count);
+  })();
+
   const bookingLabel = (b: any) => {
     const guest = b.guest?.name || b.guestId?.slice(0, 8);
     return `${guest} — ৳${b.totalAmount}`;
@@ -112,10 +139,17 @@ const Payments: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Payments</h1>
-        <Button onClick={openNew}>Record Payment</Button>
-      </div>
+      <PageHeader
+        eyebrow="Finance"
+        title="Payments & Revenue"
+        description="Real-time financial performance and transaction monitoring."
+        actions={
+          <Button variant="ink" onClick={openNew}>
+            <DollarSign className="mr-2 h-4 w-4" />
+            Record Payment
+          </Button>
+        }
+      />
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">From</Label>
@@ -131,13 +165,39 @@ const Payments: React.FC = () => {
           </Button>
         )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Collected</CardTitle><DollarSign className="h-4 w-4 text-emerald-600" /></CardHeader><CardContent><div className="text-2xl font-bold">৳{totalCompleted.toLocaleString()}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Payments</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{payments.length}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Pending</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{payments.filter((p: any) => p.status === 'PENDING').length}</div></CardContent></Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="card-base card-lift p-5 fade-up fade-up-1">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Total Collected</p>
+            <span className="stat-green stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><Wallet className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-3xl font-bold tracking-tight value-pop">৳{totalCompleted.toLocaleString()}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Completed payments</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-2">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Total Payments</p>
+            <span className="stat-blue stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><Hash className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-3xl font-bold tracking-tight value-pop">{payments.length}</p>
+          <p className="mt-2 text-xs text-muted-foreground">All transactions</p>
+        </div>
+        <div className="card-base card-lift p-5 fade-up fade-up-3">
+          <div className="flex items-start justify-between">
+            <p className="eyebrow">Pending</p>
+            <span className="stat-amber stat-icon-bg flex h-9 w-9 items-center justify-center rounded-lg"><Clock className="h-[18px] w-[18px]" /></span>
+          </div>
+          <p className="mt-3 text-3xl font-bold tracking-tight value-pop">{payments.filter((p: any) => p.status === 'PENDING').length}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Awaiting completion</p>
+        </div>
       </div>
-      <Card>
-        <CardContent className="p-0">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <h3 className="text-base font-semibold text-foreground">Transaction History</h3>
+            <span className="text-xs text-muted-foreground">{payments.length} records</span>
+          </div>
+          <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -153,10 +213,17 @@ const Payments: React.FC = () => {
             <TableBody>
               {payments.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell>{p.booking?.guest?.name || p.bookingId?.slice(0, 8)}</TableCell>
-                  <TableCell>৳{p.amount?.toLocaleString?.() ?? p.amount}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <InitialsAvatar name={p.booking?.guest?.name || 'Guest'} className="h-8 w-8" />
+                      <span className="font-medium">{p.booking?.guest?.name || p.bookingId?.slice(0, 8)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-semibold tabular">৳{p.amount?.toLocaleString?.() ?? p.amount}</TableCell>
                   <TableCell>{p.method}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{p.transactionId || '—'}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {p.transactionId ? <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">{p.transactionId}</span> : '—'}
+                  </TableCell>
                   <TableCell><Badge variant={statusColor(p.status) as any}>{p.status}</Badge></TableCell>
                   <TableCell>{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '-'}</TableCell>
                   {editPayments && (
@@ -181,6 +248,31 @@ const Payments: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+
+        <Card className="h-fit">
+          <div className="border-b border-border px-5 py-4">
+            <h3 className="text-base font-semibold text-foreground">Payment Method Tracking</h3>
+            <p className="text-xs text-muted-foreground">Share of recorded transactions</p>
+          </div>
+          <CardContent className="space-y-4 p-5">
+            {methodBreakdown.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No data yet.</p>
+            ) : (
+              methodBreakdown.map((m) => (
+                <div key={m.method}>
+                  <div className="mb-1.5 flex items-center justify-between text-sm">
+                    <span className="font-medium text-foreground">{m.method}</span>
+                    <span className="tabular text-muted-foreground">{m.pct}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                    <div className={`progress-animated h-full rounded-full ${m.color}`} style={{ width: `${m.pct}%` }} />
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

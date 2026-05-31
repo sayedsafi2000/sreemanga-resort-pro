@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Menu, X, TreePine, ChevronDown, ChevronUp } from 'lucide-react';
+import { LogOut, Menu, X, Mountain, ChevronDown, ChevronUp, Plus, Bell, Settings, Search } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getSidebarItems, navItemHref, sidebarItemActive, EXPENDITURE_SIDEBAR_KEY } from '@/config/rbac';
+import { getSidebarItems, navItemHref, sidebarItemActive, canAccessPath, EXPENDITURE_SIDEBAR_KEY } from '@/config/rbac';
+import { InitialsAvatar } from '@/components/ui/avatar';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 
@@ -11,23 +12,14 @@ type ExpNavCat = { id: string; name: string; sortOrder: number };
 
 // ── Role badge styling ────────────────────────────────────────────────────────
 
-const ROLE_META: Record<string, { label: string; color: string }> = {
-  SUPER_ADMIN:      { label: 'Super Admin',     color: 'bg-violet-500/20 text-violet-300' },
-  MANAGER:          { label: 'Manager',          color: 'bg-blue-500/20 text-blue-300' },
-  RECEPTIONIST:     { label: 'Receptionist',     color: 'bg-emerald-500/20 text-emerald-300' },
-  HOUSEKEEPING:     { label: 'Housekeeping',     color: 'bg-amber-500/20 text-amber-300' },
-  RESTAURANT_STAFF: { label: 'Restaurant Staff', color: 'bg-orange-500/20 text-orange-300' },
-  ACCOUNTANT:       { label: 'Accountant',       color: 'bg-teal-500/20 text-teal-300' },
+const ROLE_META: Record<string, { label: string; dark: string; light: string }> = {
+  SUPER_ADMIN:      { label: 'Super Admin',      dark: 'bg-violet-500/15 text-violet-300',  light: 'bg-violet-50 text-violet-700' },
+  MANAGER:          { label: 'Manager',          dark: 'bg-blue-500/15 text-blue-300',      light: 'bg-blue-50 text-blue-700' },
+  RECEPTIONIST:     { label: 'Receptionist',     dark: 'bg-emerald-500/15 text-emerald-300', light: 'bg-emerald-50 text-emerald-700' },
+  HOUSEKEEPING:     { label: 'Housekeeping',     dark: 'bg-amber-500/15 text-amber-300',    light: 'bg-amber-50 text-amber-700' },
+  RESTAURANT_STAFF: { label: 'Restaurant Staff', dark: 'bg-orange-500/15 text-orange-300',  light: 'bg-orange-50 text-orange-700' },
+  ACCOUNTANT:       { label: 'Accountant',       dark: 'bg-teal-500/15 text-teal-300',      light: 'bg-teal-50 text-teal-700' },
 };
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 // ── Expenditure nav group ─────────────────────────────────────────────────────
 
@@ -70,33 +62,29 @@ function ExpenditureNavGroup({
         <Link
           to={parentHref}
           onClick={onNavigate}
-          className={`relative flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+          className={`group relative flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
             parentActive
-              ? 'nav-active-indicator bg-white/10 text-white'
+              ? 'bg-primary text-white shadow-sm'
               : isAnyActive
-              ? 'bg-white/6 text-slate-300'
-              : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-slate-200'
+              ? 'bg-sidebar-accent text-slate-200'
+              : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-slate-100'
           }`}
         >
-          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-            parentActive ? 'bg-primary/20 text-primary' : 'text-inherit opacity-70'
-          }`}>
-            <Icon className="h-4 w-4" />
-          </span>
+          <Icon className="h-[18px] w-[18px] shrink-0" />
           {label}
         </Link>
         {categories.length > 0 && (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="mr-1 flex h-6 w-6 items-center justify-center rounded text-sidebar-text transition hover:text-slate-200"
+            className="mr-1 flex h-6 w-6 items-center justify-center rounded text-sidebar-text transition hover:text-slate-100"
           >
             {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
         )}
       </div>
       {open && categories.length > 0 && (
-        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-white/8 pl-4">
+        <div className="ml-5 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
           {categories.map((c) => {
             const href = `/expenditures?tab=expenses&categoryId=${encodeURIComponent(c.id)}`;
             const childOn = location.pathname === '/expenditures' && tab === 'expenses' && categoryId === c.id;
@@ -105,10 +93,10 @@ function ExpenditureNavGroup({
                 key={c.id}
                 to={href}
                 onClick={onNavigate}
-                className={`block rounded-md px-2 py-1.5 text-xs font-medium transition-all duration-150 ${
+                className={`block rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150 ${
                   childOn
-                    ? 'bg-primary/15 text-emerald-300'
-                    : 'text-sidebar-text hover:bg-white/6 hover:text-slate-300'
+                    ? 'bg-primary/15 text-blue-300'
+                    : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-slate-300'
                 }`}
               >
                 {c.name}
@@ -143,8 +131,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return <>{children}</>;
   }
 
-  const roleMeta = ROLE_META[user.role] ?? { label: user.role, color: 'bg-white/10 text-white/70' };
+  const roleMeta = ROLE_META[user.role] ?? { label: user.role, dark: 'bg-white/10 text-white/70', light: 'bg-muted text-muted-foreground' };
   const sidebarItems = getSidebarItems(user.role);
+  const canBook = canAccessPath(user.role, '/bookings');
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -152,34 +141,29 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* ── Mobile overlay ────────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <aside
-        className={`sidebar-scroll fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto transition-transform duration-300 ease-out lg:static lg:inset-auto lg:translate-x-0 ${
+        className={`sidebar-scroll fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto bg-sidebar-bg transition-transform duration-300 ease-out lg:static lg:inset-auto lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ background: 'hsl(var(--sidebar-bg))' }}
       >
         {/* ── Brand / Logo ─────────────────────────────────────────────── */}
-        <div className="flex shrink-0 items-center gap-3 border-b px-5 py-5"
-          style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 ring-1 ring-primary/30">
-            <TreePine className="h-5 w-5 text-emerald-400" />
+        <div className="flex shrink-0 items-center gap-3 border-b border-sidebar-border px-5 py-[18px]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/30">
+            <Mountain className="h-5 w-5 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold leading-tight text-white">Nirjon's Hideout</p>
-            <p className="text-[10px] font-medium uppercase tracking-widest"
-              style={{ color: 'hsl(var(--sidebar-text))' }}>
-              Admin Panel
-            </p>
+            <p className="truncate text-[15px] font-bold leading-tight text-white">Imperial Peak</p>
+            <p className="eyebrow !text-[10px] !tracking-[0.12em] text-slate-500">Institutional Grade</p>
           </div>
           <button
             type="button"
-            className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-white/8 hover:text-white lg:hidden"
+            className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-sidebar-item-hover hover:text-white lg:hidden"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-4 w-4" />
@@ -207,37 +191,43 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 key={item.key}
                 to={href}
                 onClick={() => setSidebarOpen(false)}
-                className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                   isActive
-                    ? 'nav-active-indicator bg-white/10 text-white'
-                    : 'text-sidebar-text hover:bg-white/6 hover:text-slate-200'
+                    ? 'bg-primary text-white shadow-sm shadow-primary/30'
+                    : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-slate-100'
                 }`}
               >
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
-                  isActive ? 'bg-primary/20 text-emerald-400' : 'opacity-70'
-                }`}>
-                  <Icon className="h-4 w-4" />
-                </span>
+                <Icon className={`h-[18px] w-[18px] shrink-0 transition-transform duration-150 ${isActive ? '' : 'group-hover:scale-110'}`} />
                 {item.label}
-                {isActive && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* ── User profile ──────────────────────────────────────────────── */}
-        <div className="shrink-0 border-t p-3"
-          style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
-          <div className="flex items-center gap-3 rounded-xl px-2 py-2.5">
-            {/* Avatar */}
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-sm font-bold text-white shadow-inner">
-              {getInitials(user.name)}
-            </div>
+        {/* ── New Booking CTA ───────────────────────────────────────────── */}
+        {canBook && (
+          <div className="shrink-0 px-3 pb-1">
+            <Link
+              to="/bookings?new=1"
+              onClick={() => setSidebarOpen(false)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition hover:bg-primary/90 active:scale-[0.98]"
+            >
+              <Plus className="h-4 w-4" />
+              New Booking
+            </Link>
+          </div>
+        )}
+
+        {/* ── Settings + user + logout ──────────────────────────────────── */}
+        <div className="shrink-0 border-t border-sidebar-border p-3">
+          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+            <InitialsAvatar
+              name={user.name}
+              className="h-9 w-9 !bg-gradient-to-br !from-blue-500 !to-indigo-600 !text-white shadow-inner"
+            />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-white">{user.name}</p>
-              <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${roleMeta.color}`}>
+              <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${roleMeta.dark}`}>
                 {roleMeta.label}
               </span>
             </div>
@@ -245,7 +235,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               type="button"
               onClick={handleLogout}
               title="Sign out"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sidebar-item-hover hover:text-white"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>
@@ -257,51 +247,68 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* ── Top bar ────────────────────────────────────────────────────── */}
-        <header className="flex shrink-0 items-center gap-4 border-b border-border bg-white/80 px-5 py-3.5 backdrop-blur-sm">
+        <header className="flex shrink-0 items-center gap-3 border-b border-border bg-white/80 px-4 py-3 backdrop-blur-md sm:px-6">
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-4 w-4" />
           </button>
 
-          {/* Breadcrumb / greeting */}
-          <div className="hidden sm:block">
-            <p className="text-xs text-muted-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-            </p>
+          {/* Brand wordmark */}
+          <div className="hidden items-center gap-2 lg:flex">
+            <span className="text-sm font-bold tracking-tight text-foreground">LuxeResort OS</span>
+          </div>
+
+          {/* Search */}
+          <div className="relative ml-1 hidden max-w-xs flex-1 sm:block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+            <input
+              type="search"
+              placeholder="Search operations…"
+              className="h-9 w-full rounded-lg border border-border bg-secondary/60 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring/30"
+            />
+          </div>
+
+          <div className="hidden text-xs text-muted-foreground md:block">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </div>
 
           <div className="flex-1" />
 
           {/* Right-side actions */}
-          <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 sm:flex">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-[10px] font-bold text-white">
-                {getInitials(user.name)}
-              </div>
-              <span className="text-sm font-medium text-foreground">{user.name}</span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                ROLE_META[user.role]?.color.replace('bg-', 'bg-').replace('/20', '/10').replace('text-', 'text-').replace('-300', '-700') ?? 'bg-muted text-muted-foreground'
-              }`}>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              title="Notifications"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
+            </button>
+            {canAccessPath(user.role, '/settings') && (
+              <Link
+                to="/settings"
+                title="Settings"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <Settings className="h-[18px] w-[18px]" />
+              </Link>
+            )}
+            <div className="ml-1 hidden items-center gap-2 rounded-full border border-border bg-white py-1 pl-1 pr-3 sm:flex">
+              <InitialsAvatar name={user.name} className="h-7 w-7 !bg-gradient-to-br !from-blue-500 !to-indigo-600 !text-white" />
+              <span className="text-sm font-medium text-foreground">{user.name.split(' ')[0]}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleMeta.light}`}>
                 {roleMeta.label}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Sign out"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-destructive/8 hover:text-destructive"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
           </div>
         </header>
 
         {/* ── Page content ───────────────────────────────────────────────── */}
         <main className="flex-1 overflow-auto">
-          <div className="page-enter min-h-full p-5 sm:p-6 lg:p-8">
+          <div className="page-enter min-h-full p-4 sm:p-6 lg:p-8">
             {children}
           </div>
         </main>

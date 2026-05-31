@@ -12,9 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Pencil, Trash2, X as XIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X as XIcon, Download, Activity, BedDouble } from 'lucide-react';
 import ManualBookingDialog from '@/pages/Bookings/ManualBookingDialog';
 import AvailabilityCalendar from '@/pages/Bookings/AvailabilityCalendar';
+import { PageHeader } from '@/components/ui/page-header';
+import { InitialsAvatar } from '@/components/ui/avatar';
 
 const bookingStatuses = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'];
 
@@ -196,6 +198,32 @@ const Bookings: React.FC = () => {
     }
   };
 
+  // Institutional status pill (dot + label) matching the LuxeResort OS design.
+  const statusPill = (s: string) => {
+    switch (s) {
+      case 'CONFIRMED':
+        return { dot: 'bg-emerald-500', cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60', label: 'Confirmed' };
+      case 'CHECKED_IN':
+        return { dot: 'bg-blue-500', cls: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/60', label: 'In-House' };
+      case 'PENDING':
+        return { dot: 'bg-amber-500', cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60', label: 'Pending' };
+      case 'CHECKED_OUT':
+        return { dot: 'bg-slate-400', cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200/60', label: 'Checked-out' };
+      case 'CANCELLED':
+        return { dot: 'bg-rose-500', cls: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/60', label: 'Cancelled' };
+      default:
+        return { dot: 'bg-slate-400', cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200/60', label: s };
+    }
+  };
+
+  const nightsBetween = (ci?: string, co?: string): number => {
+    if (!ci || !co) return 0;
+    const diff = new Date(co).getTime() - new Date(ci).getTime();
+    return Math.max(1, Math.round(diff / 86400000));
+  };
+
+  const shortRid = (id: string): string => `#RES-${String(id).slice(-5).toUpperCase()}`;
+
   const getRoomName = (id: string) => rooms.find((r: any) => r.id === id)?.name || id;
   const getGuestName = (id: string) => guests.find((g: any) => g.id === id)?.name || id;
   const getGuestPhone = (b: any) => b.guest?.phone || guests.find((g: any) => g.id === b.guestId)?.phone || '-';
@@ -217,6 +245,14 @@ const Bookings: React.FC = () => {
   }
   const occupiedRooms = rooms.filter((r: any) => occupiedRoomIds.has(r.id));
   const freeRooms = rooms.filter((r: any) => !occupiedRoomIds.has(r.id));
+  // Booking status counts for the overview strip.
+  const statusCounts = {
+    CONFIRMED: bookings.filter((b: any) => b.status === 'CONFIRMED').length,
+    CHECKED_IN: bookings.filter((b: any) => b.status === 'CHECKED_IN').length,
+    PENDING: bookings.filter((b: any) => b.status === 'PENDING').length,
+    CANCELLED: bookings.filter((b: any) => b.status === 'CANCELLED').length,
+  };
+  const occupancyRate = rooms.length > 0 ? Math.round((occupiedRooms.length / rooms.length) * 1000) / 10 : 0;
   const getPaymentPref = (b: any) => {
     if (!b.preferredPaymentTiming) return '—';
     if (b.preferredPaymentTiming === 'INSTANT') {
@@ -239,21 +275,29 @@ const Bookings: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Bookings</h1>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" />
-          New booking
-        </Button>
-      </div>
-      <div className="flex gap-2 border-b">
+      <PageHeader
+        eyebrow="Operations › Bookings"
+        title="Bookings Management"
+        description="Real-time occupancy and reservation control center."
+        actions={
+          <>
+            <Button variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Export Data
+            </Button>
+            <Button variant="ink" onClick={openNew}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Booking
+            </Button>
+          </>
+        }
+      />
+      <div className="flex w-fit gap-1 rounded-lg border border-border bg-secondary/60 p-1">
         <button
           type="button"
           onClick={() => setTab('list')}
-          className={`px-4 py-2 text-sm font-medium transition ${
-            tab === 'list'
-              ? 'border-b-2 border-primary text-primary -mb-px'
-              : 'text-muted-foreground hover:text-foreground'
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            tab === 'list' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           List
@@ -261,10 +305,8 @@ const Bookings: React.FC = () => {
         <button
           type="button"
           onClick={() => setTab('calendar')}
-          className={`px-4 py-2 text-sm font-medium transition ${
-            tab === 'calendar'
-              ? 'border-b-2 border-primary text-primary -mb-px'
-              : 'text-muted-foreground hover:text-foreground'
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            tab === 'calendar' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Calendar
@@ -288,66 +330,93 @@ const Bookings: React.FC = () => {
 
       {tab === 'list' && (
       <>
-      {/* Today's room status — quick summary of which rooms are occupied vs free */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <Card className="border-emerald-200 bg-emerald-50/40">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
-                  Free today
-                </p>
-                <p className="mt-1 text-2xl font-bold text-emerald-900">
-                  {freeRooms.length}
-                  <span className="ml-1 text-sm font-normal text-emerald-700">/ {rooms.length}</span>
-                </p>
-              </div>
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                ✓
-              </span>
+      {/* Status Overview bento + today's availability */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-1">
+          <CardContent className="p-6">
+            <div className="mb-5 flex items-start justify-between">
+              <h4 className="text-base font-semibold text-foreground">Status Overview</h4>
+              <Activity className="h-5 w-5 text-primary" />
             </div>
-            {freeRooms.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {freeRooms.map((r: any) => (
-                  <span
-                    key={r.id}
-                    className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-0.5 text-xs font-medium text-emerald-800"
-                  >
-                    {r.name}
-                  </span>
-                ))}
+            <div className="space-y-2.5">
+              {[
+                { label: 'Confirmed', value: statusCounts.CONFIRMED, dot: 'bg-emerald-500' },
+                { label: 'In-House', value: statusCounts.CHECKED_IN, dot: 'bg-blue-500' },
+                { label: 'Pending Payment', value: statusCounts.PENDING, dot: 'bg-amber-500' },
+                { label: 'Cancelled', value: statusCounts.CANCELLED, dot: 'bg-rose-500' },
+              ].map((s, i) => (
+                <div
+                  key={s.label}
+                  className={`flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2.5 fade-up fade-up-${i + 1}`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                    <span className="text-sm font-medium text-foreground">{s.label}</span>
+                  </div>
+                  <span className="text-lg font-bold tabular">{s.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6">
+              <p className="eyebrow mb-3">Occupancy Rate</p>
+              <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                <div className="progress-animated h-full rounded-full bg-primary" style={{ width: `${occupancyRate}%` }} />
               </div>
-            )}
+              <div className="mt-2 flex justify-between">
+                <span className="text-sm font-semibold text-primary tabular">{occupancyRate}%</span>
+                <span className="text-sm text-muted-foreground">Capacity: {rooms.length} Units</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-rose-200 bg-rose-50/40">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-rose-700">
-                  Occupied today
-                </p>
-                <p className="mt-1 text-2xl font-bold text-rose-900">
-                  {occupiedRooms.length}
-                  <span className="ml-1 text-sm font-normal text-rose-700">/ {rooms.length}</span>
-                </p>
+
+        {/* Today's availability */}
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-border px-6 py-4">
+            <h4 className="text-base font-semibold text-foreground">Today's Availability</h4>
+            <span className="text-xs text-muted-foreground">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+          </div>
+          <CardContent className="grid gap-4 p-6 sm:grid-cols-2">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+              <div className="flex items-center justify-between">
+                <p className="eyebrow !text-emerald-700">Free today</p>
+                <BedDouble className="h-4 w-4 text-emerald-600" />
               </div>
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-                ●
-              </span>
+              <p className="mt-2 text-2xl font-bold text-emerald-900 value-pop">
+                {freeRooms.length}
+                <span className="ml-1 text-sm font-normal text-emerald-700">/ {rooms.length}</span>
+              </p>
+              {freeRooms.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {freeRooms.slice(0, 8).map((r: any) => (
+                    <span key={r.id} className="rounded-md border border-emerald-200 bg-white px-2 py-0.5 font-mono text-[11px] text-emerald-800">
+                      {r.roomCode || r.name}
+                    </span>
+                  ))}
+                  {freeRooms.length > 8 && <span className="text-[11px] text-emerald-700">+{freeRooms.length - 8} more</span>}
+                </div>
+              )}
             </div>
-            {occupiedRooms.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {occupiedRooms.map((r: any) => (
-                  <span
-                    key={r.id}
-                    className="inline-flex items-center rounded-full border border-rose-200 bg-white px-2.5 py-0.5 text-xs font-medium text-rose-800"
-                  >
-                    {r.name}
-                  </span>
-                ))}
+            <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4">
+              <div className="flex items-center justify-between">
+                <p className="eyebrow !text-rose-700">Occupied today</p>
+                <BedDouble className="h-4 w-4 text-rose-600" />
               </div>
-            )}
+              <p className="mt-2 text-2xl font-bold text-rose-900 value-pop">
+                {occupiedRooms.length}
+                <span className="ml-1 text-sm font-normal text-rose-700">/ {rooms.length}</span>
+              </p>
+              {occupiedRooms.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {occupiedRooms.slice(0, 8).map((r: any) => (
+                    <span key={r.id} className="rounded-md border border-rose-200 bg-white px-2 py-0.5 font-mono text-[11px] text-rose-800">
+                      {r.roomCode || r.name}
+                    </span>
+                  ))}
+                  {occupiedRooms.length > 8 && <span className="text-[11px] text-rose-700">+{occupiedRooms.length - 8} more</span>}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -381,6 +450,10 @@ const Bookings: React.FC = () => {
         </span>
       </div>
       <Card>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h4 className="text-base font-semibold text-foreground">Active Reservations</h4>
+          <span className="text-xs text-muted-foreground">{bookings.length} reservation{bookings.length === 1 ? '' : 's'}</span>
+        </div>
         <CardContent className="p-0">
           <div className="space-y-3 p-3 md:hidden">
             {bookings.map((b) => (
@@ -450,42 +523,56 @@ const Bookings: React.FC = () => {
             <Table className="w-max min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="whitespace-nowrap px-3 py-2">Guest</TableHead>
-                  <TableHead className="whitespace-nowrap px-3 py-2">Room</TableHead>
-                  <TableHead className="whitespace-nowrap px-3 py-2">Check In</TableHead>
-                  <TableHead className="whitespace-nowrap px-3 py-2">Check Out</TableHead>
+                  <TableHead className="whitespace-nowrap px-3 py-2">Guest Details</TableHead>
+                  <TableHead className="whitespace-nowrap px-3 py-2">Room / Unit</TableHead>
+                  <TableHead className="whitespace-nowrap px-3 py-2">Stay Duration</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Pax</TableHead>
-                  <TableHead className="whitespace-nowrap px-3 py-2">Phone</TableHead>
-                  <TableHead className="whitespace-nowrap px-3 py-2">Email</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Payment</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Txn ID</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Proof</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Amount</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Status</TableHead>
+                  <TableHead className="whitespace-nowrap px-3 py-2">Reservation ID</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2">Created by</TableHead>
                   <TableHead className="whitespace-nowrap px-3 py-2 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookings.map((b) => (
+                {bookings.map((b) => {
+                  const pill = statusPill(b.status);
+                  const nights = nightsBetween(b.checkInDate, b.checkOutDate);
+                  return (
                   <TableRow key={b.id}>
-                    <TableCell className="whitespace-nowrap px-3 py-2">{getGuestName(b.guestId)}</TableCell>
-                    <TableCell className="whitespace-nowrap px-3 py-2">{getRoomName(b.roomId)}</TableCell>
-                    <TableCell className="whitespace-nowrap px-3 py-2">{formatDate(b.checkInDate)}</TableCell>
-                    <TableCell className="whitespace-nowrap px-3 py-2">{formatDate(b.checkOutDate)}</TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2">
-                      {b.adults ?? 1}A / {b.children ?? 0}C
+                      <div className="flex items-center gap-3">
+                        <InitialsAvatar name={getGuestName(b.guestId)} className="h-10 w-10 !rounded-lg" />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground">{getGuestName(b.guestId)}</p>
+                          <p className="max-w-[14rem] truncate text-xs text-muted-foreground">{getGuestEmail(b)}</p>
+                        </div>
+                      </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap px-3 py-2">{getGuestPhone(b)}</TableCell>
-                    <TableCell className="max-w-[14rem] truncate px-3 py-2" title={String(getGuestEmail(b))}>
-                      {getGuestEmail(b)}
+                    <TableCell className="whitespace-nowrap px-3 py-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-1 font-mono text-xs text-foreground">
+                        <BedDouble className="h-3.5 w-3.5" />
+                        {getRoomName(b.roomId)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-2">
+                      <div className="flex flex-col">
+                        <span className="text-sm">{formatDate(b.checkInDate)} — {formatDate(b.checkOutDate)}</span>
+                        <span className="font-mono text-[11px] text-primary">{nights} Night{nights === 1 ? '' : 's'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-2">
+                      <span className="rounded bg-secondary px-2 py-0.5 font-mono text-[11px]">{b.adults ?? 1}A {b.children ?? 0}C</span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2">
                       {getPaymentPref(b)}
                       {b.preferredPaymentTiming === 'INSTANT' ? ` / ${getPaymentMethodLabel(b)}` : ''}
                     </TableCell>
                     <TableCell className="max-w-[10rem] truncate px-3 py-2" title={b.paymentTransactionId || ''}>
-                      {b.paymentTransactionId || '—'}
+                      {b.paymentTransactionId ? <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">{b.paymentTransactionId}</span> : '—'}
                     </TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2">
                       {b.paymentProofImage ? (
@@ -496,12 +583,14 @@ const Bookings: React.FC = () => {
                         '—'
                       )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap px-3 py-2">৳{b.totalAmount?.toLocaleString?.() ?? b.totalAmount}</TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-2 font-semibold tabular">৳{b.totalAmount?.toLocaleString?.() ?? b.totalAmount}</TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2">
-                      <Badge className="shrink-0 whitespace-nowrap" variant={statusColor(b.status) as any}>
-                        {b.status}
-                      </Badge>
+                      <span className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-bold uppercase tracking-tight ${pill.cls}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />
+                        {pill.label}
+                      </span>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-2 font-mono text-xs text-primary">{shortRid(b.id)}</TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2 text-sm text-muted-foreground">
                       {b.staff?.name || '—'}
                     </TableCell>
@@ -526,10 +615,11 @@ const Bookings: React.FC = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {bookings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={14} className="whitespace-normal py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="whitespace-normal py-8 text-center text-muted-foreground">
                       {loading
                         ? 'Loading bookings...'
                         : dateFrom || dateTo

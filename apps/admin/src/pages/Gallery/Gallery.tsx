@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, ImageIcon } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 type GalleryRow = {
   id: string;
@@ -174,19 +175,17 @@ const Gallery: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Site gallery</h1>
-          <p className="text-sm text-muted-foreground">
-            Images appear on the public website gallery. Set <strong>category</strong> freely (used for filters) and{' '}
-            <strong>sort order</strong> (lower = earlier). Upload file or paste a URL.
-          </p>
-        </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add image
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Content"
+        title="Site Gallery"
+        description="Images appear on the public website gallery. Set category (used for filters) and sort order (lower = earlier). Upload a file or paste a URL."
+        actions={
+          <Button variant="ink" onClick={openNew}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add image
+          </Button>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">
