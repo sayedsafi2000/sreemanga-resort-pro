@@ -1,0 +1,55 @@
+# Coolify Environment Variables Setup
+# Copy these to your Coolify project's environment variables section
+
+# =============================================================================
+# IMPORTANT: Generate a strong JWT_SECRET first
+# Run: openssl rand -base64 32
+# Then replace the value below with the generated string
+# =============================================================================
+
+JWT_SECRET=GENERATE_STRONG_RANDOM_STRING_HERE_USE_OPENSSL_RAND_BASE64_32
+JWT_EXPIRES_IN=7d
+
+# =============================================================================
+# API Service Environment Variables
+# =============================================================================
+CORS_ORIGIN=https://web.pixelsbee.com,https://admin.pixelsbee.com
+
+# =============================================================================
+# Web Service Environment Variables
+# =============================================================================
+NEXT_PUBLIC_SITE_URL=https://web.pixelsbee.com
+NEXT_PUBLIC_API_URL=https://app.pixelsbee.com/api/public
+NEXT_PUBLIC_USE_DUMMY_API=false
+
+# =============================================================================
+# Admin Service Environment Variables
+# =============================================================================
+VITE_API_URL=https://app.pixelsbee.com/api
+VITE_PUBLIC_SITE_URL=https://web.pixelsbee.com
+
+# =============================================================================
+# Optional: Database Seed (only for first deployment)
+# Set to true ONLY for initial deployment to seed admin user
+# After first deployment, set back to false or remove
+# =============================================================================
+# RUN_SEED=true
+
+# =============================================================================
+# Coolify Domain Configuration
+# =============================================================================
+# In Coolify's Domains section, configure as follows:
+#
+# 1. API Service (api):
+#    Domain: https://app.pixelsbee.com:3000
+#    (The :3000 tells Coolify the internal container port)
+#
+# 2. Web Service (web):
+#    Domain: https://web.pixelsbee.com:3002
+#    (The :3002 tells Coolify the internal container port)
+#
+# 3. Admin Service (admin):
+#    Domain: https://admin.pixelsbee.com
+#    (No port needed, nginx runs on 80 by default)
+#
+# =============================================================================
