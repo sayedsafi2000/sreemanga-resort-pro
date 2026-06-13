@@ -120,7 +120,7 @@ class EmailService {
   }
 
   // Password Reset Email
-  async sendPasswordResetEmail(email: string, resetToken: string, resetUrl: string): Promise<boolean> {
+  async sendPasswordResetEmail(email: string, resetUrl: string): Promise<boolean> {
     const html = `
       <!DOCTYPE html>
       <html>

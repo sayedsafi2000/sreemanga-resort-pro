@@ -9,7 +9,7 @@ export const requestPasswordReset = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const { email } = req.body;
 
@@ -23,10 +23,11 @@ export const requestPasswordReset = async (
 
     // Always return success to prevent email enumeration
     if (!user) {
-      return res.json({
+      res.json({
         success: true,
         message: 'If the email exists, a password reset link has been sent.',
       });
+      return;
     }
 
     // Generate reset token
@@ -50,7 +51,7 @@ export const requestPasswordReset = async (
     // Send reset email
     const resetUrl = `${process.env.ADMIN_URL || 'http://localhost:8001'}/reset-password?token=${resetToken}`;
     
-    await emailService.sendPasswordResetEmail(user.email, resetToken, resetUrl)
+    await emailService.sendPasswordResetEmail(user.email, resetUrl)
       .catch(err => console.error('Failed to send password reset email:', err));
 
     res.json({
@@ -124,7 +125,7 @@ export const verifyResetToken = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const { token } = req.query;
 
@@ -139,7 +140,8 @@ export const verifyResetToken = async (
     });
 
     if (!resetRecord || resetRecord.used || resetRecord.expiresAt < new Date()) {
-      return res.json({ valid: false });
+      res.json({ valid: false });
+      return;
     }
 
     res.json({ valid: true });

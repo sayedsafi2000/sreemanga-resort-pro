@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
-import { AppError } from '../middleware/errorHandler';
 
 // Get all branding settings
 export const getBrandingSettings = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ) => {
