@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { emailService } from '../utils/emailService';
 
 export const getAllPayments = async (
   req: Request,
@@ -137,6 +138,17 @@ export const createPayment = async (
         where: { id: bookingId },
         data: { status: 'CONFIRMED' },
       });
+    }
+
+    // Send payment confirmation email
+    if (payment.booking.guest.email) {
+      await emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
+        bookingId: payment.booking.id,
+        guestName: payment.booking.guest.name,
+        amount: payment.amount,
+        method: payment.method,
+        transactionId: payment.transactionId || undefined,
+      }).catch(err => console.error('Failed to send payment confirmation email:', err));
     }
 
     res.status(201).json({ success: true, payment });

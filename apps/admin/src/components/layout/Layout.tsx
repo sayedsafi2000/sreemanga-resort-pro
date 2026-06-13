@@ -113,9 +113,41 @@ function ExpenditureNavGroup({
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [brandingSettings, setBrandingSettings] = useState<{
+    site_name: string;
+    site_tagline: string;
+    site_logo: string;
+  }>({ site_name: "Nirjon Nature's Hideout", site_tagline: 'A Nature Resort', site_logo: '' });
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Load branding settings
+  useEffect(() => {
+    if (user) {
+      api.get('/branding').then((res) => {
+        if (res.data?.settings) {
+          const settings = res.data.settings;
+          setBrandingSettings({
+            site_name: settings.site_name || "Nirjon Nature's Hideout",
+            site_tagline: settings.site_tagline || 'A Nature Resort',
+            site_logo: settings.site_logo || '',
+          });
+          
+          // Update favicon
+          if (settings.site_favicon) {
+            const favicon = document.getElementById('favicon') as HTMLLinkElement;
+            if (favicon) favicon.href = settings.site_favicon;
+          }
+          
+          // Update title
+          if (settings.site_name) {
+            document.title = `${settings.site_name} - Admin Panel`;
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -154,12 +186,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       >
         {/* ── Brand / Logo ─────────────────────────────────────────────── */}
         <div className="flex shrink-0 items-center gap-3 border-b border-sidebar-border px-5 py-[18px]">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/30">
-            <Mountain className="h-5 w-5 text-white" />
-          </div>
+          {brandingSettings.site_logo ? (
+            <img src={brandingSettings.site_logo} alt="Logo" className="h-10 w-10 rounded-xl object-contain" />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/30">
+              <Mountain className="h-5 w-5 text-white" />
+            </div>
+          )}
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold leading-tight text-white">Imperial Peak</p>
-            <p className="eyebrow !text-[10px] !tracking-[0.12em] text-slate-500">Institutional Grade</p>
+            <p className="truncate text-[15px] font-bold leading-tight text-white">{brandingSettings.site_name}</p>
+            <p className="eyebrow !text-[10px] !tracking-[0.12em] text-slate-500">{brandingSettings.site_tagline}</p>
           </div>
           <button
             type="button"

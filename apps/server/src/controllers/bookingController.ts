@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { bookingSchema, updateBookingSchema } from '../validators/bookingValidator';
 import { AppError } from '../middleware/errorHandler';
+import { emailService } from '../utils/emailService';
 
 export const getAllBookings = async (
   req: Request,
@@ -196,6 +197,20 @@ export const createBooking = async (
       });
     }
 
+    // Send booking confirmation email
+    if (status === 'CONFIRMED' && booking.guest.email) {
+      await emailService.sendBookingConfirmationEmail(booking.guest.email, {
+        bookingId: booking.id,
+        guestName: booking.guest.name,
+        roomName: booking.room.name,
+        checkInDate: booking.checkInDate.toLocaleDateString('en-GB'),
+        checkOutDate: booking.checkOutDate.toLocaleDateString('en-GB'),
+        totalAmount: booking.totalAmount,
+        adults: booking.adults,
+        children: booking.children,
+      }).catch(err => console.error('Failed to send booking confirmation email:', err));
+    }
+
     res.status(201).json({ success: true, booking });
   } catch (error) {
     next(error);
@@ -227,6 +242,20 @@ export const updateBooking = async (
         where: { id: booking.roomId },
         data: { status: 'BOOKED' },
       });
+      
+      // Send booking confirmation email when status changes to CONFIRMED
+      if (data.status === 'CONFIRMED' && booking.guest.email) {
+        await emailService.sendBookingConfirmationEmail(booking.guest.email, {
+          bookingId: booking.id,
+          guestName: booking.guest.name,
+          roomName: booking.room.name,
+          checkInDate: booking.checkInDate.toLocaleDateString('en-GB'),
+          checkOutDate: booking.checkOutDate.toLocaleDateString('en-GB'),
+          totalAmount: booking.totalAmount,
+          adults: booking.adults,
+          children: booking.children,
+        }).catch(err => console.error('Failed to send booking confirmation email:', err));
+      }
     } else if (data.status === 'CHECKED_OUT') {
       await prisma.room.update({
         where: { id: booking.roomId },

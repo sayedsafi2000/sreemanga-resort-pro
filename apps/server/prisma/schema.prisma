@@ -93,9 +93,24 @@ model User {
   expenses          Expense[]
   salaryPayments    StaffSalary[]
   pendingPayments   PendingPayment[]
+  passwordResets    PasswordReset[]
 
   @@index([email])
   @@index([role])
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model StaffSalary {

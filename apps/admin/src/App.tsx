@@ -16,6 +16,7 @@ import NearbyExplore from '@/pages/NearbyExplore/NearbyExplore';
 import Blogs from '@/pages/Blogs/Blogs';
 import Expenditures from '@/pages/Expenditures/Expenditures';
 import StaffSalaries from '@/pages/StaffSalaries/StaffSalaries';
+import Branding from '@/pages/Branding/Branding';
 import Unauthorized from '@/pages/Unauthorized/Unauthorized';
 import Templates from '@/pages/Templates/Templates';
 import Layout from '@/components/layout/Layout';
@@ -52,6 +53,7 @@ const App: React.FC = () => {
         <Route path="/blogs" element={<ProtectedRoute><RoleGuard path="/blogs"><Blogs /></RoleGuard></ProtectedRoute>} />
         <Route path="/expenditures" element={<ProtectedRoute><RoleGuard path="/expenditures"><Expenditures /></RoleGuard></ProtectedRoute>} />
         <Route path="/staff-salaries" element={<ProtectedRoute><RoleGuard path="/staff-salaries"><StaffSalaries /></RoleGuard></ProtectedRoute>} />
+        <Route path="/branding" element={<ProtectedRoute><RoleGuard path="/branding"><Branding /></RoleGuard></ProtectedRoute>} />
         <Route path="/templates" element={<ProtectedRoute><RoleGuard path="/templates"><Templates /></RoleGuard></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><RoleGuard path="/settings"><Settings /></RoleGuard></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><RoleGuard path="/users"><Users /></RoleGuard></ProtectedRoute>} />

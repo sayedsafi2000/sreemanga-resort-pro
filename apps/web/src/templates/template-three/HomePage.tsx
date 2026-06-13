@@ -16,10 +16,11 @@ export default function TemplateThreeHome({
   menu,
   nearbyExplore,
   blogs,
+  heroImages,
 }: HomePageProps) {
   return (
     <div className="bg-[#030d04]">
-      <HeroScrollSequence resortName={settings.resortName} tagline={settings.tagline} />
+      <HeroScrollSequence resortName={settings.resortName} tagline={settings.tagline} heroImages={heroImages} />
       <RoomsHorizontal rooms={rooms} />
       <AboutNature
         aboutShort={settings.aboutShort}

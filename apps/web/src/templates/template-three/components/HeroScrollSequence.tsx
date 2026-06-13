@@ -5,8 +5,8 @@ import Link from 'next/link';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-// Free nature/tea garden images from Unsplash
-const IMAGES = [
+// Fallback images if no heroImages are provided
+const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=85',
   'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=85',
   'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1920&q=85',
@@ -23,9 +23,11 @@ const SCENES = [
 interface Props {
   resortName: string;
   tagline?: string;
+  heroImages?: string[];
 }
 
-export default function HeroScrollSequence({ resortName }: Props) {
+export default function HeroScrollSequence({ resortName, heroImages = [] }: Props) {
+  const IMAGES = heroImages.length >= 2 ? heroImages : FALLBACK_IMAGES;
   const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -18,6 +18,7 @@ import {
   Wallet,
   Banknote,
   Layout,
+  Palette,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -67,6 +68,7 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/users': ['SUPER_ADMIN'],
   '/reports': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/templates': ['SUPER_ADMIN'],
+  '/branding': ['SUPER_ADMIN', 'MANAGER'],
   '/settings': ['SUPER_ADMIN'],
   '/gallery': ['SUPER_ADMIN'],
   '/nearby-explore': ['SUPER_ADMIN'],
@@ -103,6 +105,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
       { key: 'staff', label: 'Staff Management', path: '/users', icon: UserCog },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      { key: 'brand', label: 'Branding', path: '/branding', icon: Palette },
       { key: 'tmpl', label: 'Website Templates', path: '/templates', icon: Layout },
       { key: 'set', label: 'Settings', path: '/settings', icon: Settings },
     ],
@@ -116,6 +119,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
+      { key: 'brand', label: 'Branding', path: '/branding', icon: Palette },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
     ],
     RECEPTIONIST: [

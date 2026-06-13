@@ -21,6 +21,7 @@ import blogRoutes from './routes/blogRoutes';
 import expenditureRoutes from './routes/expenditureRoutes';
 import salaryRoutes from './routes/salaryRoutes';
 import pendingPaymentRoutes from './routes/pendingPaymentRoutes';
+import brandingRoutes from './routes/brandingRoutes';
 import { authenticateToken } from './middleware/auth';
 import { roleCheck } from './middleware/roleCheck';
 
@@ -73,6 +74,7 @@ app.use('/api/reports', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 
 app.use('/api/expenditures', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), expenditureRoutes);
 app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), salaryRoutes);
 app.use('/api/pending-payments', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), pendingPaymentRoutes);
+app.use('/api/branding', brandingRoutes);
 
 // Error handling
 app.use(errorHandler);
