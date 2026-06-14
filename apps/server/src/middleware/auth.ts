@@ -1,19 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../utils/prisma';
 
 export const authenticateToken = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Access token required' });
+    res.status(401).json({ message: 'Access token required' });
+    return;
   }
 
   try {
@@ -27,14 +26,14 @@ export const authenticateToken = async (
     });
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid token' });
+      res.status(401).json({ message: 'Invalid token' });
+      return;
     }
 
     req.user = user;
-    return next();
-  } catch (error) {
-    // Use 401 so clients (e.g. admin axios) can clear session and redirect to login.
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    next();
+  } catch {
+    res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
 

@@ -5,8 +5,10 @@ import Link from 'next/link';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import type { Room } from '@/types/resort';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
+  const { t } = useLanguage();
   const sectionRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +63,7 @@ export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
   }, [rooms]);
 
   const CardEl = ({ room }: { room: Room }) => (
-    <Link href="/rooms" className="t3-room-card group block flex-shrink-0 opacity-0">
+    <Link href="/rooms" className="t3-room-card group block flex-shrink-0">
       <div
         className="relative overflow-hidden rounded-2xl bg-[#0f2011]"
         style={{ width: 'clamp(260px, 26vw, 380px)', height: 'clamp(360px, 50vh, 520px)' }}
@@ -82,8 +84,8 @@ export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
             <p className="text-[#c8920c] text-sm font-sans mt-1">৳{room.price} / night</p>
           )}
           <span className="inline-block mt-3 text-[10px] uppercase tracking-widest text-white/50 font-sans group-hover:text-white/80 transition-colors">
-            View Details →
-          </span>
+              {t('View Details', 'বিস্তারিত দেখুন')} →
+            </span>
         </div>
       </div>
     </Link>
@@ -94,8 +96,8 @@ export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
       {/* Mobile grid */}
       <section className="md:hidden bg-[#030d04] px-6 py-20">
         <div className="mb-10">
-          <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans">Our Rooms</span>
-          <h2 className="font-display text-4xl text-white mt-3">Curated Stays</h2>
+          <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans">{t('Our Rooms', 'আমাদের রুমসমূহ')}</span>
+          <h2 className="font-display text-4xl text-white mt-3">{t('Curated Stays', 'বিশেষভাবে সাজানো আবাস')}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {rooms.map(room => (
@@ -124,15 +126,15 @@ export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
         >
           {/* Label card */}
           <div className="flex-shrink-0 flex flex-col justify-end pb-4 pr-8" style={{ width: '18vw', minWidth: '200px' }}>
-            <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans mb-4">Our Rooms</span>
+          <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans mb-4">{t('Our Rooms', 'আমাদের রুমসমূহ')}</span>
             <h2 className="font-display text-5xl lg:text-6xl text-white leading-tight">
-              Scroll<br />to<br />Explore
+              {t('Scroll', 'স্ক্রল করুন')}<br />{t('to', '')}<br />{t('Explore', 'ঘুরে দেখুন')}
             </h2>
             <Link
               href="/rooms"
               className="mt-6 inline-block text-xs uppercase tracking-widest text-[#c8920c] hover:text-[#d4a017] transition-colors"
             >
-              View All →
+              {t('View All', 'সব রুম দেখুন')} →
             </Link>
           </div>
 

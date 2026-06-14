@@ -81,74 +81,51 @@ export const createPayment = async (
   next: NextFunction
 ) => {
   try {
-    const {
-      bookingId,
-      amount,
-      method,
-      transactionId,
-      notes,
-    } = req.body;
+    const { bookingId, amount, method, transactionId, notes } = req.body;
 
-    // Validate booking exists
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: { payments: true },
-    });
-
-    if (!booking) {
-      throw new AppError('Booking not found', 404);
+    if (!bookingId || !amount || !method) {
+      throw new AppError('bookingId, amount, and method are required', 400);
+    }
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      throw new AppError('Amount must be a positive number', 400);
     }
 
-    // Calculate total paid
-    const totalPaid = booking.payments.reduce(
-      (sum, p) => sum + p.amount,
-      0
-    );
-
-    if (totalPaid + amount > booking.totalAmount) {
-      throw new AppError(
-        'Payment amount exceeds remaining balance',
-        400
-      );
-    }
-
-    const payment = await prisma.payment.create({
-      data: {
-        bookingId,
-        amount,
-        method,
-        transactionId,
-        notes,
-        status: 'COMPLETED',
-      },
-      include: {
-        booking: {
-          include: {
-            room: true,
-            guest: true,
-          },
-        },
-      },
-    });
-
-    // Check if fully paid — only upgrade status, never downgrade
-    const newTotalPaid = totalPaid + amount;
-    if (newTotalPaid >= booking.totalAmount && booking.status === 'PENDING') {
-      await prisma.booking.update({
+    // Use transaction to prevent race condition on overpayment
+    const payment = await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({
         where: { id: bookingId },
-        data: { status: 'CONFIRMED' },
+        include: { payments: true, room: true, guest: true },
       });
-    }
+      if (!booking) throw new AppError('Booking not found', 404);
 
-    // Send payment confirmation email
+      const totalPaid = booking.payments.reduce((s, p) => s + p.amount, 0);
+      if (totalPaid + numAmount > booking.totalAmount) {
+        throw new AppError('Payment amount exceeds remaining balance', 400);
+      }
+
+      const newPayment = await tx.payment.create({
+        data: { bookingId, amount: numAmount, method, transactionId, notes, status: 'COMPLETED' },
+        include: { booking: { include: { room: true, guest: true } } },
+      });
+
+      // Only upgrade PENDING → CONFIRMED, never downgrade
+      if (totalPaid + numAmount >= booking.totalAmount && booking.status === 'PENDING') {
+        await tx.booking.update({ where: { id: bookingId }, data: { status: 'CONFIRMED' } });
+      }
+
+      return newPayment;
+    });
+
+    // Send email outside transaction
     if (payment.booking.guest.email) {
-      await emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
+      emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
         bookingId: payment.booking.id,
         guestName: payment.booking.guest.name,
         amount: payment.amount,
         method: payment.method,
         transactionId: payment.transactionId || undefined,
-      }).catch(err => console.error('Failed to send payment confirmation email:', err));
+      }).catch(err => console.error('Payment email failed:', err));
     }
 
     res.status(201).json({ success: true, payment });
@@ -166,6 +143,9 @@ export const updatePayment = async (
     const { id } = req.params;
     const { status, notes, transactionId } = req.body;
 
+    const existing = await prisma.payment.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Payment not found', 404);
+
     const payment = await prisma.payment.update({
       where: { id },
       data: {
@@ -173,9 +153,7 @@ export const updatePayment = async (
         ...(notes !== undefined ? { notes } : {}),
         ...(transactionId !== undefined ? { transactionId } : {}),
       },
-      include: {
-        booking: true,
-      },
+      include: { booking: true },
     });
 
     res.json({ success: true, payment });

@@ -4,6 +4,7 @@ import { useRevealGroup } from '@/hooks/useReveal';
 import Link from 'next/link';
 import type { BlogListItem } from '@/types/resort';
 import { formatDistanceToNow } from 'date-fns';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Props {
   blogs: BlogListItem[];
@@ -11,6 +12,7 @@ interface Props {
 
 export default function BlogsNature({ blogs }: Props) {
   const { ref, visible } = useRevealGroup<HTMLDivElement>();
+  const { t } = useLanguage();
 
   if (!blogs.length) return null;
 
@@ -21,14 +23,14 @@ export default function BlogsNature({ blogs }: Props) {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-end justify-between mb-14">
           <div>
-            <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans">Stories</span>
-            <h2 className="font-display text-4xl md:text-5xl text-white mt-3">From the Garden</h2>
+            <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans">{t('Stories', 'গল্পসমূহ')}</span>
+            <h2 className="font-display text-4xl md:text-5xl text-white mt-3">{t('From the Garden', 'বাগানের গল্প')}</h2>
           </div>
           <Link
             href="/blogs"
             className="hidden md:inline-block text-xs uppercase tracking-widest text-[#c8920c] hover:text-[#d4a017] transition-colors"
           >
-            All Stories →
+            {t('All Stories', 'সব গল্প')} →
           </Link>
         </div>
 
@@ -108,7 +110,7 @@ export default function BlogsNature({ blogs }: Props) {
             href="/blogs"
             className="inline-block px-8 py-3 border border-[#3d7a4a] text-[#a8d4a8] text-xs uppercase tracking-widest rounded-full hover:border-[#c8920c] hover:text-[#c8920c] transition-colors"
           >
-            All Stories
+            {t('All Stories', 'সব গল্প')}
           </Link>
         </div>
       </div>

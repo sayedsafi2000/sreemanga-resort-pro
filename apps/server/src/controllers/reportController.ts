@@ -56,7 +56,6 @@ export const getRevenueReport = async (
       totalBookings,
       revenueByDate,
       revenueByRoomType,
-      payments,
     });
   } catch (error) {
     next(error);
@@ -121,7 +120,6 @@ export const getOccupancyReport = async (
       occupiedRoomNights,
       totalRoomNights,
       occupancyRate: Math.round(occupancyRate * 100) / 100,
-      bookings,
     });
   } catch (error) {
     next(error);
@@ -218,7 +216,6 @@ export const getBookingStats = async (
       checkedInBookings,
       checkedOutBookings,
       cancelledBookings,
-      bookings,
     });
   } catch (error) {
     next(error);

@@ -15,14 +15,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { ResortSettings } from '@/types/resort';
 
 const navLinks = [
-  { label: 'Home',       href: '/' },
-  { label: 'Rooms',      href: '/rooms' },
-  { label: 'Explore',    href: '/explore' },
-  { label: 'Blogs',      href: '/blogs' },
-  { label: 'Restaurant', href: '/restaurant' },
-  { label: 'Gallery',    href: '/gallery' },
-  { label: 'Contact',    href: '/contact' },
-  { label: 'Book',       href: '/booking' },
+  { en: 'Home',       bn: 'হোম',        href: '/' },
+  { en: 'Rooms',      bn: 'রুম',         href: '/rooms' },
+  { en: 'Explore',    bn: 'ঘুরে দেখুন',  href: '/explore' },
+  { en: 'Blogs',      bn: 'ব্লগ',        href: '/blogs' },
+  { en: 'Restaurant', bn: 'রেস্তোরাঁ',   href: '/restaurant' },
+  { en: 'Gallery',    bn: 'গ্যালারি',    href: '/gallery' },
+  { en: 'Contact',    bn: 'যোগাযোগ',    href: '/contact' },
+  { en: 'Book',       bn: 'বুকিং',       href: '/booking' },
 ];
 
 export default function FooterT2({
@@ -33,6 +33,7 @@ export default function FooterT2({
   logoSrc: string;
 }) {
   const { resortName, address, phone, email, social, tagline } = settings;
+  const { t } = useLanguage();
   const telHref = `tel:${phone.replace(/\s/g, '')}`;
   const hasSocial = Boolean(social.facebook || social.instagram || social.youtube);
 
@@ -57,7 +58,7 @@ export default function FooterT2({
             </Link>
 
             <p className="mt-5 text-sm leading-relaxed text-forest-300/55">
-              {tagline}
+              {t(tagline, settings.taglineBn || tagline)}
             </p>
 
             {hasSocial && (
@@ -102,7 +103,7 @@ export default function FooterT2({
           {/* Navigation */}
           <div>
             <h3 className="mb-5 text-[9px] font-semibold uppercase tracking-[0.35em] text-earth-400">
-              Navigation
+              {t('Navigation', 'নেভিগেশন')}
             </h3>
             <ul className="grid grid-cols-2 gap-x-6 gap-y-3">
               {navLinks.map((link) => (
@@ -112,7 +113,7 @@ export default function FooterT2({
                     className="group flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-forest-400/70 transition hover:text-earth-400"
                   >
                     <ArrowRight className="h-3 w-3 opacity-0 transition-all group-hover:opacity-100" />
-                    {link.label}
+                    {t(link.en, link.bn)}
                   </Link>
                 </li>
               ))}
@@ -122,7 +123,7 @@ export default function FooterT2({
           {/* Contact */}
           <div>
             <h3 className="mb-5 text-[9px] font-semibold uppercase tracking-[0.35em] text-earth-400">
-              Contact
+              {t('Contact', 'যোগাযোগ')}
             </h3>
             <ul className="space-y-4 text-sm text-forest-300/65">
               <li className="flex gap-3">
@@ -147,7 +148,7 @@ export default function FooterT2({
               href="/booking"
               className="mt-7 inline-flex items-center gap-2 border border-earth-400/50 bg-earth-400/10 px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-earth-400 transition hover:bg-earth-400/20"
             >
-              Book a stay
+              {t('Book a stay', 'বুকিং করুন')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -158,10 +159,10 @@ export default function FooterT2({
       <div className="border-t border-forest-900/50">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-4 text-center sm:flex-row sm:px-6 sm:text-left lg:px-8">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-forest-700">
-            © {new Date().getFullYear()} {resortName} · All rights reserved
+            © {new Date().getFullYear()} {resortName} · {t('All rights reserved', 'সর্বস্বত্ব সংরক্ষিত')}
           </p>
           <p className="text-[10px] text-forest-800">
-            Sreemangal, Moulvibazar, Bangladesh
+            {t('Sreemangal, Moulvibazar, Bangladesh', 'শ্রীমঙ্গল, মৌলভীবাজার, বাংলাদেশ')}
           </p>
         </div>
       </div>

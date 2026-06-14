@@ -74,7 +74,7 @@ app.use('/api/reports', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 
 app.use('/api/expenditures', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), expenditureRoutes);
 app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), salaryRoutes);
 app.use('/api/pending-payments', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), pendingPaymentRoutes);
-app.use('/api/branding', brandingRoutes);
+app.use('/api/branding', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), brandingRoutes);
 
 // Error handling
 app.use(errorHandler);

@@ -435,7 +435,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* ── Top bar ────────────────────────────────────────────────────── */}
-        <header className="flex shrink-0 items-center gap-3 border-b border-border bg-white/80 px-4 py-3 backdrop-blur-md sm:px-6">
+        <header className="relative z-30 flex shrink-0 items-center gap-3 border-b border-border bg-white/80 px-4 py-3 backdrop-blur-md sm:px-6">
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
@@ -485,7 +485,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
               {/* Notification dropdown */}
               {notifOpen && (
-                <div className="absolute right-0 top-11 z-50 w-80 rounded-xl border border-border bg-white shadow-xl ring-1 ring-black/5 sm:w-96">
+                <div className="absolute right-0 top-11 z-[9999] w-80 rounded-xl border border-border bg-white shadow-xl ring-1 ring-black/5 sm:w-96">
                   {/* Header */}
                   <div className="flex items-center justify-between border-b border-border px-4 py-3">
                     <div className="flex items-center gap-2">

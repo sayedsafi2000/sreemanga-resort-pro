@@ -103,6 +103,9 @@ export const updateRoom = async (
     const data = roomSchema.partial().parse(req.body);
     const payload = pruneValue(data);
 
+    const existing = await prisma.room.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Room not found', 404);
+
     if (req.user?.role === 'HOUSEKEEPING') {
       const keys = Object.keys(payload || {}).filter((k) => payload[k as keyof typeof payload] !== undefined);
       if (keys.length === 0 || keys.some((k) => k !== 'status')) {
@@ -129,9 +132,17 @@ export const deleteRoom = async (
   try {
     const { id } = req.params;
 
-    await prisma.room.delete({
-      where: { id },
-    });
+    const existing = await prisma.room.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Room not found', 404);
+
+    // Delete dependent bookings and their payments first
+    const bookings = await prisma.booking.findMany({ where: { roomId: id }, select: { id: true } });
+    for (const b of bookings) {
+      await prisma.payment.deleteMany({ where: { bookingId: b.id } });
+    }
+    await prisma.booking.deleteMany({ where: { roomId: id } });
+
+    await prisma.room.delete({ where: { id } });
 
     res.json({ success: true, message: 'Room deleted successfully' });
   } catch (error) {

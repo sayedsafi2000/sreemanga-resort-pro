@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Link from 'next/link';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Props {
   aboutShort?: string;
@@ -13,13 +14,14 @@ interface Props {
 }
 
 const STATS = [
-  { target: 15, suffix: '+', label: 'Acres of Nature' },
-  { target: 12, suffix: '+', label: 'Room Types' },
-  { target: 5, suffix: '★', label: 'Guest Rating' },
-  { target: 2000, suffix: '+', label: 'Happy Guests' },
+  { target: 15, suffix: '+', labelEn: 'Acres of Nature' },
+  { target: 12, suffix: '+', labelEn: 'Room Types' },
+  { target: 5, suffix: '★', labelEn: 'Guest Rating' },
+  { target: 2000, suffix: '+', labelEn: 'Happy Guests' },
 ];
 
 export default function AboutNature({ aboutShort, aboutLong }: Props) {
+  const { t } = useLanguage();
   const sectionRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLDivElement>(null);
   const counterRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -121,23 +123,23 @@ export default function AboutNature({ aboutShort, aboutLong }: Props) {
           {/* Text content */}
           <div>
             <span className="t3-about-line inline-block text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans mb-4">
-              About Us
+              {t('About Us', 'আমাদের পরিচয়')}
             </span>
             <h2 className="t3-about-line font-display text-4xl md:text-5xl lg:text-6xl text-white leading-tight mb-6">
-              Rooted in<br />Nature's Grace
+              {t('Rooted in', 'প্রকৃতির')}<br />{t("Nature's Grace", 'সুরম্য আশ্রয়ে')}
             </h2>
             <p className="t3-about-line text-[#a8d4a8] leading-relaxed mb-4 text-base">
-              {aboutShort || 'Nestled in the heart of Sreemangal, surrounded by endless tea gardens and verdant forests, we offer a sanctuary where nature heals and inspires.'}
+              {t(aboutShort || 'Nestled in the heart of Sreemangal, surrounded by endless tea gardens and verdant forests, we offer a sanctuary where nature heals and inspires.', aboutShort || 'শ্রীমঙ্গলের প্রাণকেন্দ্রে অবস্থিত, অফুরন্ত চা বাগান ও সবুজ অরণ্য ঘেরা এই আশ্রয়ে প্রকৃতি সারায় ও অনুপ্রেরণা দেয়।')}
             </p>
             {aboutLong && (
-              <p className="t3-about-line text-[#5a8a5a] leading-relaxed text-sm">{aboutLong}</p>
+              <p className="t3-about-line text-[#5a8a5a] leading-relaxed text-sm">{t(aboutLong)}</p>
             )}
 
             <Link
               href="/rooms"
               className="t3-about-line inline-block mt-8 px-8 py-3 border border-[#3d7a4a] text-[#a8d4a8] text-xs uppercase tracking-widest rounded-full hover:border-[#c8920c] hover:text-[#c8920c] transition-colors"
             >
-              Explore Our Rooms
+              {t('Explore Our Rooms', 'আমাদের রুম দেখুন')}
             </Link>
 
             {/* Stats grid */}
@@ -148,7 +150,9 @@ export default function AboutNature({ aboutShort, aboutLong }: Props) {
                     <span ref={el => { counterRefs.current[i] = el; }} data-idx={i}>0</span>
                     {stat.suffix}
                   </div>
-                  <p className="text-[#5a8a5a] text-xs font-sans mt-1 uppercase tracking-wider">{stat.label}</p>
+                  <p className="text-[#5a8a5a] text-xs font-sans mt-1 uppercase tracking-wider">
+                    {t(stat.labelEn, ['প্রকৃতির একর', 'রুমের ধরন', 'অতিথি রেটিং', 'সুখী অতিথি'][i])}
+                  </p>
                 </div>
               ))}
             </div>

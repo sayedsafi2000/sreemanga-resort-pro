@@ -91,6 +91,8 @@ export const updatePendingPayment = async (req: Request, res: Response, next: Ne
 export const deletePendingPayment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const existing = await prisma.pendingPayment.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Pending payment not found', 404);
     await prisma.pendingPayment.delete({ where: { id } });
     res.json({ success: true });
   } catch (error) {
@@ -114,11 +116,21 @@ export const payNow = async (req: Request, res: Response, next: NextFunction) =>
     const userId = (req as any).user?.id;
     const payDate = opts.date ? new Date(opts.date) : new Date();
 
+    // categoryId may be null — look up or use a fallback "Miscellaneous" category
+    let categoryId = pending.categoryId;
+    if (!categoryId) {
+      let misc = await prisma.expenseCategory.findFirst({ where: { name: 'Miscellaneous' } });
+      if (!misc) {
+        misc = await prisma.expenseCategory.create({ data: { name: 'Miscellaneous', sortOrder: 99 } });
+      }
+      categoryId = misc.id;
+    }
+
     const expense = await prisma.expense.create({
       data: {
         title: pending.title,
         amount: pending.amount,
-        categoryId: pending.categoryId!,
+        categoryId,
         date: payDate,
         paymentMethod: (opts.paymentMethod as any) ?? 'CASH',
         paidTo: opts.paidTo ?? null,

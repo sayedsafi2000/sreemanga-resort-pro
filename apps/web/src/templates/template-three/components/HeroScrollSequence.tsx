@@ -4,20 +4,13 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useLanguage } from '@/contexts/LanguageContext';
 
-// Fallback images if no heroImages are provided
 const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=85',
   'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=85',
   'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1920&q=85',
   'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=85',
-];
-
-const SCENES = [
-  { tag: 'Sreemangal, Bangladesh', headline: 'Escape Into\nNature', cta: false },
-  { tag: 'Ancient Tea Gardens', headline: 'Into the\nWild Heart', cta: false },
-  { tag: 'Forest Sanctuary', headline: 'Breathe.\nUnwind.', cta: false },
-  { tag: 'Book Your Escape', headline: 'Begin Your\nStory Here', cta: true },
 ];
 
 interface Props {
@@ -27,7 +20,15 @@ interface Props {
 }
 
 export default function HeroScrollSequence({ resortName, heroImages = [] }: Props) {
+  const { t } = useLanguage();
   const IMAGES = heroImages.length >= 2 ? heroImages : FALLBACK_IMAGES;
+
+  const SCENES = [
+    { tag: t('Sreemangal, Bangladesh', 'শ্রীমঙ্গল, বাংলাদেশ'), headline: t('Escape Into\nNature', 'প্রকৃতির\nকোলে যাও'), cta: false },
+    { tag: t('Ancient Tea Gardens', 'শতবর্ষী চা বাগান'), headline: t('Into the\nWild Heart', 'বনের\nঅন্তরে'), cta: false },
+    { tag: t('Forest Sanctuary', 'অরণ্য আশ্রয়'), headline: t('Breathe.\nUnwind.', 'শ্বাস নাও।\nবিশ্রাম নাও।'), cta: false },
+    { tag: t('Book Your Escape', 'আজই বুক করো'), headline: t('Begin Your\nStory Here', 'তোমার গল্প\nশুরু হোক এখানে'), cta: true },
+  ];
   const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -117,13 +118,13 @@ export default function HeroScrollSequence({ resortName, heroImages = [] }: Prop
                   href="/booking"
                   className="px-9 py-4 bg-[#c8920c] text-white text-xs uppercase tracking-[0.2em] rounded-full hover:bg-[#d4a017] transition-colors"
                 >
-                  Book Your Stay
+                  {t('Book Your Stay', 'আপনার থাকা বুক করুন')}
                 </Link>
                 <Link
                   href="/rooms"
                   className="px-9 py-4 border border-white/35 text-white text-xs uppercase tracking-[0.2em] rounded-full hover:bg-white/8 hover:border-white/60 transition-all"
                 >
-                  Explore Rooms
+                  {t('Explore Rooms', 'রুমগুলো দেখুন')}
                 </Link>
               </div>
             )}
@@ -142,7 +143,7 @@ export default function HeroScrollSequence({ resortName, heroImages = [] }: Prop
 
         {/* Scroll hint */}
         <div className="t3-scroll-hint absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-          <span className="text-white/35 text-[10px] uppercase tracking-[0.3em] font-sans">Scroll to explore</span>
+        <span className="text-white/35 text-[10px] uppercase tracking-[0.3em] font-sans">{t('Scroll to explore', 'নিচে স্ক্রল করুন')}</span>
           <div className="relative w-px h-12 overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-white/50 to-transparent t3-scroll-line" />
           </div>

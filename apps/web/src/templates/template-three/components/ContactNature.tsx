@@ -3,6 +3,7 @@
 import { useReveal } from '@/hooks/useReveal';
 import Link from 'next/link';
 import { Phone, Mail, MapPin } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Props {
   phone?: string;
@@ -12,6 +13,7 @@ interface Props {
 
 export default function ContactNature({ phone, email, address }: Props) {
   const { ref, visible } = useReveal<HTMLDivElement>();
+  const { t } = useLanguage();
 
   return (
     <section className="bg-[#0a1b0c] py-28 px-6 relative overflow-hidden">
@@ -30,12 +32,12 @@ export default function ContactNature({ phone, email, address }: Props) {
           visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
         }`}
       >
-        <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans">Get in Touch</span>
+        <span className="text-[#3d7a4a] text-[10px] uppercase tracking-[0.35em] font-sans">{t('Get in Touch', 'যোগাযোগ করুন')}</span>
         <h2 className="font-display text-5xl md:text-7xl text-white mt-4 mb-6 leading-tight">
-          Begin Your<br />Nature Story
+          {t('Begin Your', 'আপনার প্রকৃতি')}<br />{t('Nature Story', 'যাত্রা শুরু হোক')}
         </h2>
         <p className="text-[#5a8a5a] text-base mb-12 max-w-md mx-auto">
-          Ready to escape into the wilderness? We'd love to welcome you to our sanctuary.
+          {t("Ready to escape into the wilderness? We'd love to welcome you to our sanctuary.", 'প্রকৃতির কোলে হারিয়ে যেতে প্রস্তুত? আমরা আপনাকে আমাদের আশ্রয়ে স্বাগত জানাতে অধীর আগ্রহে অপেক্ষা করছি।')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-14">
@@ -43,13 +45,13 @@ export default function ContactNature({ phone, email, address }: Props) {
             href="/booking"
             className="px-10 py-4 bg-[#c8920c] text-white text-xs uppercase tracking-[0.2em] rounded-full hover:bg-[#d4a017] transition-all hover:shadow-lg hover:shadow-[#c8920c]/25"
           >
-            Book Your Stay
+            {t('Book Your Stay', 'আপনার থাকা বুক করুন')}
           </Link>
           <Link
             href="/contact"
             className="px-10 py-4 border border-[#3d7a4a] text-[#a8d4a8] text-xs uppercase tracking-[0.2em] rounded-full hover:border-[#c8920c] hover:text-[#c8920c] transition-colors"
           >
-            Send a Message
+            {t('Send a Message', 'বার্তা পাঠান')}
           </Link>
         </div>
 

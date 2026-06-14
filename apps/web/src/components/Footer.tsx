@@ -88,14 +88,14 @@ export default function Footer({
           <div className="flex items-center gap-2 text-forest-400">
             <Leaf className="h-4 w-4 flex-shrink-0 text-forest-500" aria-hidden />
             <span className="text-xs font-semibold uppercase tracking-[0.22em] text-forest-400">
-              Eco Resort · Sreemangal, Bangladesh
+              {t('Eco Resort · Sreemangal, Bangladesh', 'ইকো রিসোর্ট · শ্রীমঙ্গল, বাংলাদেশ')}
             </span>
           </div>
           <Link
             href="/booking"
             className="hidden items-center gap-1.5 rounded-full bg-forest-100/10 px-4 py-1.5 text-xs font-semibold text-forest-200 ring-1 ring-forest-700/50 transition hover:bg-forest-100/20 hover:text-white sm:flex"
           >
-            Book a stay
+              {t('Book a stay', 'বুকিং করুন')}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         </Container>
@@ -196,7 +196,7 @@ export default function Footer({
           {/* Contact */}
           <div className="shrink-0 lg:w-56">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-forest-400">
-              Contact
+              {t('Contact', 'যোগাযোগ')}
             </h3>
             <ul className="space-y-3 text-sm text-forest-200/85">
               <li className="flex gap-2.5">
@@ -227,7 +227,7 @@ export default function Footer({
                 href="/contact#map"
                 className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-forest-400 transition hover:text-forest-200"
               >
-                View on map
+                {t('View on map', 'মানচিত্রে দেখুন')}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             )}
@@ -242,21 +242,21 @@ export default function Footer({
               className="inline-flex items-center gap-1.5 rounded-xl bg-forest-100 px-5 py-2.5 text-sm font-semibold text-forest-950 shadow-sm transition hover:bg-white hover:shadow-md"
             >
               <CalendarDays className="h-4 w-4" aria-hidden />
-              Book Your Stay
+              {t('Book Your Stay', 'আপনার থাকা বুক করুন')}
             </Link>
             <a
               href={telHref}
               className="inline-flex items-center gap-1.5 rounded-xl border border-forest-600/60 bg-forest-900/60 px-5 py-2.5 text-sm font-semibold text-forest-50 transition hover:bg-forest-800"
             >
               <Phone className="h-4 w-4" aria-hidden />
-              Call Us
+              {t('Call Us', 'কল করুন')}
             </a>
           </div>
 
           <p className="text-xs text-forest-600">
-            © {new Date().getFullYear()}{' '}
+            {' '}© {new Date().getFullYear()}{' '}
             <span className="text-forest-300">{resortName}</span>
-            {' · '}All rights reserved
+            {' · '}{t('All rights reserved', 'সর্বস্বত্ব সংরক্ষিত')}
           </p>
         </div>
       </Container>

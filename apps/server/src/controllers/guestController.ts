@@ -68,11 +68,10 @@ export const updateGuest = async (
     const { id } = req.params;
     const data = guestSchema.partial().parse(req.body);
 
-    const guest = await prisma.guest.update({
-      where: { id },
-      data,
-    });
+    const existing = await prisma.guest.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Guest not found', 404);
 
+    const guest = await prisma.guest.update({ where: { id }, data });
     res.json({ success: true, guest });
   } catch (error) {
     next(error);
@@ -87,10 +86,18 @@ export const deleteGuest = async (
   try {
     const { id } = req.params;
 
-    await prisma.guest.delete({
-      where: { id },
-    });
+    const existing = await prisma.guest.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Guest not found', 404);
 
+    // Check for active bookings
+    const activeBookings = await prisma.booking.count({
+      where: { guestId: id, status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] } },
+    });
+    if (activeBookings > 0) {
+      throw new AppError('Cannot delete guest with active bookings', 400);
+    }
+
+    await prisma.guest.delete({ where: { id } });
     res.json({ success: true, message: 'Guest deleted successfully' });
   } catch (error) {
     next(error);

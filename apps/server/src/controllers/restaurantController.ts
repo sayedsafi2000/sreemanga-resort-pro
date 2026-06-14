@@ -107,11 +107,10 @@ export const updateMenuItem = async (
     const { id } = req.params;
     const data = menuSchema.partial().parse(req.body);
 
-    const menuItem = await prisma.restaurantMenu.update({
-      where: { id },
-      data,
-    });
+    const existing = await prisma.restaurantMenu.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Menu item not found', 404);
 
+    const menuItem = await prisma.restaurantMenu.update({ where: { id }, data });
     res.json({ success: true, menuItem });
   } catch (error) {
     next(error);
@@ -126,10 +125,10 @@ export const deleteMenuItem = async (
   try {
     const { id } = req.params;
 
-    await prisma.restaurantMenu.delete({
-      where: { id },
-    });
+    const existing = await prisma.restaurantMenu.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Menu item not found', 404);
 
+    await prisma.restaurantMenu.delete({ where: { id } });
     res.json({ success: true, message: 'Menu item deleted successfully' });
   } catch (error) {
     next(error);
@@ -203,6 +202,9 @@ export const updateOrder = async (
     const { id } = req.params;
     const data = orderUpdateSchema.parse(req.body);
 
+    const existing = await prisma.restaurantOrder.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Order not found', 404);
+
     const order = await prisma.restaurantOrder.update({
       where: { id },
       data: {
@@ -213,10 +215,7 @@ export const updateOrder = async (
         ...(data.userId !== undefined ? { userId: data.userId } : {}),
         ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
       },
-      include: {
-        room: true,
-        user: true,
-      },
+      include: { room: true, user: true },
     });
 
     res.json({ success: true, order });
