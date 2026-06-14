@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { login, register, getProfile } from '../controllers/authController';
 import { requestPasswordReset, resetPassword, verifyResetToken } from '../controllers/passwordResetController';
 import { authenticateToken } from '../middleware/auth';
+import { roleCheck } from '../middleware/roleCheck';
 
 const router = Router();
 
 router.post('/login', login);
-router.post('/register', register);
+router.post('/register', authenticateToken, roleCheck(['SUPER_ADMIN']), register);
 router.get('/profile', authenticateToken, getProfile);
 
 // Password reset routes

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import {
   expenditureCategorySchema,
@@ -7,10 +7,10 @@ import {
   expenditureListQuerySchema,
 } from '../validators/expenditureValidator';
 
-const directPrisma = new PrismaClient();
+
 
 async function assertCategoryExists(categoryId: string): Promise<void> {
-  const exists = await directPrisma.expenseCategory.findUnique({
+  const exists = await prisma.expenseCategory.findUnique({
     where: { id: categoryId },
     select: { id: true },
   });
@@ -21,7 +21,7 @@ async function assertCategoryExists(categoryId: string): Promise<void> {
 
 export const getExpenditureCategories = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const categories = await directPrisma.expenseCategory.findMany({
+    const categories = await prisma.expenseCategory.findMany({
       orderBy: { sortOrder: 'asc' },
       include: { _count: { select: { expenses: true } } },
     });
@@ -36,7 +36,7 @@ export const createExpenditureCategory = async (req: Request, res: Response, nex
     const data = expenditureCategorySchema.parse(req.body);
     const trimmedName = data.name.trim();
     if (trimmedName === 'Staff Salary') {
-      const exists = await directPrisma.expenseCategory.findFirst({
+      const exists = await prisma.expenseCategory.findFirst({
         where: { name: 'Staff Salary' },
         select: { id: true },
       });
@@ -46,10 +46,10 @@ export const createExpenditureCategory = async (req: Request, res: Response, nex
     }
     let sortOrder = data.sortOrder;
     if (sortOrder === undefined) {
-      const agg = await directPrisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
+      const agg = await prisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
       sortOrder = (agg._max.sortOrder ?? 0) + 1;
     }
-    const category = await directPrisma.expenseCategory.create({
+    const category = await prisma.expenseCategory.create({
       data: {
         name: trimmedName,
         isActive: data.isActive ?? true,
@@ -66,7 +66,7 @@ export const createExpenditureCategory = async (req: Request, res: Response, nex
 export const updateExpenditureCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const existing = await directPrisma.expenseCategory.findUnique({ where: { id } });
+    const existing = await prisma.expenseCategory.findUnique({ where: { id } });
     if (!existing) {
       throw new AppError('Category not found', 404);
     }
@@ -80,7 +80,7 @@ export const updateExpenditureCategory = async (req: Request, res: Response, nex
     if (existing.name !== 'Staff Salary' && data.name === 'Staff Salary') {
       throw new AppError('A Staff Salary category already exists. Choose another name.', 400);
     }
-    const category = await directPrisma.expenseCategory.update({
+    const category = await prisma.expenseCategory.update({
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
@@ -98,21 +98,21 @@ export const updateExpenditureCategory = async (req: Request, res: Response, nex
 export const deleteExpenditureCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const existing = await directPrisma.expenseCategory.findUnique({ where: { id } });
+    const existing = await prisma.expenseCategory.findUnique({ where: { id } });
     if (existing?.name === 'Staff Salary') {
       throw new AppError(
         'Staff Salary category is used for payroll sync and cannot be deleted.',
         400
       );
     }
-    const expenseCount = await directPrisma.expense.count({ where: { categoryId: id } });
+    const expenseCount = await prisma.expense.count({ where: { categoryId: id } });
     if (expenseCount > 0) {
       throw new AppError(
         `Category has ${expenseCount} expense${expenseCount === 1 ? '' : 's'}; reassign or delete those first.`,
         409
       );
     }
-    await directPrisma.expenseCategory.delete({ where: { id } });
+    await prisma.expenseCategory.delete({ where: { id } });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -139,7 +139,7 @@ export const getExpenditures = async (req: Request, res: Response, next: NextFun
       ];
     }
 
-    const expenditures = await directPrisma.expense.findMany({
+    const expenditures = await prisma.expense.findMany({
       where,
       include: {
         category: true,
@@ -157,7 +157,7 @@ export const getExpenditures = async (req: Request, res: Response, next: NextFun
 export const getExpenditureById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const expenditure = await directPrisma.expense.findUnique({
+    const expenditure = await prisma.expense.findUnique({
       where: { id },
       include: {
         category: true,
@@ -178,7 +178,7 @@ export const createExpenditure = async (req: Request, res: Response, next: NextF
     const data = expenditureSchema.parse(req.body);
     await assertCategoryExists(data.categoryId);
     const userId = (req as any).user?.id;
-    const expenditure = await directPrisma.expense.create({
+    const expenditure = await prisma.expense.create({
       data: { ...data, createdById: userId },
     });
     res.json({ success: true, expenditure });
@@ -194,7 +194,7 @@ export const updateExpenditure = async (req: Request, res: Response, next: NextF
     if (data.categoryId) {
       await assertCategoryExists(data.categoryId);
     }
-    const expenditure = await directPrisma.expense.update({
+    const expenditure = await prisma.expense.update({
       where: { id },
       data,
     });
@@ -207,7 +207,7 @@ export const updateExpenditure = async (req: Request, res: Response, next: NextF
 export const deleteExpenditure = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    await directPrisma.expense.delete({ where: { id } });
+    await prisma.expense.delete({ where: { id } });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -236,22 +236,22 @@ export const getExpenditureStats = async (req: Request, res: Response, next: Nex
       : new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const [todayTotal, rangeTotal, categoryBreakdown] = await Promise.all([
-      directPrisma.expense.aggregate({
+      prisma.expense.aggregate({
         where: { date: { gte: today, lt: tomorrow }, status: 'PAID' },
         _sum: { amount: true },
       }),
-      directPrisma.expense.aggregate({
+      prisma.expense.aggregate({
         where: { date: { gte: rangeStart, lte: rangeEnd }, status: 'PAID' },
         _sum: { amount: true },
       }),
-      directPrisma.expense.groupBy({
+      prisma.expense.groupBy({
         by: ['categoryId'],
         _sum: { amount: true },
         where: { date: { gte: rangeStart, lte: rangeEnd }, status: 'PAID' },
       }),
     ]);
 
-    const categories = await directPrisma.expenseCategory.findMany({
+    const categories = await prisma.expenseCategory.findMany({
       where: { id: { in: categoryBreakdown.map((c) => c.categoryId) } },
     });
 

@@ -9,8 +9,6 @@ export const roleCheck = (allowedRoles: string[]) => {
     if (!userRole || !allowedRoles.includes(userRole)) {
       return res.status(403).json({ 
         message: 'Insufficient permissions',
-        required: allowedRoles,
-        userRole: userRole
       });
     }
 

@@ -11,8 +11,13 @@ import {
   deleteExpenditure,
   getExpenditureStats,
 } from '../controllers/expenditureController';
+import { authenticateToken } from '../middleware/auth';
+import { roleCheck } from '../middleware/roleCheck';
 
 const router = Router();
+
+router.use(authenticateToken);
+router.use(roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']));
 
 router.get('/categories', getExpenditureCategories);
 router.post('/categories', createExpenditureCategory);

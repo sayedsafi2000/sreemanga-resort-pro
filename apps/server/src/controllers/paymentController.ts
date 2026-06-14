@@ -131,9 +131,9 @@ export const createPayment = async (
       },
     });
 
-    // Check if fully paid
+    // Check if fully paid — only upgrade status, never downgrade
     const newTotalPaid = totalPaid + amount;
-    if (newTotalPaid >= booking.totalAmount) {
+    if (newTotalPaid >= booking.totalAmount && booking.status === 'PENDING') {
       await prisma.booking.update({
         where: { id: bookingId },
         data: { status: 'CONFIRMED' },

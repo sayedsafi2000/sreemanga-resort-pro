@@ -7,8 +7,13 @@ import {
   deleteUser,
   changePassword,
 } from '../controllers/userController';
+import { authenticateToken } from '../middleware/auth';
+import { roleCheck } from '../middleware/roleCheck';
 
 const router = Router();
+
+router.use(authenticateToken);
+router.use(roleCheck(['SUPER_ADMIN']));
 
 router.get('/', getAllUsers);
 router.get('/:id', getUser);

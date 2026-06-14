@@ -226,6 +226,9 @@ export const updateBooking = async (
     const { id } = req.params;
     const data = updateBookingSchema.parse(req.body);
 
+    const existing = await prisma.booking.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Booking not found', 404);
+
     const booking = await prisma.booking.update({
       where: { id },
       data,
@@ -282,15 +285,26 @@ export const deleteBooking = async (
   try {
     const { id } = req.params;
 
-    const booking = await prisma.booking.delete({
-      where: { id },
-    });
+    const booking = await prisma.booking.findUnique({ where: { id } });
+    if (!booking) throw new AppError('Booking not found', 404);
 
-    // Update room status
-    await prisma.room.update({
-      where: { id: booking.roomId },
-      data: { status: 'AVAILABLE' },
+    // Delete related payments first to avoid FK constraint violation
+    await prisma.payment.deleteMany({ where: { bookingId: id } });
+    await prisma.booking.delete({ where: { id } });
+
+    // Only mark room available if no other active bookings exist for it
+    const activeBookings = await prisma.booking.count({
+      where: {
+        roomId: booking.roomId,
+        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
+      },
     });
+    if (activeBookings === 0) {
+      await prisma.room.update({
+        where: { id: booking.roomId },
+        data: { status: 'AVAILABLE' },
+      });
+    }
 
     res.json({ success: true, message: 'Booking deleted successfully' });
   } catch (error) {

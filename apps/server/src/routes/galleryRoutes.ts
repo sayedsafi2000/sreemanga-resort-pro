@@ -6,10 +6,13 @@ import {
   deleteGalleryItem,
   listGalleryCategories,
 } from '../controllers/galleryController';
+import { authenticateToken } from '../middleware/auth';
 import { roleCheck } from '../middleware/roleCheck';
 
 const router = Router();
 const superOnly = ['SUPER_ADMIN'] as const;
+
+router.use(authenticateToken);
 
 router.get('/', roleCheck([...superOnly]), listGalleryAdmin);
 router.get('/categories', roleCheck([...superOnly]), listGalleryCategories);

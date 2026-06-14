@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { AppError } from '../middleware/errorHandler';
-
-const prisma = new PrismaClient();
+import prisma from '../utils/prisma';
 
 const pendingPaymentSchema = z.object({
   title: z.string().min(1, 'Title is required'),

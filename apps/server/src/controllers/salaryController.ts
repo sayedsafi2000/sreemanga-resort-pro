@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-
-const directPrisma = new PrismaClient();
+import prisma from '../utils/prisma';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -15,15 +13,15 @@ let _staffSalaryCategoryId: string | null = null;
 async function getStaffSalaryCategoryId(): Promise<string> {
   if (_staffSalaryCategoryId) return _staffSalaryCategoryId;
 
-  let cat = await directPrisma.expenseCategory.findFirst({
+  let cat = await prisma.expenseCategory.findFirst({
     where: { name: 'Staff Salary' },
     select: { id: true },
   });
 
   if (!cat) {
     // Auto-create the category so salary payments always sync to Expenditures.
-    const agg = await directPrisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
-    cat = await directPrisma.expenseCategory.create({
+    const agg = await prisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
+    cat = await prisma.expenseCategory.create({
       data: {
         name: 'Staff Salary',
         isActive: true,
@@ -60,7 +58,7 @@ async function syncSalaryExpense(salary: {
   notes?: string | null;
 }): Promise<void> {
   const categoryId = await getStaffSalaryCategoryId();
-  const user = await directPrisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: salary.userId },
     select: { name: true },
   });
@@ -68,7 +66,7 @@ async function syncSalaryExpense(salary: {
   const title = `Salary — ${user?.name || 'Staff'} (${monthName} ${salary.year})`;
   const expenseDate = salary.paymentDate || new Date();
   const expenseStatus = salary.status === 'PAID' ? 'PAID' : 'CANCELLED';
-  await directPrisma.expense.upsert({
+  await prisma.expense.upsert({
     where: { salaryId: salary.id },
     update: {
       title,
@@ -127,7 +125,7 @@ export const getAllStaffSalaries = async (req: Request, res: Response, next: Nex
     if (month) where.month = parseInt(month as string);
     if (status) where.status = status;
 
-    const salaries = await directPrisma.staffSalary.findMany({
+    const salaries = await prisma.staffSalary.findMany({
       where,
       include: { user: { select: { id: true, name: true, role: true } } },
       orderBy: [{ year: 'desc' }, { month: 'desc' }],
@@ -141,7 +139,7 @@ export const getAllStaffSalaries = async (req: Request, res: Response, next: Nex
 export const getStaffSalaryByUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.params;
-    const salaries = await directPrisma.staffSalary.findMany({
+    const salaries = await prisma.staffSalary.findMany({
       where: { userId },
       orderBy: [{ year: 'desc' }, { month: 'desc' }],
     });
@@ -157,12 +155,12 @@ export const getAllStaffWithSalaries = async (req: Request, res: Response, next:
     const y = year ? parseInt(year as string) : new Date().getFullYear();
     const m = month ? parseInt(month as string) : new Date().getMonth() + 1;
 
-    const staff = await directPrisma.user.findMany({
+    const staff = await prisma.user.findMany({
       where: { role: { not: 'SUPER_ADMIN' } },
       select: { id: true, name: true, role: true },
     });
 
-    const salaries = await directPrisma.staffSalary.findMany({
+    const salaries = await prisma.staffSalary.findMany({
       where: { year: y, month: m },
     });
 
@@ -182,7 +180,7 @@ export const createSalaryPayment = async (req: Request, res: Response, next: Nex
     const data = salarySchema.parse(req.body);
     const status = data.status || 'PAID';
     const paymentDate = resolvePaymentDate(status, data.paymentDate);
-    const salary = await directPrisma.staffSalary.upsert({
+    const salary = await prisma.staffSalary.upsert({
       where: {
         userId_month_year: {
           userId: data.userId,
@@ -214,7 +212,7 @@ export const markSalaryPaid = async (req: Request, res: Response, next: NextFunc
     const data = salaryUpdateSchema.parse(req.body || {});
     const status = data.status || 'PAID';
     const paymentDate = resolvePaymentDate(status, data.paymentDate);
-    const salary = await directPrisma.staffSalary.update({
+    const salary = await prisma.staffSalary.update({
       where: { id },
       data: {
         status,
@@ -233,7 +231,7 @@ export const markSalaryPaid = async (req: Request, res: Response, next: NextFunc
 export const deleteSalary = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    await directPrisma.staffSalary.delete({ where: { id } });
+    await prisma.staffSalary.delete({ where: { id } });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -257,7 +255,7 @@ export const bulkPaySalaries = async (req: Request, res: Response, next: NextFun
     const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
     const results = await Promise.all(
       data.items.map((item) =>
-        directPrisma.staffSalary.upsert({
+        prisma.staffSalary.upsert({
           where: {
             userId_month_year: { userId: item.userId, month: data.month, year: data.year },
           },
@@ -291,15 +289,15 @@ export const getSalaryStats = async (_req: Request, res: Response, next: NextFun
     const currentMonth = now.getMonth() + 1;
 
     const [totalPending, totalPaid, monthlyStats] = await Promise.all([
-      directPrisma.staffSalary.aggregate({
+      prisma.staffSalary.aggregate({
         where: { status: 'PENDING' },
         _sum: { amount: true },
       }),
-      directPrisma.staffSalary.aggregate({
+      prisma.staffSalary.aggregate({
         where: { status: 'PAID', year: currentYear, month: currentMonth },
         _sum: { amount: true },
       }),
-      directPrisma.staffSalary.groupBy({
+      prisma.staffSalary.groupBy({
         by: ['year', 'month'],
         _sum: { amount: true },
         where: { status: 'PAID' },
