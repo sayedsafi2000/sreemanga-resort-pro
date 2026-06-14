@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
+import { useAuth } from '@/contexts/AuthContext';
+import { canEditPayments } from '@/config/rbac';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -434,6 +436,7 @@ function DueBadge({ dueDate, status }: { dueDate: string; status: string }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Expenditures() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'expenses';
   const categoryFilter = searchParams.get('categoryId') || 'all';
@@ -481,7 +484,7 @@ export default function Expenditures() {
     description: '',
   });
 
-  const canEdit = true;
+  const canEdit = canEditPayments(user?.role);
 
   const activeFields: CategoryField[] = useMemo(() => {
     if (!expenseForm.categoryId) return [];

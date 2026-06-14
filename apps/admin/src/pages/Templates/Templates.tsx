@@ -171,7 +171,7 @@ const Templates: React.FC = () => {
       .then((res) => {
         if (cancelled) return;
         const value = res.data?.setting?.value as TemplateKey | undefined;
-        if (value === 'template-two' || value === 'template-one') {
+        if (value && TEMPLATES.some(t => t.key === value)) {
           setActiveTemplate(value);
         }
       })

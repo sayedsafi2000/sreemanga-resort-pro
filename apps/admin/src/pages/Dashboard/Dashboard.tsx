@@ -298,18 +298,39 @@ function statusPill(status: ActivityRow['status']) {
 }
 
 function RecentActivity() {
-  const rows: ActivityRow[] = [
-    { name: 'Julianne Durand', tier: 'Gold Member', activity: 'Check-in Completed', location: 'Alpine Suite 402', amount: '৳1,840', status: 'Success' },
-    { name: 'Marcus Kael', tier: 'Standard', activity: 'Spa Treatment (Deep Tissue)', location: 'Summit Wellness', amount: '৳245', status: 'Processing' },
-    { name: 'Elena Lindt', tier: 'VIP Platinum', activity: 'New Booking (3 Nights)', location: 'The Observatory Loft', amount: '৳4,200', status: 'Success' },
-    { name: 'Robert Taggart', tier: 'Business Tier', activity: 'Conference Room A', location: 'Executive Center', amount: '৳850', status: 'Flagged' },
-  ];
+  const [rows, setRows] = useState<ActivityRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/bookings?limit=5')
+      .then((res) => {
+        const bookings = unwrapList<any>(res, ['bookings']).slice(0, 5);
+        setRows(bookings.map((b: any) => ({
+          name: b.guest?.name || 'Guest',
+          tier: b.room?.type || 'Standard',
+          activity: b.status === 'CHECKED_IN' ? 'Check-in Completed'
+            : b.status === 'CHECKED_OUT' ? 'Check-out Completed'
+            : b.status === 'CONFIRMED' ? 'Booking Confirmed'
+            : b.status === 'PENDING' ? 'New Booking'
+            : b.status,
+          location: b.room?.name || 'Room',
+          amount: `৳${(b.totalAmount || 0).toLocaleString()}`,
+          status: (b.status === 'CONFIRMED' || b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT')
+            ? 'Success'
+            : b.status === 'PENDING'
+            ? 'Processing'
+            : 'Flagged',
+        })));
+      })
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="card-base overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Recent Activity</h3>
+          <h3 className="text-base font-semibold text-foreground">Recent Bookings</h3>
           <p className="text-sm text-muted-foreground">Latest guest operations</p>
         </div>
         <Link
@@ -319,20 +340,27 @@ function RecentActivity() {
           View All <ChevronRight className="h-4 w-4" />
         </Link>
       </div>
+      {loading ? (
+        <div className="p-5 space-y-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-10 rounded-lg shimmer" />)}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="p-8 text-center text-sm text-muted-foreground">No bookings yet.</div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
               <th className="px-5 py-3 text-left eyebrow">Guest / Entity</th>
               <th className="px-5 py-3 text-left eyebrow">Activity</th>
-              <th className="hidden px-5 py-3 text-left eyebrow md:table-cell">Location</th>
-              <th className="px-5 py-3 text-right eyebrow">Revenue</th>
+              <th className="hidden px-5 py-3 text-left eyebrow md:table-cell">Room</th>
+              <th className="px-5 py-3 text-right eyebrow">Amount</th>
               <th className="px-5 py-3 text-right eyebrow">Status</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.name} className="border-b border-border/60 transition-colors last:border-0 hover:bg-secondary/40">
+            {rows.map((r, idx) => (
+              <tr key={idx} className="border-b border-border/60 transition-colors last:border-0 hover:bg-secondary/40">
                 <td className="px-5 py-3.5">
                   <div className="flex items-center gap-3">
                     <InitialsAvatar name={r.name} className="h-9 w-9" />
@@ -355,6 +383,7 @@ function RecentActivity() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
@@ -414,6 +443,27 @@ const Dashboard: React.FC = () => {
           base.totalGuests = guests.length;
           base.todayCheckIns = bookings.filter((b: any) => new Date(b.checkInDate).toISOString().split('T')[0] === t).length;
           base.todayCheckOuts = bookings.filter((b: any) => new Date(b.checkOutDate).toISOString().split('T')[0] === t).length;
+
+        } else if (role === 'MANAGER') {
+          const [roomsRes, bookingsRes, guestsRes, paymentsRes, expRes] = await Promise.all([
+            api.get('/rooms'), api.get('/bookings'), api.get('/guests'), api.get('/payments'),
+            api.get('/expenditures/stats').catch(() => null),
+          ]);
+          const rooms = unwrapList<any>(roomsRes, ['rooms']);
+          const bookings = unwrapList<any>(bookingsRes, ['bookings']);
+          const guests = unwrapList<any>(guestsRes, ['guests']);
+          const payments = unwrapList<any>(paymentsRes, ['payments']);
+          base.totalRooms = rooms.length;
+          base.occupiedRooms = rooms.filter((r: any) => r.status === 'BOOKED').length;
+          base.totalBookings = bookings.length;
+          base.pendingBookings = bookings.filter((b: any) => b.status === 'PENDING').length;
+          base.totalGuests = guests.length;
+          base.totalRevenue = payments
+            .filter((p: any) => p.status === 'COMPLETED')
+            .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+          base.todayCheckIns = bookings.filter((b: any) => new Date(b.checkInDate).toISOString().split('T')[0] === t).length;
+          base.todayCheckOuts = bookings.filter((b: any) => new Date(b.checkOutDate).toISOString().split('T')[0] === t).length;
+          base.monthExpenses = Number((expRes?.data as any)?.stats?.monthTotal ?? 0);
 
         } else {
           const [roomsRes, bookingsRes, guestsRes, paymentsRes, expRes] = await Promise.all([
