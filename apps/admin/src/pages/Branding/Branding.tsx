@@ -83,7 +83,6 @@ const Branding = () => {
     try {
       await api.put('/branding', settings);
       alert('Branding settings saved successfully!');
-      setTimeout(() => window.location.reload(), 500);
     } catch (error: any) {
       alert(error?.response?.data?.message || 'Failed to save settings');
     } finally {

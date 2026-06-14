@@ -16,7 +16,7 @@ import { Plus, Pencil, Trash2, ImageIcon, UtensilsCrossed, ShoppingBag, LayoutGr
 import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/ui/page-header';
 
-const categories = ['Main Course', 'Soup', 'Beverage', 'Snacks', 'Dessert'];
+const DEFAULT_CATEGORIES = ['Main Course', 'Soup', 'Beverage', 'Snacks', 'Dessert'];
 
 const fileToDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -532,7 +532,7 @@ const Restaurant: React.FC = () => {
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                 >
-                  {categories.map((c) => (
+                  {(menuCategoriesList.length > 0 ? menuCategoriesList : DEFAULT_CATEGORIES).map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>

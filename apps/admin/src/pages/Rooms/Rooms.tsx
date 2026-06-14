@@ -314,7 +314,17 @@ const Rooms: React.FC = () => {
         description="Operational status and high-precision inventory tracking across all suites."
         actions={
           <>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => {
+              const rows: string[][] = [['Room Code', 'Room Name', 'Type', 'Status', 'Daily Rate (৳)', 'Capacity']];
+              rooms.forEach((r: any) => {
+                rows.push([r.roomCode || '', r.name, r.type, r.status, String(r.price ?? 0), String(r.capacity ?? 0)]);
+              });
+              const csv = rows.map((r) => r.map((c) => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n');
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+              a.download = `rooms-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+            }}>
               <Download className="mr-2 h-4 w-4" />
               Export Report
             </Button>

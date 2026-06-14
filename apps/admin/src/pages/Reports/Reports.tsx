@@ -94,9 +94,11 @@ const Reports: React.FC = () => {
   const [bookings, setBookings] = useState<BookingStatsResp | null>(null);
   const [expenses, setExpenses] = useState<ExpenseReportResp | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = `?startDate=${startDate}&endDate=${endDate}`;
       const [r, o, b, e] = await Promise.all([
@@ -111,6 +113,7 @@ const Reports: React.FC = () => {
       setExpenses(e.data || null);
     } catch (e) {
       console.error(e);
+      setError('Failed to load report data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -207,8 +210,22 @@ const Reports: React.FC = () => {
         }
       />
 
+      {error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Headline cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="card-base p-5">
+              <div className="h-3 w-24 rounded-full shimmer mb-4" />
+              <div className="h-8 w-20 rounded-lg shimmer" />
+            </div>
+          ))
+        ) : (<>
         <div className="card-base card-lift p-5 fade-up fade-up-1">
           <div className="flex items-start justify-between">
             <p className="eyebrow">Total revenue</p>
@@ -253,6 +270,7 @@ const Reports: React.FC = () => {
           <p className="mt-3 text-2xl font-bold tracking-tight value-pop">{bookings?.totalBookings ?? 0}</p>
           <p className="mt-1 text-xs text-muted-foreground">{bookings?.cancelledBookings ?? 0} cancelled</p>
         </div>
+        </>)}
       </div>
 
       {/* Booking stats breakdown */}

@@ -281,9 +281,32 @@ const Bookings: React.FC = () => {
         description="Real-time occupancy and reservation control center."
         actions={
           <>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => {
+              const rows: string[][] = [['Reservation ID', 'Guest', 'Phone', 'Email', 'Room', 'Check-in', 'Check-out', 'Nights', 'Amount', 'Status', 'Payment']];
+              bookings.forEach((b) => {
+                const nights = nightsBetween(b.checkInDate, b.checkOutDate);
+                rows.push([
+                  shortRid(b.id),
+                  getGuestName(b.guestId),
+                  getGuestPhone(b),
+                  getGuestEmail(b),
+                  getRoomName(b.roomId),
+                  formatDate(b.checkInDate),
+                  formatDate(b.checkOutDate),
+                  String(nights),
+                  String(b.totalAmount ?? 0),
+                  b.status,
+                  getPaymentPref(b),
+                ]);
+              });
+              const csv = rows.map((r) => r.map((c) => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n');
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+              a.download = `bookings-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+            }}>
               <Download className="mr-2 h-4 w-4" />
-              Export Data
+              Export CSV
             </Button>
             <Button variant="ink" onClick={openNew}>
               <Plus className="mr-2 h-4 w-4" />

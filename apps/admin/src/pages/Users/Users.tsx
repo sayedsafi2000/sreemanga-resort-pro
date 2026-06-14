@@ -37,6 +37,18 @@ const Users: React.FC = () => {
   const openEdit = (u: any) => { setEditing(u); setForm({ name: u.name, email: u.email, password: '', currentPassword: '', role: u.role }); setOpen(true); };
 
   const handleSave = async () => {
+    if (!form.name.trim() || !form.email.trim()) {
+      alert('Name and email are required.');
+      return;
+    }
+    if (!editing && !form.password.trim()) {
+      alert('Password is required for new users.');
+      return;
+    }
+    if (form.password && form.password.length < 6) {
+      alert('Password must be at least 6 characters.');
+      return;
+    }
     try {
       if (editing) {
         await api.put(`/users/${editing.id}`, { name: form.name, email: form.email, role: form.role });
