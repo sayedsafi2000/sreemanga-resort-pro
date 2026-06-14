@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Menu, X, Mountain, ChevronDown, ChevronUp, Plus, Bell, Settings, Search } from 'lucide-react';
+import { LogOut, Menu, X, Mountain, ChevronDown, ChevronUp, Plus, Bell, Settings, Search, CalendarCheck, DollarSign, BedDouble, UtensilsCrossed, AlertCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getSidebarItems, navItemHref, sidebarItemActive, canAccessPath, EXPENDITURE_SIDEBAR_KEY } from '@/config/rbac';
 import { InitialsAvatar } from '@/components/ui/avatar';
@@ -9,6 +9,144 @@ import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 
 type ExpNavCat = { id: string; name: string; sortOrder: number };
+
+// ── Notification types ────────────────────────────────────────────────────────
+type NotifItem = {
+  id: string;
+  icon: React.ReactNode;
+  color: string;
+  title: string;
+  body: string;
+  href: string;
+  time: string;
+};
+
+function useNotifications(role: string | undefined) {
+  const [items, setItems] = useState<NotifItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetch = async () => {
+    if (!role) return;
+    setLoading(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const notifs: NotifItem[] = [];
+
+      // Pending bookings
+      if (['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(role)) {
+        const bRes = await api.get('/bookings');
+        const bookings = unwrapList<any>(bRes, ['bookings']);
+        const pending = bookings.filter((b: any) => b.status === 'PENDING');
+        const todayCI = bookings.filter((b: any) =>
+          b.status === 'CONFIRMED' && new Date(b.checkInDate).toISOString().split('T')[0] === today
+        );
+        const todayCO = bookings.filter((b: any) =>
+          b.status === 'CHECKED_IN' && new Date(b.checkOutDate).toISOString().split('T')[0] === today
+        );
+        if (pending.length > 0) notifs.push({
+          id: 'pending-bookings',
+          icon: <CalendarCheck className="h-4 w-4" />,
+          color: 'bg-amber-100 text-amber-600',
+          title: `${pending.length} Pending Booking${pending.length > 1 ? 's' : ''}`,
+          body: 'Waiting for your approval',
+          href: '/bookings',
+          time: 'Now',
+        });
+        if (todayCI.length > 0) notifs.push({
+          id: 'checkins-today',
+          icon: <BedDouble className="h-4 w-4" />,
+          color: 'bg-emerald-100 text-emerald-600',
+          title: `${todayCI.length} Check-in${todayCI.length > 1 ? 's' : ''} Today`,
+          body: 'Guests arriving today',
+          href: '/bookings',
+          time: 'Today',
+        });
+        if (todayCO.length > 0) notifs.push({
+          id: 'checkouts-today',
+          icon: <BedDouble className="h-4 w-4" />,
+          color: 'bg-blue-100 text-blue-600',
+          title: `${todayCO.length} Check-out${todayCO.length > 1 ? 's' : ''} Today`,
+          body: 'Guests departing today',
+          href: '/bookings',
+          time: 'Today',
+        });
+      }
+
+      // Pending payments
+      if (['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST'].includes(role)) {
+        const pRes = await api.get('/payments');
+        const payments = unwrapList<any>(pRes, ['payments']);
+        const pendingPay = payments.filter((p: any) => p.status === 'PENDING');
+        if (pendingPay.length > 0) notifs.push({
+          id: 'pending-payments',
+          icon: <DollarSign className="h-4 w-4" />,
+          color: 'bg-rose-100 text-rose-600',
+          title: `${pendingPay.length} Pending Payment${pendingPay.length > 1 ? 's' : ''}`,
+          body: 'Awaiting collection',
+          href: '/payments',
+          time: 'Now',
+        });
+      }
+
+      // Pending restaurant orders
+      if (['SUPER_ADMIN', 'MANAGER', 'RESTAURANT_STAFF'].includes(role)) {
+        const oRes = await api.get('/restaurant/orders');
+        const orders = unwrapList<any>(oRes, ['orders']);
+        const pendingOrders = orders.filter((o: any) => o.status === 'PENDING');
+        if (pendingOrders.length > 0) notifs.push({
+          id: 'pending-orders',
+          icon: <UtensilsCrossed className="h-4 w-4" />,
+          color: 'bg-orange-100 text-orange-600',
+          title: `${pendingOrders.length} New Order${pendingOrders.length > 1 ? 's' : ''}`,
+          body: 'Restaurant orders need attention',
+          href: '/restaurant?tab=orders',
+          time: 'Now',
+        });
+      }
+
+      // Rooms needing cleaning
+      if (['SUPER_ADMIN', 'MANAGER', 'HOUSEKEEPING'].includes(role)) {
+        const rRes = await api.get('/rooms');
+        const rooms = unwrapList<any>(rRes, ['rooms']);
+        const cleaning = rooms.filter((r: any) => r.status === 'CLEANING');
+        const maintenance = rooms.filter((r: any) => r.status === 'MAINTENANCE');
+        if (cleaning.length > 0) notifs.push({
+          id: 'rooms-cleaning',
+          icon: <BedDouble className="h-4 w-4" />,
+          color: 'bg-yellow-100 text-yellow-600',
+          title: `${cleaning.length} Room${cleaning.length > 1 ? 's' : ''} Need Cleaning`,
+          body: 'Housekeeping required',
+          href: '/rooms',
+          time: 'Now',
+        });
+        if (maintenance.length > 0) notifs.push({
+          id: 'rooms-maintenance',
+          icon: <AlertCircle className="h-4 w-4" />,
+          color: 'bg-red-100 text-red-600',
+          title: `${maintenance.length} Room${maintenance.length > 1 ? 's' : ''} Under Maintenance`,
+          body: 'Rooms offline for repairs',
+          href: '/rooms',
+          time: 'Now',
+        });
+      }
+
+      setItems(notifs);
+    } catch {
+      // fail silently
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetch();
+    // Refresh every 2 minutes
+    const t = setInterval(fetch, 120_000);
+    return () => clearInterval(t);
+  }, [role]);
+
+  return { items, loading, refetch: fetch };
+}
 
 // ── Role badge styling ────────────────────────────────────────────────────────
 
@@ -113,6 +251,8 @@ function ExpenditureNavGroup({
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const [brandingSettings, setBrandingSettings] = useState<{
     site_name: string;
     site_tagline: string;
@@ -121,6 +261,18 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { items: notifItems, loading: notifLoading, refetch: refetchNotifs } = useNotifications(user?.role);
+
+  // Close notif panel on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    if (notifOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [notifOpen]);
 
   // Load branding settings
   useEffect(() => {
@@ -315,14 +467,99 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
           {/* Right-side actions */}
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              title="Notifications"
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <Bell className="h-[18px] w-[18px]" />
-              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
-            </button>
+            {/* Notification bell */}
+            <div className="relative" ref={notifRef}>
+              <button
+                type="button"
+                title="Notifications"
+                onClick={() => { setNotifOpen(v => !v); if (!notifOpen) refetchNotifs(); }}
+                className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <Bell className="h-[18px] w-[18px]" />
+                {notifItems.length > 0 && (
+                  <span className="absolute right-1.5 top-1.5 flex h-2 w-2 items-center justify-center rounded-full bg-red-500">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  </span>
+                )}
+              </button>
+
+              {/* Notification dropdown */}
+              {notifOpen && (
+                <div className="absolute right-0 top-11 z-50 w-80 rounded-xl border border-border bg-white shadow-xl ring-1 ring-black/5 sm:w-96">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold text-foreground">Notifications</span>
+                      {notifItems.length > 0 && (
+                        <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{notifItems.length}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNotifOpen(false)}
+                      className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifLoading ? (
+                      <div className="space-y-3 p-4">
+                        {[1,2,3].map(i => (
+                          <div key={i} className="flex items-start gap-3">
+                            <div className="h-8 w-8 rounded-lg shimmer shrink-0" />
+                            <div className="flex-1 space-y-1.5">
+                              <div className="h-3 w-3/4 rounded shimmer" />
+                              <div className="h-2.5 w-1/2 rounded shimmer" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : notifItems.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <Bell className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                        <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
+                        <p className="text-xs text-muted-foreground/60 mt-0.5">No pending actions</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {notifItems.map((item) => (
+                          <Link
+                            key={item.id}
+                            to={item.href}
+                            onClick={() => setNotifOpen(false)}
+                            className="flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.color}`}>
+                              {item.icon}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-foreground leading-snug">{item.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{item.body}</p>
+                            </div>
+                            <span className="shrink-0 text-[10px] text-muted-foreground/60 mt-0.5">{item.time}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="border-t border-border px-4 py-2.5">
+                    <Link
+                      to="/bookings"
+                      onClick={() => setNotifOpen(false)}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      View all activity →
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
             {canAccessPath(user.role, '/settings') && (
               <Link
                 to="/settings"
