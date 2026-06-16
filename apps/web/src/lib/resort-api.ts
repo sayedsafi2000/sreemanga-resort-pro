@@ -177,7 +177,9 @@ export async function getTestimonials(): Promise<Testimonial[]> {
     .filter((t) => t.quote && t.author);
 }
 
-export async function submitPublicBooking(payload: PublicBookingInput): Promise<{ ok: boolean; message: string }> {
+export async function submitPublicBooking(
+  payload: PublicBookingInput
+): Promise<{ ok: boolean; message: string; checkoutUrl?: string }> {
   try {
     const res = await fetch(`${apiBase()}/bookings`, {
       method: 'POST',
@@ -194,7 +196,12 @@ export async function submitPublicBooking(payload: PublicBookingInput): Promise<
       }
       return { ok: false, message: msg };
     }
-    return { ok: true, message: 'Booking submitted successfully. We will contact you shortly.' };
+    const j = await res.json().catch(() => ({}));
+    return {
+      ok: true,
+      message: 'Booking submitted successfully. We will contact you shortly.',
+      checkoutUrl: j?.checkoutUrl,
+    };
   } catch {
     return { ok: false, message: 'Network error. Please try again.' };
   }
@@ -247,7 +254,9 @@ function publicApiBase(): string {
   return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
 }
 
-export async function sendBookingOtp(email: string): Promise<{ ok: boolean; message: string }> {
+export async function sendBookingOtp(
+  email: string
+): Promise<{ ok: boolean; message: string; devOtp?: string }> {
   try {
     const res = await fetch(`${publicApiBase()}/otp/send`, {
       method: 'POST',
@@ -256,7 +265,7 @@ export async function sendBookingOtp(email: string): Promise<{ ok: boolean; mess
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, message: j.message || 'Failed to send OTP.' };
-    return { ok: true, message: j.message || 'OTP sent.' };
+    return { ok: true, message: j.message || 'OTP sent.', devOtp: j.devOtp };
   } catch {
     return { ok: false, message: 'Network error. Please try again.' };
   }
@@ -275,4 +284,22 @@ export async function verifyBookingOtp(email: string, otp: string): Promise<{ ok
   } catch {
     return { ok: false, message: 'Network error. Please try again.' };
   }
+}
+
+export interface StripeSessionStatus {
+  paid: boolean;
+  paymentStatus: string;
+  bookingId: string | null;
+  bookingStatus: string | null;
+}
+
+// Confirms a Stripe Checkout Session and fulfills the booking if paid.
+// Used by /booking/success so payment confirmation works without the webhook.
+export async function confirmStripeSession(sessionId: string): Promise<StripeSessionStatus | null> {
+  const clean = sessionId.trim();
+  if (!clean) return null;
+  return safeFetch<StripeSessionStatus>(
+    `${publicApiBase()}/stripe/session/${encodeURIComponent(clean)}`,
+    { cache: 'no-store' },
+  );
 }

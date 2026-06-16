@@ -18,6 +18,8 @@ export function mapBookingPaymentMethod(method?: string | null): PaymentMethod {
       return 'NAGAD';
     case 'BANK_TRANSFER':
       return 'CARD';
+    case 'STRIPE':
+      return 'STRIPE';
     case 'CASH':
       return 'CASH';
     default:

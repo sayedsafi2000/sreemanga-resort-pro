@@ -225,6 +225,8 @@ model Payment {
   method        PaymentMethod
   status        PaymentStatus @default(PENDING)
   transactionId String?
+  stripeSessionId       String? @unique
+  stripePaymentIntentId String?
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -235,6 +237,7 @@ model Payment {
   @@index([bookingId])
   @@index([method])
   @@index([status])
+  @@index([stripeSessionId])
 }
 
 model RestaurantMenu {
@@ -381,6 +384,7 @@ enum PaymentMethod {
   BKASH
   NAGAD
   CARD
+  STRIPE
 }
 
 enum PaymentStatus {

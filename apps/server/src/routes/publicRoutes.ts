@@ -13,6 +13,7 @@ import {
 import { getPublicGallery } from '../controllers/galleryController';
 import { getPublicNearbyExplore, getPublicNearbySpotBySlug } from '../controllers/nearbySpotsController';
 import { getPublicBlogs, getPublicBlogBySlug } from '../controllers/blogController';
+import { getCheckoutStatus } from '../controllers/stripeController';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.get('/blogs/:slug', getPublicBlogBySlug);
 router.post('/bookings', createPublicBooking);
 router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
+router.get('/stripe/session/:id', getCheckoutStatus);
 
 export default router;

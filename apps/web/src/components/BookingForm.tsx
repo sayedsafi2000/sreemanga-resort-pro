@@ -37,7 +37,7 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   const [preferredPaymentTiming, setPreferredPaymentTiming] = useState<'INSTANT' | 'LATER'>('LATER');
-  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<'BKASH' | 'BANK_TRANSFER'>('BKASH');
+  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<'BKASH' | 'BANK_TRANSFER' | 'STRIPE'>('BKASH');
   const [paymentTransactionId, setPaymentTransactionId] = useState('');
   const [paymentProofImage, setPaymentProofImage] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle');
@@ -103,8 +103,14 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
     const res = await sendBookingOtp(guestEmail.trim());
     if (res.ok) {
       setOtpStep('input');
-      setOtpMessage(res.message);
       setOtpResendTimer(60);
+      if (res.devOtp) {
+        // Dev mode (no SMTP): the API hands back the code — autofill it.
+        setOtpValue(res.devOtp);
+        setOtpMessage(`Dev mode: OTP ${res.devOtp} autofilled — click Verify.`);
+      } else {
+        setOtpMessage(res.message);
+      }
     } else {
       setOtpStep('idle');
       setOtpMessage(res.message);
@@ -159,7 +165,12 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
     }
     const checkInDate = format(range.from, 'yyyy-MM-dd');
     const checkOutDate = format(range.to, 'yyyy-MM-dd');
-    if (preferredPaymentTiming === 'INSTANT' && paymentTransactionId.trim().length < 4) {
+    // Manual methods need a transaction ID; Stripe is charged online.
+    if (
+      preferredPaymentTiming === 'INSTANT' &&
+      preferredPaymentMethod !== 'STRIPE' &&
+      paymentTransactionId.trim().length < 4
+    ) {
       setStatus('err');
       setMessage('Please enter a valid transaction ID.');
       return;
@@ -176,12 +187,24 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
       children,
       preferredPaymentTiming,
       preferredPaymentMethod: preferredPaymentTiming === 'INSTANT' ? preferredPaymentMethod : undefined,
-      paymentTransactionId: preferredPaymentTiming === 'INSTANT' ? paymentTransactionId.trim() : undefined,
-      paymentProofImage: preferredPaymentTiming === 'INSTANT' ? paymentProofImage : undefined,
+      paymentTransactionId:
+        preferredPaymentTiming === 'INSTANT' && preferredPaymentMethod !== 'STRIPE'
+          ? paymentTransactionId.trim()
+          : undefined,
+      paymentProofImage:
+        preferredPaymentTiming === 'INSTANT' && preferredPaymentMethod !== 'STRIPE'
+          ? paymentProofImage
+          : undefined,
       checkInDate,
       checkOutDate,
     });
     if (res.ok) {
+      // Card payment → redirect to Stripe Checkout.
+      if (res.checkoutUrl) {
+        setMessage('Redirecting to secure card checkout…');
+        window.location.href = res.checkoutUrl;
+        return;
+      }
       setStatus('ok');
       setMessage(res.message);
       setPaymentTransactionId('');
@@ -299,7 +322,35 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
                   />
                   <span>Bank Transfer</span>
                 </label>
+                <label className={cn(
+                  'flex items-center gap-2 rounded-full px-3 py-1.5',
+                  isDark ? 'border border-forest-900/60 bg-[#0a130b]' : 'border'
+                )}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    checked={preferredPaymentMethod === 'STRIPE'}
+                    onChange={() => setPreferredPaymentMethod('STRIPE')}
+                  />
+                  <span>Card (Stripe)</span>
+                </label>
               </div>
+              {preferredPaymentMethod === 'STRIPE' ? (
+                <div className={cn(
+                  'p-3 text-sm',
+                  isDark
+                    ? 'border border-forest-900/60 bg-[#0a130b] text-forest-200'
+                    : 'rounded-xl border border-forest-200/50 bg-forest-50/60 text-stone-700 backdrop-blur-sm'
+                )}>
+                  <p className={cn('font-semibold', isDark ? 'text-forest-100' : 'text-forest-800')}>
+                    Pay securely by card
+                  </p>
+                  <p className={cn('mt-1 text-xs', isDark ? 'text-forest-400' : 'text-stone-600')}>
+                    You will be redirected to Stripe&apos;s secure checkout to finish payment. Your booking is confirmed automatically once the payment succeeds.
+                  </p>
+                </div>
+              ) : (
+              <>
               <div className={cn(
                 'p-3 text-sm',
                 isDark
@@ -370,6 +421,8 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
                   <img src={paymentProofImage} alt="Payment proof preview" className="mt-2 h-20 rounded-lg border object-cover" />
                 )}
               </label>
+              </>
+              )}
             </div>
           )}
         </div>

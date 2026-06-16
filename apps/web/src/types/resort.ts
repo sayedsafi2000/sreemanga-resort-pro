@@ -86,7 +86,7 @@ export interface PublicBookingInput {
   adults: number;
   children: number;
   preferredPaymentTiming: 'INSTANT' | 'LATER';
-  preferredPaymentMethod?: 'BKASH' | 'BANK_TRANSFER';
+  preferredPaymentMethod?: 'BKASH' | 'BANK_TRANSFER' | 'STRIPE';
   paymentTransactionId?: string;
   paymentProofImage?: string;
   checkInDate: string;
