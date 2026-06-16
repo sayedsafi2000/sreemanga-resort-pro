@@ -78,9 +78,6 @@ function accentButton(label: string, href: string): string {
   </p>`;
 }
 
-function badge(text: string): string {
-  return `<span style="display:inline-block;background:${ACCENT_COLOR}22;color:${ACCENT_COLOR};border:1px solid ${ACCENT_COLOR}66;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;">${text}</span>`;
-}
 
 // ── Email Service class ────────────────────────────────────────────────────
 
