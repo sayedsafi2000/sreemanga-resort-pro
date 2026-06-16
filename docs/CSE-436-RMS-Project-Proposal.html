@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CSE 436 - RMS Project Proposal</title>
+  <style>
+    @page { margin: 2.2cm 2.5cm; }
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12pt;
+      line-height: 1.45;
+      color: #111;
+      margin: 0;
+      padding: 0;
+    }
+    .cover {
+      text-align: center;
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      page-break-after: always;
+    }
+    .cover img {
+      width: 320px;
+      max-width: 80%;
+      margin: 0 auto 48px;
+      display: block;
+    }
+    .cover .label {
+      font-size: 13pt;
+      margin: 10px 0 4px;
+    }
+    .cover .value {
+      font-size: 13pt;
+      font-weight: bold;
+      margin: 0 0 18px;
+    }
+    .cover .section-gap { margin-top: 28px; }
+    h2 {
+      font-size: 14pt;
+      margin: 0 0 12px;
+      text-align: center;
+    }
+    h3 {
+      font-size: 12pt;
+      margin: 18px 0 8px;
+    }
+    p { margin: 0 0 10px; text-align: justify; }
+    ul { margin: 0 0 10px 22px; }
+    li { margin-bottom: 4px; }
+    .page-break { page-break-after: always; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 11pt;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f3f3f3; }
+  </style>
+</head>
+<body>
+
+  <div class="cover">
+    <img src="assets/mu-logo.png" alt="Metropolitan University Logo" />
+    <div class="label">Course Code &amp; Title</div>
+    <div class="value">CSE 436: Final Year Project</div>
+    <div class="value">Department of CSE</div>
+
+    <div class="section-gap">
+      <div class="label">Project Title</div>
+      <div class="value">(RMS) - Resort Management System</div>
+    </div>
+
+    <div class="section-gap">
+      <div class="label">Supervised By:</div>
+      <div class="value">Abdul Wadud Shakib</div>
+      <div class="value">Department of CSE</div>
+    </div>
+
+    <div class="section-gap">
+      <div class="label">Submitted By:</div>
+      <div class="value">Sayed MD Safiuddin</div>
+      <div class="value">ID: 231-112-002</div>
+      <div class="value">Batch: 32nd (Eve)</div>
+      <div class="value">Department of CSE</div>
+      <div class="value">Metropolitan University, Sylhet</div>
+      <br />
+      <div class="value">Golam Kibria</div>
+      <div class="value">ID: 231-112-010</div>
+      <div class="value">Batch: 32nd (Eve)</div>
+      <div class="value">Department of CSE</div>
+      <div class="value">Metropolitan University, Sylhet</div>
+    </div>
+  </div>
+
+  <h2>Proposal for CSE 436</h2>
+  <h3>Abstract</h3>
+  <p>This project aims to design and develop a modern <strong>Resort Management System (RMS)</strong> using a full-stack web architecture. The system will provide an integrated platform for eco-resorts and boutique hotels to manage daily operations, while enabling guests to browse rooms, explore local attractions, and submit online booking requests through a public website. Key features include role-based staff administration, room and booking management, guest records, payment tracking (including bKash and bank transfer), in-house restaurant orders, staff salary management, expenditure tracking, financial reports, and CMS-driven website content. The project will follow an iterative development approach, combining agile methodologies with modern web development practices. The expected outcome is a fully functional, scalable, and user-friendly resort management solution tailored for the hospitality industry in Bangladesh, particularly in tourist destinations such as Sreemangal. This project will also serve as a practical learning experience for mastering full-stack development and building a real-world enterprise application.</p>
+
+  <div class="page-break"></div>
+
+  <h2>Introduction</h2>
+  <h3>Background</h3>
+  <p>The hospitality and tourism sector in Bangladesh has grown significantly, with destinations such as <strong>Sreemangal</strong> attracting domestic and international visitors for tea gardens, nature retreats, and eco-tourism. Small and mid-sized resorts often rely on fragmented tools—paper registers, phone calls, WhatsApp messages, and spreadsheets—for bookings, payments, housekeeping, restaurant orders, and accounting. This leads to operational inefficiency, poor financial visibility, booking conflicts, and inconsistent guest communication.</p>
+  <p>A centralized <strong>Resort Management System (RMS)</strong> can unify marketing, reservations, staff workflows, and finance into a single digital platform. Such systems are widely used in the global hospitality industry, but affordable and localized solutions for Bangladeshi eco-resorts remain limited—especially those supporting local payment methods, bilingual websites, and multi-role staff access.</p>
+
+  <h3>Problem Statement</h3>
+  <p>There is a need for a modern, scalable, and feature-rich resort management platform that simplifies operations for resort staff and improves the booking experience for guests. Many existing solutions are either expensive international property management systems, too generic for small resorts, or lack essential features such as local payment tracking, restaurant order management, staff payroll, and customizable public websites.</p>
+
+  <h3>Objectives</h3>
+  <ul>
+    <li>To develop a fully functional Resort Management System using a modern full-stack architecture.</li>
+    <li>To implement role-based access control (RBAC) for different staff privileges.</li>
+    <li>To build a public resort website with room browsing, online booking, gallery, blogs, and nearby attraction pages.</li>
+    <li>To implement room inventory, booking workflow, guest management, and payment recording.</li>
+    <li>To integrate restaurant menu and order management for in-house dining and room service.</li>
+    <li>To provide expenditure, salary, and financial reporting modules for resort administration.</li>
+    <li>To create an intuitive, responsive, and bilingual user interface (English and Bengali).</li>
+    <li>To ensure scalability, maintainability, and production-ready deployment using Docker.</li>
+  </ul>
+
+  <h3>Scope</h3>
+  <p>The project will focus on developing a web-based resort management platform consisting of a public website, admin dashboard, and backend API with PostgreSQL database. Limitations in the initial version include exclusion of native mobile applications, automated online payment gateway settlement, and live IoT-based sustainability sensor integration.</p>
+
+  <h3>Literature Review</h3>
+  <h3>Overview</h3>
+  <p>Existing research and industry practice highlight the importance of integrated property management systems (PMS) in improving occupancy rates, revenue tracking, and guest satisfaction. Digital booking systems and centralized dashboards reduce manual errors and improve staff coordination across front desk, housekeeping, and finance departments.</p>
+  <h3>Gaps in Research</h3>
+  <p>While large hotel chains use enterprise PMS platforms, small eco-resorts in developing regions often lack affordable, customizable, and locally relevant software. Many systems do not support Bangladesh-specific payment workflows, bilingual public websites, or combined resort, restaurant, and payroll management in one platform.</p>
+  <h3>Relevance</h3>
+  <p>This project addresses that gap by building a lightweight yet powerful RMS using modern web technologies, with a focus on usability, role-based operations, and localized features for resorts in the Sylhet/Sreemangal region.</p>
+
+  <div class="page-break"></div>
+
+  <h2>Features</h2>
+  <h3>Public Website (Guest-Facing)</h3>
+  <ul>
+    <li>Homepage with hero section, resort highlights, testimonials, and booking call-to-action.</li>
+    <li>Room listing and detail pages with images, pricing, capacity, and facilities.</li>
+    <li>Online booking form with availability calendar and payment preference (Pay Now or Pay Later).</li>
+    <li>Instant payment support via bKash or bank transfer with transaction ID and proof upload.</li>
+    <li>Restaurant menu, gallery, nearby explore pages, blogs, and contact page.</li>
+    <li>Bilingual support (English and Bengali) and three interchangeable website templates.</li>
+    <li>SEO features including sitemap, robots.txt, and structured metadata.</li>
+  </ul>
+
+  <h3>Admin Dashboard (Staff-Facing)</h3>
+  <ul>
+    <li>Secure JWT login with role-specific dashboards and notifications.</li>
+    <li>User management with six roles: Super Admin, Manager, Receptionist, Housekeeping, Restaurant Staff, Accountant.</li>
+    <li>Room management with status workflow and sustainability indicators.</li>
+    <li>Booking management with manual and online booking support.</li>
+    <li>Guest profiles and payment tracking with local payment methods.</li>
+    <li>Restaurant menu and order lifecycle management.</li>
+    <li>Expenditure, pending bills, staff salaries, and financial reports with CSV export.</li>
+    <li>CMS for gallery, blogs, branding, settings, and website templates.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <h2>Methodology</h2>
+  <h3>Research Design</h3>
+  <p>The project will follow an iterative development approach, combining agile methodologies with modern full-stack web development practices in a monorepo architecture.</p>
+  <h3>Data Collection</h3>
+  <ul>
+    <li>Requirements gathered through resort operation analysis and supervisor feedback.</li>
+    <li>Sample resort data used for development and testing.</li>
+  </ul>
+  <h3>Data Analysis</h3>
+  <ul>
+    <li>Usability feedback used to refine admin and public interfaces.</li>
+    <li>Performance and financial report outputs validated during testing.</li>
+  </ul>
+  <h3>Tools and Resources</h3>
+  <ul>
+    <li>Admin Frontend: React 18, Vite, TypeScript, Tailwind CSS, Radix UI, Recharts.</li>
+    <li>Public Frontend: Next.js 14, React 18, Tailwind CSS, GSAP.</li>
+    <li>Backend: Node.js, Express.js, TypeScript, Zod, Prisma ORM.</li>
+    <li>Database: PostgreSQL 16.</li>
+    <li>Authentication: JWT and bcrypt.</li>
+    <li>Deployment: Docker Compose and Coolify.</li>
+  </ul>
+
+  <h3>Timeline</h3>
+  <table>
+    <tr><th>Week</th><th>Tasks</th></tr>
+    <tr><td>1–2</td><td>Project setup, monorepo structure, database schema, Git repository.</td></tr>
+    <tr><td>3–4</td><td>Backend API, authentication, RBAC, user and room modules.</td></tr>
+    <tr><td>5–6</td><td>Booking and guest management, public booking API, availability calendar.</td></tr>
+    <tr><td>7–8</td><td>Payment module, restaurant orders, email notifications.</td></tr>
+    <tr><td>9–10</td><td>Public website: homepage, rooms, booking, restaurant, gallery, contact.</td></tr>
+    <tr><td>11</td><td>Admin dashboard UI for bookings, payments, guests, restaurant.</td></tr>
+    <tr><td>12</td><td>Expenditure, staff salary, and financial reports.</td></tr>
+    <tr><td>13</td><td>CMS: blogs, nearby explore, branding, settings, templates.</td></tr>
+    <tr><td>14</td><td>Testing, debugging, responsive fixes, security review.</td></tr>
+    <tr><td>15</td><td>Docker deployment, documentation, final refinements.</td></tr>
+    <tr><td>16</td><td>Final documentation, presentation, and submission preparation.</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <h2>Expected Outcomes</h2>
+  <h3>Results</h3>
+  <p>A fully functional Resort Management System with public website, admin dashboard, integrated operational modules, CMS, and Docker-based deployment.</p>
+  <h3>Impact</h3>
+  <p>The system will help eco-resorts manage reservations, payments, and daily operations efficiently while offering guests a modern online booking experience.</p>
+  <h3>Applications</h3>
+  <p>The RMS can be used by eco-resorts, boutique hotels, and guest houses in Bangladesh, especially in the Sreemangal/Sylhet tourism region.</p>
+
+  <h2>Ethical Considerations</h2>
+  <h3>Ethics Statement</h3>
+  <p>This project will adhere to ethical principles regarding data privacy and security. Guest personal information and payment data will be stored securely with hashed passwords, JWT-protected APIs, and role-based access control.</p>
+  <h3>Approval</h3>
+  <p>No formal ethical approval is required for this project, as it does not involve clinical human subjects research.</p>
+
+  <h2>References</h2>
+  <ul>
+    <li>Buhalis, D., &amp; Law, R. (2008). Progress in information technology and tourism management. <em>Tourism Management</em>, 29(4), 609–623.</li>
+    <li>Sigala, M., Christou, E., &amp; Gretzel, U. (Eds.). (2012). <em>Social Media in Travel, Tourism and Hospitality</em>. Ashgate Publishing.</li>
+    <li>Kasavana, M. L., &amp; Cahill, V. J. (2007). <em>Managing Technology in the Hospitality Industry</em>. Educational Institute, AHLA.</li>
+    <li>Prisma Documentation: https://www.prisma.io/docs</li>
+    <li>React Documentation: https://react.dev</li>
+    <li>Next.js Documentation: https://nextjs.org/docs</li>
+    <li>Node.js Documentation: https://nodejs.org/en/docs/</li>
+    <li>PostgreSQL Documentation: https://www.postgresql.org/docs/</li>
+    <li>Express.js Documentation: https://expressjs.com/</li>
+    <li>Tailwind CSS Documentation: https://tailwindcss.com/docs</li>
+    <li>MDN Web Docs: https://developer.mozilla.org</li>
+  </ul>
+
+</body>
+</html>

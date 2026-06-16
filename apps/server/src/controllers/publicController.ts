@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { z } from 'zod';
+import { createPaymentFromBooking } from '../utils/bookingPayment';
 
 export const getPublicRooms = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -242,6 +243,8 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         data: bookingData,
         include: { room: true, guest: true },
       });
+
+      await createPaymentFromBooking(tx, booking);
 
       return booking;
     });

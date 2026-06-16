@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
+import { backfillMissingBookingPayments } from '../utils/bookingPayment';
 
 export const getAllPayments = async (
   req: Request,
@@ -10,6 +11,9 @@ export const getAllPayments = async (
 ) => {
   try {
     const { status, method, bookingId, from, to } = req.query;
+
+    // Backfill payment rows for older website bookings that only stored payment info on Booking.
+    await backfillMissingBookingPayments();
 
     const where: any = {};
 
@@ -143,18 +147,60 @@ export const updatePayment = async (
     const { id } = req.params;
     const { status, notes, transactionId } = req.body;
 
-    const existing = await prisma.payment.findUnique({ where: { id } });
-    if (!existing) throw new AppError('Payment not found', 404);
+    const payment = await prisma.$transaction(async (tx) => {
+      const existing = await tx.payment.findUnique({
+        where: { id },
+        include: {
+          booking: {
+            include: { payments: true, guest: true, room: true },
+          },
+        },
+      });
+      if (!existing) throw new AppError('Payment not found', 404);
 
-    const payment = await prisma.payment.update({
-      where: { id },
-      data: {
-        ...(status !== undefined ? { status } : {}),
-        ...(notes !== undefined ? { notes } : {}),
-        ...(transactionId !== undefined ? { transactionId } : {}),
-      },
-      include: { booking: true },
+      const updated = await tx.payment.update({
+        where: { id },
+        data: {
+          ...(status !== undefined ? { status } : {}),
+          ...(notes !== undefined ? { notes } : {}),
+          ...(transactionId !== undefined ? { transactionId } : {}),
+        },
+        include: {
+          booking: {
+            include: { payments: true, guest: true, room: true },
+          },
+        },
+      });
+
+      if (status === 'COMPLETED' && updated.booking.status === 'PENDING') {
+        const totalPaid = updated.booking.payments.reduce((sum, p) => {
+          if (p.id === updated.id) return sum + updated.amount;
+          return sum + (p.status === 'COMPLETED' ? p.amount : 0);
+        }, 0);
+
+        if (totalPaid >= updated.booking.totalAmount) {
+          await tx.booking.update({
+            where: { id: updated.bookingId },
+            data: { status: 'CONFIRMED' },
+          });
+        }
+      }
+
+      return updated;
     });
+
+    if (
+      status === 'COMPLETED' &&
+      payment.booking.guest.email
+    ) {
+      emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
+        bookingId: payment.booking.id,
+        guestName: payment.booking.guest.name,
+        amount: payment.amount,
+        method: payment.method,
+        transactionId: payment.transactionId || undefined,
+      }).catch((err) => console.error('Payment email failed:', err));
+    }
 
     res.json({ success: true, payment });
   } catch (error) {

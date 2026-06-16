@@ -3,6 +3,7 @@ import prisma from '../utils/prisma';
 import { bookingSchema, updateBookingSchema } from '../validators/bookingValidator';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
+import { createPaymentFromBooking } from '../utils/bookingPayment';
 
 export const getAllBookings = async (
   req: Request,
@@ -163,31 +164,39 @@ export const createBooking = async (
 
     const status = requestedStatus ?? 'PENDING';
 
-    const booking = await prisma.booking.create({
-      data: {
-        roomId: rest.roomId,
-        guestId,
-        adults: rest.adults,
-        children: rest.children,
-        checkInDate: checkIn,
-        checkOutDate: checkOut,
-        totalAmount,
-        status,
-        staffId: req.user?.id,
-        notes: notes?.trim() || undefined,
-        preferredPaymentTiming: preferredPaymentTiming ?? undefined,
-        preferredPaymentMethod:
-          preferredPaymentTiming === 'INSTANT' ? preferredPaymentMethod ?? undefined : undefined,
-        paymentTransactionId:
-          preferredPaymentTiming === 'INSTANT' ? paymentTransactionId?.trim() : undefined,
-        paymentProofImage:
-          preferredPaymentTiming === 'INSTANT' ? paymentProofImage ?? undefined : undefined,
-      },
-      include: {
-        room: true,
-        guest: true,
-        staff: true,
-      },
+    const booking = await prisma.$transaction(async (tx) => {
+      const created = await tx.booking.create({
+        data: {
+          roomId: rest.roomId,
+          guestId,
+          adults: rest.adults,
+          children: rest.children,
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          totalAmount,
+          status,
+          staffId: req.user?.id,
+          notes: notes?.trim() || undefined,
+          preferredPaymentTiming: preferredPaymentTiming ?? undefined,
+          preferredPaymentMethod:
+            preferredPaymentTiming === 'INSTANT' ? preferredPaymentMethod ?? undefined : undefined,
+          paymentTransactionId:
+            preferredPaymentTiming === 'INSTANT' ? paymentTransactionId?.trim() : undefined,
+          paymentProofImage:
+            preferredPaymentTiming === 'INSTANT' ? paymentProofImage ?? undefined : undefined,
+        },
+        include: {
+          room: true,
+          guest: true,
+          staff: true,
+        },
+      });
+
+      if (preferredPaymentTiming) {
+        await createPaymentFromBooking(tx, created);
+      }
+
+      return created;
     });
 
     if (status === 'CONFIRMED' || status === 'CHECKED_IN') {

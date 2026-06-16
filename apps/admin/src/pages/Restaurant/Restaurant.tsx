@@ -286,22 +286,25 @@ const Restaurant: React.FC = () => {
   const pendingOrdersCount = orders.filter((o: any) => o.status === 'PENDING').length;
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <PageHeader
         eyebrow="Operations"
         title="Restaurant"
         description="Manage the menu and track room-service orders."
         actions={
           tab === 'menu' && menuWrite ? (
-            <Button variant="ink" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add Item</Button>
+            <Button variant="ink" className="w-full sm:w-auto" onClick={openNew}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Item
+            </Button>
           ) : undefined
         }
       />
-      <div className="flex w-fit gap-1 rounded-lg border border-border bg-secondary/60 p-1">
+      <div className="flex w-full gap-1 rounded-lg border border-border bg-secondary/60 p-1 sm:w-fit">
         <button
           type="button"
           onClick={() => setTabNavigate('menu')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition sm:flex-none sm:py-1.5 ${
             tab === 'menu' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -310,7 +313,7 @@ const Restaurant: React.FC = () => {
         <button
           type="button"
           onClick={() => setTabNavigate('orders')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition sm:flex-none sm:py-1.5 ${
             tab === 'orders' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -349,21 +352,23 @@ const Restaurant: React.FC = () => {
           </div>
 
           {/* Category filter chips */}
-          <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-secondary/50 p-1.5">
-            {['All', ...menuCategoriesList].map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setMenuCategoryFilter(c)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  menuCategoryFilter === c
-                    ? 'bg-ink text-ink-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-white hover:text-foreground'
-                }`}
-              >
-                {c}
-              </button>
-            ))}
+          <div className="-mx-1 overflow-x-auto px-1 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+            <div className="flex min-w-max flex-wrap items-center gap-1.5 rounded-lg border border-border bg-secondary/50 p-1.5 sm:min-w-0">
+              {['All', ...menuCategoriesList].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setMenuCategoryFilter(c)}
+                  className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    menuCategoryFilter === c
+                      ? 'bg-ink text-ink-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-white hover:text-foreground'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Menu card grid */}
@@ -372,13 +377,13 @@ const Restaurant: React.FC = () => {
               <CardContent className="py-12 text-center text-muted-foreground">No menu items</CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredMenuItems.map((item, i) => (
                 <div
                   key={item.id}
-                  className={`card-base group flex flex-col overflow-hidden p-3 fade-up ${!item.isAvailable ? 'opacity-70' : ''} fade-up-${(i % 6) + 1}`}
+                  className={`card-base group flex min-w-0 flex-col overflow-hidden p-3 sm:p-4 fade-up ${!item.isAvailable ? 'opacity-70' : ''} fade-up-${(i % 6) + 1}`}
                 >
-                  <div className="relative mb-3 h-40 w-full overflow-hidden rounded-lg bg-muted">
+                  <div className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted">
                     {item.image ? (
                       <img
                         src={item.image}
@@ -399,41 +404,38 @@ const Restaurant: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold leading-tight text-foreground">{item.name}</h3>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">{item.category}</Badge>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+                      <h3 className="min-w-0 line-clamp-2 font-semibold leading-tight text-foreground">{item.name}</h3>
+                      <Badge variant="outline" className="w-fit shrink-0 text-[10px]">{item.category}</Badge>
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description || 'No description'}</p>
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                    <span className={`text-[11px] font-medium uppercase tracking-wide ${item.isAvailable ? 'text-muted-foreground' : 'text-destructive'}`}>
+                  <div className="mt-3 flex flex-col gap-2.5 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <span className={`shrink-0 text-[11px] font-medium uppercase tracking-wide ${item.isAvailable ? 'text-muted-foreground' : 'text-destructive'}`}>
                       {item.isAvailable ? 'Available' : 'Out of stock'}
                     </span>
-                    <div className="flex items-center gap-1">
-                      {menuWrite && (
+                    {menuWrite && (
+                      <div className="flex items-center justify-end gap-2 sm:shrink-0">
                         <button
                           type="button"
                           role="switch"
                           aria-checked={item.isAvailable}
+                          aria-label={`Toggle availability for ${item.name}`}
                           onClick={() => void toggleAvailability(item)}
-                          className={`relative h-5 w-9 rounded-full transition-colors ${item.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                          className={`inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors ${item.isAvailable ? 'justify-end bg-emerald-500' : 'justify-start bg-slate-300'}`}
                           title="Toggle availability"
                         >
-                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${item.isAvailable ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                          <span className="pointer-events-none block h-4 w-4 shrink-0 rounded-full bg-white shadow-sm" />
                         </button>
-                      )}
-                      {menuWrite && (
-                        <>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(item.id)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openEdit(item)} title="Edit item">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => handleDelete(item.id)} title="Delete item">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -444,29 +446,37 @@ const Restaurant: React.FC = () => {
 
       {tab === 'orders' && (
         <>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">From</Label>
-              <Input type="date" value={orderDateFrom} onChange={(e) => setOrderDateFrom(e.target.value)} className="w-40" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="grid w-full grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:w-auto sm:flex sm:items-end sm:gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">From</Label>
+                <Input type="date" value={orderDateFrom} onChange={(e) => setOrderDateFrom(e.target.value)} className="w-full sm:w-40" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">To</Label>
+                <Input type="date" value={orderDateTo} onChange={(e) => setOrderDateTo(e.target.value)} className="w-full sm:w-40" />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">To</Label>
-              <Input type="date" value={orderDateTo} onChange={(e) => setOrderDateTo(e.target.value)} className="w-40" />
-            </div>
-            {(orderDateFrom || orderDateTo) && (
-              <Button variant="outline" size="sm" onClick={() => { setOrderDateFrom(''); setOrderDateTo(''); }}>
-                Clear
+            <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center">
+              {(orderDateFrom || orderDateTo) && (
+                <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => { setOrderDateFrom(''); setOrderDateTo(''); }}>
+                  Clear
+                </Button>
+              )}
+              <Button variant="ink" className="w-full sm:w-auto" onClick={openNewOrder}>
+                <Plus className="mr-2 h-4 w-4" />
+                New order
               </Button>
-            )}
-            <Button variant="ink" className="ml-auto" onClick={openNewOrder}><Plus className="h-4 w-4 mr-2" />New order</Button>
+            </div>
           </div>
           <Card>
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <div className="flex flex-col gap-1 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <h3 className="text-base font-semibold text-foreground">Recent Orders</h3>
               <span className="text-xs text-muted-foreground">{orders.length} order{orders.length === 1 ? '' : 's'}</span>
             </div>
-            <CardContent className="p-0">
-              <Table>
+            <div className="overflow-x-auto">
+              <CardContent className="min-w-[720px] p-0 sm:min-w-0">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order ID</TableHead>
@@ -504,14 +514,15 @@ const Restaurant: React.FC = () => {
                   })}
                   {orders.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground">No orders</TableCell></TableRow>}
                 </TableBody>
-              </Table>
-            </CardContent>
+                </Table>
+              </CardContent>
+            </div>
           </Card>
         </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit menu item' : 'Add menu item'}</DialogTitle>
           </DialogHeader>
@@ -520,7 +531,7 @@ const Restaurant: React.FC = () => {
               <Label>Name</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Price (৳)</Label>
                 <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
@@ -590,7 +601,7 @@ const Restaurant: React.FC = () => {
       </Dialog>
 
       <Dialog open={orderOpen} onOpenChange={setOrderOpen}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg">
           <DialogHeader><DialogTitle>New restaurant order</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Room (optional)</Label>
@@ -613,10 +624,10 @@ const Restaurant: React.FC = () => {
       </Dialog>
 
       <Dialog open={orderEditOpen} onOpenChange={setOrderEditOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader><DialogTitle>Edit order</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Status</Label>
                 <Select value={orderStatus} onValueChange={setOrderStatus}>
@@ -633,7 +644,7 @@ const Restaurant: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Room</Label>
                 <Select
