@@ -45,6 +45,19 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-use-long-random-string}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3002,http://localhost:3003,http://localhost:8001,http://127.0.0.1:3002,http://127.0.0.1:3003,http://127.0.0.1:8001}
+      # Stripe — set these in the Coolify env vars (no defaults; secrets).
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      # Public web origin for Stripe success/cancel redirects, e.g. https://your-web-host
+      WEB_PUBLIC_URL: ${WEB_PUBLIC_URL}
+      # Email (optional) — set to enable OTP + confirmation emails in production.
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      RESORT_NAME: ${RESORT_NAME:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
     depends_on:
       db:
         condition: service_healthy
