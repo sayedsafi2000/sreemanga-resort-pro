@@ -7,6 +7,8 @@ import {
   getPublicSettings,
   getPublicMenu,
   createPublicBooking,
+  sendOtp,
+  verifyOtp,
 } from '../controllers/publicController';
 import { getPublicGallery } from '../controllers/galleryController';
 import { getPublicNearbyExplore, getPublicNearbySpotBySlug } from '../controllers/nearbySpotsController';
@@ -26,5 +28,7 @@ router.get('/nearby-spots/:slug', getPublicNearbySpotBySlug);
 router.get('/blogs', getPublicBlogs);
 router.get('/blogs/:slug', getPublicBlogBySlug);
 router.post('/bookings', createPublicBooking);
+router.post('/otp/send', sendOtp);
+router.post('/otp/verify', verifyOtp);
 
 export default router;

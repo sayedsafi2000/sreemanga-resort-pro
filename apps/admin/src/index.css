@@ -42,14 +42,14 @@
 
     --radius: 0.75rem;
 
-    /* ── Sidebar tokens (deep navy) ────────────────────────────────────────── */
-    --sidebar-bg: 222 47% 11%;
-    --sidebar-bg-accent: 222 44% 14%;
-    --sidebar-text: 215 20% 65%;
+    /* ── Sidebar tokens (deep forest green — template-three) ───────────────── */
+    --sidebar-bg: 125 85% 3%;
+    --sidebar-bg-accent: 127 47% 8%;
+    --sidebar-text: 120 18% 62%;
     --sidebar-text-active: 0 0% 100%;
-    --sidebar-item-active-bg: 221 83% 53%;
-    --sidebar-item-hover-bg: 217 33% 17%;
-    --sidebar-border: 217 33% 20%;
+    --sidebar-item-active-bg: 38 87% 42%;
+    --sidebar-item-hover-bg: 127 47% 9%;
+    --sidebar-border: 127 38% 16%;
 
     /* ── Sustainability / eco panel (deep forest) ──────────────────────────── */
     --eco-from: 158 64% 14%;

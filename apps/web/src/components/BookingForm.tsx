@@ -7,7 +7,7 @@ import { format, startOfDay } from 'date-fns';
 import { BedDouble, CalendarDays, Mail, Phone, UserRound, Users } from 'lucide-react';
 import 'react-day-picker/style.css';
 
-import { getRoomAvailabilityCalendar, submitPublicBooking } from '@/lib/resort-api';
+import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp } from '@/lib/resort-api';
 import type { Room, RoomAvailabilityCalendar } from '@/types/resort';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +45,12 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
   const [calendar, setCalendar] = useState<RoomAvailabilityCalendar | null>(null);
   const [calLoading, setCalLoading] = useState(false);
 
+  // OTP state
+  const [otpStep, setOtpStep] = useState<'idle' | 'sending' | 'input' | 'verifying' | 'verified'>('idle');
+  const [otpValue, setOtpValue] = useState('');
+  const [otpMessage, setOtpMessage] = useState('');
+  const [otpResendTimer, setOtpResendTimer] = useState(0);
+
   const todayStart = useMemo(() => startOfDay(new Date()), []);
 
   const bookedDates = useMemo(() => {
@@ -80,6 +86,45 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
     setRange(undefined);
   }, [roomId]);
 
+  // OTP resend countdown
+  useEffect(() => {
+    if (otpResendTimer <= 0) return;
+    const t = setTimeout(() => setOtpResendTimer((v) => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [otpResendTimer]);
+
+  async function handleSendOtp() {
+    if (!guestEmail.trim()) {
+      setOtpMessage('Please enter your email first.');
+      return;
+    }
+    setOtpStep('sending');
+    setOtpMessage('');
+    const res = await sendBookingOtp(guestEmail.trim());
+    if (res.ok) {
+      setOtpStep('input');
+      setOtpMessage(res.message);
+      setOtpResendTimer(60);
+    } else {
+      setOtpStep('idle');
+      setOtpMessage(res.message);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpValue.trim()) return;
+    setOtpStep('verifying');
+    setOtpMessage('');
+    const res = await verifyBookingOtp(guestEmail.trim(), otpValue.trim());
+    if (res.ok) {
+      setOtpStep('verified');
+      setOtpMessage('✓ Email verified');
+    } else {
+      setOtpStep('input');
+      setOtpMessage(res.message);
+    }
+  }
+
   async function onProofUpload(file: File | undefined) {
     if (!file) {
       setPaymentProofImage(undefined);
@@ -104,6 +149,12 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
     if (!range?.from || !range?.to) {
       setStatus('err');
       setMessage('Please select check-in and check-out dates.');
+      return;
+    }
+    // Require OTP verification if email is provided
+    if (guestEmail.trim() && otpStep !== 'verified') {
+      setStatus('err');
+      setMessage('Please verify your email with OTP before submitting.');
       return;
     }
     const checkInDate = format(range.from, 'yyyy-MM-dd');
@@ -459,10 +510,97 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
           <input
             type="email"
             value={guestEmail}
-            onChange={(e) => setGuestEmail(e.target.value)}
+            onChange={(e) => {
+              setGuestEmail(e.target.value);
+              // Reset OTP if email changes
+              if (otpStep !== 'idle') {
+                setOtpStep('idle');
+                setOtpValue('');
+                setOtpMessage('');
+              }
+            }}
             className={cn('w-full px-4 py-3', glassField)}
             placeholder="you@example.com"
           />
+          {/* OTP section */}
+          {guestEmail.trim() && otpStep !== 'verified' && (
+            <div className="mt-2 space-y-2">
+              {otpStep === 'idle' && (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  className={cn(
+                    'w-full rounded-lg py-2 text-sm font-semibold transition',
+                    isDark
+                      ? 'border border-forest-700 bg-forest-900/60 text-forest-200 hover:bg-forest-800'
+                      : 'border border-forest-400 bg-forest-50 text-forest-800 hover:bg-forest-100'
+                  )}
+                >
+                  Send OTP to verify email
+                </button>
+              )}
+              {otpStep === 'sending' && (
+                <p className={cn('text-xs text-center', isDark ? 'text-forest-400' : 'text-stone-500')}>
+                  Sending OTP…
+                </p>
+              )}
+              {(otpStep === 'input' || otpStep === 'verifying') && (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter 6-digit OTP"
+                    className={cn('w-full px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em]', glassField)}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={otpValue.length !== 6 || otpStep === 'verifying'}
+                      className={cn(
+                        'flex-1 rounded-lg py-2 text-sm font-semibold transition disabled:opacity-50',
+                        isDark
+                          ? 'bg-forest-700 text-white hover:bg-forest-600'
+                          : 'bg-forest-700 text-white hover:bg-forest-800'
+                      )}
+                    >
+                      {otpStep === 'verifying' ? 'Verifying…' : 'Verify OTP'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={otpResendTimer > 0}
+                      className={cn(
+                        'rounded-lg px-3 py-2 text-xs font-medium transition disabled:opacity-40',
+                        isDark
+                          ? 'border border-forest-700 text-forest-300 hover:bg-forest-900'
+                          : 'border border-forest-400 text-forest-700 hover:bg-forest-50'
+                      )}
+                    >
+                      {otpResendTimer > 0 ? `Resend (${otpResendTimer}s)` : 'Resend'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {otpMessage && otpStep !== 'verified' && (
+                <p className={cn('text-xs text-center',
+                  otpMessage.startsWith('✓')
+                    ? isDark ? 'text-forest-300' : 'text-forest-700'
+                    : isDark ? 'text-rose-400' : 'text-red-600'
+                )}>
+                  {otpMessage}
+                </p>
+              )}
+            </div>
+          )}
+          {otpStep === 'verified' && (
+            <p className={cn('mt-1.5 text-xs font-semibold', isDark ? 'text-forest-300' : 'text-forest-700')}>
+              ✓ Email verified
+            </p>
+          )}
         </label>
       </div>
 

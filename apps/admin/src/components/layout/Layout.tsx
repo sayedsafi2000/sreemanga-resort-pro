@@ -202,10 +202,10 @@ function ExpenditureNavGroup({
           onClick={onNavigate}
           className={`group relative flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
             parentActive
-              ? 'bg-primary text-white shadow-sm'
+              ? 'bg-sidebar-item-active text-white shadow-sm shadow-amber-900/50'
               : isAnyActive
               ? 'bg-sidebar-accent text-slate-200'
-              : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-slate-100'
+              : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-white'
           }`}
         >
           <Icon className="h-[18px] w-[18px] shrink-0" />
@@ -233,8 +233,8 @@ function ExpenditureNavGroup({
                 onClick={onNavigate}
                 className={`block rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150 ${
                   childOn
-                    ? 'bg-primary/15 text-blue-300'
-                    : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-slate-300'
+                    ? 'bg-primary/20 text-amber-300'
+                    : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-white'
                 }`}
               >
                 {c.name}
@@ -257,7 +257,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     site_name: string;
     site_tagline: string;
     site_logo: string;
-  }>({ site_name: "Nirjon Nature's Hideout", site_tagline: 'A Nature Resort', site_logo: '' });
+  }>({ site_name: 'Pina Vista', site_tagline: 'Resort Management System', site_logo: '' });
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -281,8 +281,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         if (res.data?.settings) {
           const settings = res.data.settings;
           setBrandingSettings({
-            site_name: settings.site_name || "Nirjon Nature's Hideout",
-            site_tagline: settings.site_tagline || 'A Nature Resort',
+            site_name: settings.site_name || 'Pina Vista',
+            site_tagline: settings.site_tagline || 'Resort Management System',
             site_logo: settings.site_logo || '',
           });
           
@@ -346,8 +346,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold leading-tight text-white">{brandingSettings.site_name}</p>
-            <p className="eyebrow !text-[10px] !tracking-[0.12em] text-slate-500">{brandingSettings.site_tagline}</p>
+            <p className="truncate text-[15px] font-bold leading-tight text-white">Resort Management System</p>
+            <p className="eyebrow !text-[10px] !tracking-[0.12em] text-slate-500">{brandingSettings.site_name}</p>
           </div>
           <button
             type="button"
@@ -381,8 +381,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 onClick={() => setSidebarOpen(false)}
                 className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                   isActive
-                    ? 'bg-primary text-white shadow-sm shadow-primary/30'
-                    : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-slate-100'
+                    ? 'bg-sidebar-item-active text-white shadow-sm shadow-amber-900/50'
+                    : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-white'
                 }`}
               >
                 <Icon className={`h-[18px] w-[18px] shrink-0 transition-transform duration-150 ${isActive ? '' : 'group-hover:scale-110'}`} />
@@ -398,7 +398,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <Link
               to="/bookings?new=1"
               onClick={() => setSidebarOpen(false)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition hover:bg-primary/90 active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-sidebar-item-active px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-900/40 transition hover:opacity-90 active:scale-[0.98]"
             >
               <Plus className="h-4 w-4" />
               New Booking
@@ -446,7 +446,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
           {/* Brand wordmark */}
           <div className="hidden items-center gap-2 lg:flex">
-            <span className="text-sm font-bold tracking-tight text-foreground">LuxeResort OS</span>
+            <span className="text-sm font-bold tracking-tight text-foreground">{brandingSettings.site_name}</span>
           </div>
 
           {/* Search */}

@@ -19,7 +19,7 @@ interface BrandingSettings {
 
 const Branding = () => {
   const [settings, setSettings] = useState<BrandingSettings>({
-    site_name: "Nirjon Nature's Hideout",
+    site_name: 'Pina Vista',
     site_tagline: 'A Nature Resort',
     site_logo: '',
     site_favicon: '',

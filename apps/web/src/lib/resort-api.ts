@@ -240,3 +240,39 @@ export async function getBlogBySlug(slug: string): Promise<BlogDetail | null> {
   );
   return data?.blog ?? null;
 }
+
+// ── OTP helpers ───────────────────────────────────────────────────────────
+
+function publicApiBase(): string {
+  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+}
+
+export async function sendBookingOtp(email: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await fetch(`${publicApiBase()}/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, message: j.message || 'Failed to send OTP.' };
+    return { ok: true, message: j.message || 'OTP sent.' };
+  } catch {
+    return { ok: false, message: 'Network error. Please try again.' };
+  }
+}
+
+export async function verifyBookingOtp(email: string, otp: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await fetch(`${publicApiBase()}/otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, message: j.message || 'Invalid OTP.' };
+    return { ok: true, message: j.message || 'Verified.' };
+  } catch {
+    return { ok: false, message: 'Network error. Please try again.' };
+  }
+}

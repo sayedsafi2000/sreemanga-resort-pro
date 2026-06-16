@@ -3,6 +3,21 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { z } from 'zod';
 import { createPaymentFromBooking } from '../utils/bookingPayment';
+import { emailService } from '../utils/emailService';
+import crypto from 'crypto';
+
+// ── In-memory OTP store ────────────────────────────────────────────────────
+// Map key: email  →  { otp, expiresAt, verified }
+interface OtpEntry { otp: string; expiresAt: number; verified: boolean; }
+const otpStore = new Map<string, OtpEntry>();
+
+// Clean up expired entries every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of otpStore.entries()) {
+    if (val.expiresAt < now) otpStore.delete(key);
+  }
+}, 10 * 60 * 1000);
 
 export const getPublicRooms = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -190,6 +205,18 @@ const publicBookingSchema = z.object({
 export const createPublicBooking = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = publicBookingSchema.parse(req.body);
+
+    // ── OTP guard ────────────────────────────────────────────────────────────
+    if (data.guestEmail) {
+      const entry = otpStore.get(data.guestEmail.toLowerCase());
+      if (!entry || !entry.verified || entry.expiresAt < Date.now()) {
+        throw new AppError('Email OTP not verified. Please verify your email before booking.', 403);
+      }
+      // Invalidate OTP after use so it can't be replayed
+      otpStore.delete(data.guestEmail.toLowerCase());
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const checkIn = new Date(data.checkInDate);
     const checkOut = new Date(data.checkOutDate);
     if (checkOut <= checkIn) throw new AppError('Check-out date must be after check-in date', 400);
@@ -250,5 +277,72 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     });
 
     res.status(201).json({ success: true, booking: result });
+
+    // Send pending acknowledgment email to guest (fire-and-forget)
+    if (result.guest.email) {
+      emailService.sendBookingPendingEmail(result.guest.email, {
+        bookingId: result.id,
+        guestName: result.guest.name,
+        roomName: result.room.name,
+        checkInDate: result.checkInDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        checkOutDate: result.checkOutDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        totalAmount: result.totalAmount,
+      }).catch(err => console.error('[Email] Pending booking email failed:', err));
+    }
+  } catch (error) { next(error); }
+};
+
+// ── Send OTP ──────────────────────────────────────────────────────────────
+export const sendOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      throw new AppError('Valid email is required', 400);
+    }
+    const normalised = email.toLowerCase().trim();
+
+    // Rate-limit: don't allow resend within 60 seconds
+    const existing = otpStore.get(normalised);
+    if (existing && existing.expiresAt - 4 * 60 * 1000 > Date.now()) {
+      throw new AppError('Please wait before requesting a new OTP', 429);
+    }
+
+    // Generate 6-digit OTP
+    const otp = String(Math.floor(100000 + crypto.randomInt(900000)));
+    otpStore.set(normalised, {
+      otp,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+      verified: false,
+    });
+
+    const sent = await emailService.sendOtpEmail(normalised, otp);
+
+    if (!sent) throw new AppError('Failed to send OTP email. Please try again.', 500);
+
+    res.json({ success: true, message: 'OTP sent to your email.' });
+  } catch (error) { next(error); }
+};
+
+// ── Verify OTP ────────────────────────────────────────────────────────────
+export const verifyOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) throw new AppError('Email and OTP are required', 400);
+
+    const normalised = email.toLowerCase().trim();
+    const entry = otpStore.get(normalised);
+
+    if (!entry) throw new AppError('OTP not found. Please request a new one.', 400);
+    if (entry.expiresAt < Date.now()) {
+      otpStore.delete(normalised);
+      throw new AppError('OTP has expired. Please request a new one.', 400);
+    }
+    if (entry.otp !== String(otp).trim()) {
+      throw new AppError('Incorrect OTP. Please try again.', 400);
+    }
+
+    // Mark as verified — booking submission must happen within remaining window
+    entry.verified = true;
+    res.json({ success: true, message: 'Email verified successfully.' });
   } catch (error) { next(error); }
 };
