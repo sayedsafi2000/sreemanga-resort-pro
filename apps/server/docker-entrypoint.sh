@@ -2,7 +2,11 @@
 set -e
 
 echo "→ Running prisma db push (sync schema)..."
-npx prisma db push
+# --accept-data-loss: required for non-destructive schema changes that Prisma
+# flags as "possible data loss" (e.g. adding a unique constraint on a new
+# nullable column). Without it the push exits non-zero and `set -e` aborts the
+# container before the server starts, causing a restart loop.
+npx prisma db push --accept-data-loss
 
 # Seed is OFF by default to protect production data from being overwritten.
 # To run the seed manually:
