@@ -7,7 +7,7 @@ import { roleCheck } from '../middleware/roleCheck';
 const router = Router();
 
 router.post('/login', login);
-router.post('/register', authenticateToken, roleCheck(['SUPER_ADMIN']), register);
+router.post('/register', register);
 router.get('/profile', authenticateToken, getProfile);
 
 // Password reset routes

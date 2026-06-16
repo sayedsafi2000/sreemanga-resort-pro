@@ -1,55 +1,43 @@
 const path = require('path');
 const fs = require('fs');
-const { mdToPdf } = require('md-to-pdf');
+const puppeteer = require('puppeteer');
 
-async function generateFromHtml() {
-  const puppeteer = require('puppeteer');
-  const htmlPath = path.join(__dirname, 'CSE-436-RMS-Project-Proposal.html');
-  const pdfPath = path.join(__dirname, 'CSE-436-RMS-Project-Proposal.pdf');
-  const html = fs.readFileSync(htmlPath, 'utf8');
+async function generatePdf() {
+  const docsDir = __dirname;
+  const htmlPath = path.join(docsDir, 'CSE-436-RMS-Project-Proposal.html');
+  const pdfPath = path.join(docsDir, 'CSE-436-RMS-Project-Proposal.pdf');
+  const desktopPdf = '/Users/safi/Desktop/CSE 436 (RMS) Project Proposal.pdf';
 
   const browser = await puppeteer.launch({
-    headless: 'new',
+    headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
+
   const page = await browser.newPage();
-  await page.setContent(html, {
-    waitUntil: 'networkidle0',
-    path: path.join(__dirname),
+  await page.goto(`file://${htmlPath}`, {
+    waitUntil: 'load',
+    timeout: 15000,
   });
+
   await page.pdf({
     path: pdfPath,
     format: 'A4',
     printBackground: true,
-    margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+    margin: {
+      top: '2.54cm',
+      right: '2.54cm',
+      bottom: '2.54cm',
+      left: '2.54cm',
+    },
   });
+
   await browser.close();
+  fs.copyFileSync(pdfPath, desktopPdf);
   console.log('PDF created:', pdfPath);
+  console.log('Copied to:', desktopPdf);
 }
 
-async function generateFromMd() {
-  const mdPath = path.join(__dirname, 'CSE-436-RMS-Project-Proposal.md');
-  const pdfPath = path.join(__dirname, 'CSE-436-RMS-Project-Proposal.pdf');
-  await mdToPdf(
-    { path: mdPath },
-    {
-      dest: pdfPath,
-      basedir: __dirname,
-      pdf_options: {
-        format: 'A4',
-        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
-        printBackground: true,
-      },
-    }
-  );
-  console.log('PDF created:', pdfPath);
-}
-
-(async () => {
-  try {
-    await generateFromHtml();
-  } catch (err) {
-    console.error('HTML PDF failed, trying MD:', err.message);
-    await generateFromMd();
-  }
-})();
+generatePdf().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
