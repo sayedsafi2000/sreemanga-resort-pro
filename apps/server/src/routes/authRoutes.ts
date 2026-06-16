@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { login, register, getProfile } from '../controllers/authController';
 import { requestPasswordReset, resetPassword, verifyResetToken } from '../controllers/passwordResetController';
 import { authenticateToken } from '../middleware/auth';
-import { roleCheck } from '../middleware/roleCheck';
 
 const router = Router();
 
