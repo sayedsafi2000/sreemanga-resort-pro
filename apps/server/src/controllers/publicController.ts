@@ -3,6 +3,7 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { z } from 'zod';
 import { createPaymentFromBooking } from '../utils/bookingPayment';
+import { createCheckoutSessionForBooking } from './stripeController';
 import { emailService } from '../utils/emailService';
 import crypto from 'crypto';
 
@@ -177,7 +178,7 @@ const publicBookingSchema = z.object({
   adults: z.number().int().min(1).max(20).default(1),
   children: z.number().int().min(0).max(20).default(0),
   preferredPaymentTiming: z.enum(['INSTANT', 'LATER']).default('LATER'),
-  preferredPaymentMethod: z.enum(['BKASH', 'BANK_TRANSFER']).optional(),
+  preferredPaymentMethod: z.enum(['BKASH', 'BANK_TRANSFER', 'STRIPE']).optional(),
   paymentTransactionId: z.string().min(4).max(100).optional(),
   paymentProofImage: z.string().optional(),
   guestNid: z.string().optional(),
@@ -193,7 +194,12 @@ const publicBookingSchema = z.object({
       path: ['preferredPaymentMethod'],
     });
   }
-  if (data.preferredPaymentTiming === 'INSTANT' && !data.paymentTransactionId) {
+  // Manual methods (bKash / bank) need a transaction ID; Stripe is charged online.
+  if (
+    data.preferredPaymentTiming === 'INSTANT' &&
+    data.preferredPaymentMethod !== 'STRIPE' &&
+    !data.paymentTransactionId
+  ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Transaction ID is required for instant payment',
@@ -276,6 +282,20 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
       return booking;
     });
 
+    // Card payment → create a Stripe Checkout Session and hand the URL back so
+    // the client can redirect. The confirmation email fires from the webhook
+    // once payment succeeds, so we skip the "pending" email here.
+    if (data.preferredPaymentMethod === 'STRIPE') {
+      const payment = await prisma.payment.findFirst({
+        where: { bookingId: result.id },
+        select: { id: true },
+      });
+      if (!payment) throw new AppError('Payment record missing for booking', 500);
+      const checkoutUrl = await createCheckoutSessionForBooking(result, payment.id);
+      res.status(201).json({ success: true, booking: result, checkoutUrl });
+      return;
+    }
+
     res.status(201).json({ success: true, booking: result });
 
     // Send pending acknowledgment email to guest (fire-and-forget)
@@ -315,11 +335,35 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       verified: false,
     });
 
+    const isDev = process.env.NODE_ENV !== 'production';
+    // Dev convenience: surface the OTP in the server console so local testing
+    // works even when SMTP isn't configured.
+    if (isDev) console.log(`[OTP] ${normalised} → ${otp} (dev; expires in 5 min)`);
+
     const sent = await emailService.sendOtpEmail(normalised, otp);
 
-    if (!sent) throw new AppError('Failed to send OTP email. Please try again.', 500);
+    if (!sent) {
+      if (!isDev) {
+        // Prod: drop the entry so the user can retry immediately and no
+        // undelivered OTP lingers.
+        otpStore.delete(normalised);
+        throw new AppError('Failed to send OTP email. Please try again.', 500);
+      }
+      // Dev: keep the OTP valid and hand it back so local testing works
+      // without SMTP. `devOtp` is only ever set when NODE_ENV !== production.
+      res.json({
+        success: true,
+        message: 'OTP generated (dev mode — email not configured).',
+        devOtp: otp,
+      });
+      return;
+    }
 
-    res.json({ success: true, message: 'OTP sent to your email.' });
+    res.json({
+      success: true,
+      message: 'OTP sent to your email.',
+      ...(isDev ? { devOtp: otp } : {}),
+    });
   } catch (error) { next(error); }
 };
 

@@ -59,7 +59,11 @@ Defaults are inconsistent across apps — confirm via env before assuming:
 - Web: `NEXT_PUBLIC_API_URL` (defaults `http://localhost:3001/api`) — points at server too. Align with whichever port server actually runs on.
 - Server `CORS_ORIGIN`: comma-separated list of allowed origins (defaults `http://localhost:3000,http://localhost:3001`). Add admin (`:8001`) and web (`:3002`) origins explicitly when developing.
 
-`.env` files are gitignored. Required server env: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `CORS_ORIGIN`.
+`.env` files are gitignored. Required server env: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `CORS_ORIGIN`. Optional: `JWT_EXPIRES_IN`, `ADMIN_URL` (used to build password-reset links).
+
+Email (server, all optional — picked in priority order by `utils/emailService.ts`): set `SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASS` for any SMTP, **or** `RESEND_API_KEY`, **or** `BREVO_API_KEY`+`BREVO_EMAIL`. With none set, email silently no-ops (logs a warning). `RESORT_NAME` (default `Pina Vista`) and `EMAIL_FROM` set the brand/sender on every template.
+
+Web public (`NEXT_PUBLIC_*`, shown to guests on the booking page): `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_BKASH_NUMBER`, `NEXT_PUBLIC_BANK_NAME`, `NEXT_PUBLIC_BANK_ACCOUNT_NAME`, `NEXT_PUBLIC_BANK_ACCOUNT_NUMBER`, `NEXT_PUBLIC_BANK_BRANCH`.
 
 ## Architecture
 
@@ -73,9 +77,14 @@ Standard layered Express:
   - Public, no auth: `/api/auth`, `/api/public`.
 - `middleware/auth.ts` — `authenticateToken` decodes JWT (`JWT_SECRET`), refetches `User` from DB, attaches to `req.user`. Adds `Express.Request.user` typing globally.
 - `middleware/roleCheck.ts` — `roleCheck(roles[])` factory.
-- `controllers/`, `routes/`, `validators/` (zod), `utils/` — one file per domain (booking, room, guest, payment, restaurant, report, expenditure, salary, gallery, blog, nearby spots, settings, user, auth, public).
-- `prisma/schema.prisma` — Postgres. Domains: User (with `Role` enum), Room, Booking, Guest, Payment, RestaurantMenu/Order, Expense + ExpenseCategory, StaffSalary, Setting, SiteGalleryItem, SiteNearbySpot, SiteBlog. `Site*` models are public-site CMS content edited from admin.
+- `controllers/`, `routes/`, `validators/` (zod), `utils/` — one file per domain (booking, room, guest, payment, pendingPayment, restaurant, report, expenditure, salary, gallery, blog, nearby spots, settings, user, auth, passwordReset, branding, public).
+- `utils/prisma.ts` — **singleton** `PrismaClient` (cached on `globalThis` in non-prod to survive `tsx watch` reloads). Every file does `import prisma from '../utils/prisma'`. Never `new PrismaClient()` elsewhere — that exhausts the connection pool.
+- `utils/emailService.ts` — single `emailService` instance. Constructor picks one transport in priority order (SMTP env → Resend → Brevo → no-op). Exposes branded HTML templates: OTP, booking confirmation, booking pending, payment confirmation, check-in reminder, password reset. All sends are best-effort (return `false` on failure, never throw) — callers must not block the request on email.
+- `utils/bookingPayment.ts` — shared booking/payment amount + status helpers.
+- `prisma/schema.prisma` — Postgres. Domains: User (with `Role` enum), PasswordReset, Room, Booking, Guest, Payment, PendingPayment, RestaurantMenu/Order, Expense + ExpenseCategory, StaffSalary, Setting, SiteGalleryItem, SiteNearbySpot, SiteBlog. `Site*` models are public-site CMS content edited from admin.
 - `prisma/seed.ts` — seeds demo users for each role.
+
+**Booking OTP is in-memory, not in the DB.** `publicController.ts` keeps a module-level `Map<email, {otp, expiresAt, verified}>` (6-digit, 5-min TTL). It does not survive a server restart and breaks under multiple server instances — keep this in mind before horizontally scaling.
 
 When adding a new domain endpoint: create `controllers/xController.ts`, `routes/xRoutes.ts`, optional `validators/xValidator.ts`, then mount in `index.ts` with the right `roleCheck`. Authz lives at the mount, not in handlers — keep it that way.
 
@@ -95,6 +104,8 @@ Next.js 14 App Router. Routes: `app/{rooms,booking,gallery,explore,blogs,restaur
 
 `lib/resort-api.ts` and `lib/translations.ts` (Bengali/English) are domain helpers; `lib/dummy-data.ts` exists as fallback content.
 
+Guest booking flow (`app/booking`): collect details → `POST /api/public/otp/send` → guest enters emailed 6-digit OTP → `POST /api/public/otp/verify` → `POST /api/public/bookings` (the booking call re-checks the in-memory OTP `verified` flag). Bank/bKash details shown for manual payment come from the `NEXT_PUBLIC_BANK_*` / `NEXT_PUBLIC_BKASH_NUMBER` env vars, not the API.
+
 ### RBAC
 
 Single source of truth lives in two coordinated places:
@@ -102,12 +113,17 @@ Single source of truth lives in two coordinated places:
 - API: `apps/server/src/index.ts` + per-route `roleCheck`.
 - Admin UI: `apps/admin/src/config/rbac.ts` (`ROUTE_ACCESS`, `getSidebarItems`, `canAccessPath`, `canManageRooms`, `canManageRestaurantMenu`, `canEditPayments`).
 
-When changing role permissions, update **both**. Roles: `SUPER_ADMIN`, `MANAGER`, `RECEPTIONIST`, `HOUSEKEEPING`, `RESTAURANT_STAFF`, `ACCOUNTANT`. Notable rules from `docs/ROLES_AND_USERS.md`:
+When changing role permissions, update **both**. Roles: `SUPER_ADMIN`, `MANAGER`, `RECEPTIONIST`, `HOUSEKEEPING`, `RESTAURANT_STAFF`, `ACCOUNTANT`. Current mounts in `index.ts` (this is the live source of truth — `docs/ROLES_AND_USERS.md` may lag):
 
-- `Settings` and `/api/users` → `SUPER_ADMIN` only.
-- Manager has no settings/staff API access.
+- `/api/users` → `SUPER_ADMIN` only.
+- `/api/settings` → `SUPER_ADMIN` + `MANAGER`.
+- `/api/reports`, `/api/expenditures`, `/api/salaries`, `/api/pending-payments` → `SUPER_ADMIN` + `MANAGER` + `ACCOUNTANT`.
+- `/api/branding` → `SUPER_ADMIN` + `MANAGER`.
+- `/api/rooms`, `/api/bookings`, `/api/guests`, `/api/payments`, `/api/restaurant`, `/api/gallery`, `/api/nearby-spots`, `/api/blogs` → any authenticated user (finer gating lives inside route files / admin `rbac.ts`).
 - Receptionist can `POST` payments; payment status `PUT` is `SUPER_ADMIN` / `MANAGER` / `ACCOUNTANT` only.
-- Public `POST /api/auth/register` only creates `RECEPTIONIST` users.
+- Public `POST /api/auth/register` is **open registration** — accepts any `role` in the body, defaulting to `RECEPTIONIST`. (Older docs say receptionist-only; the code no longer enforces that — see commit `7e896ce`.)
+
+Public, no auth: `/api/auth` (login, register, profile, `forgot-password`/`reset-password`/`verify-reset-token`), `/api/public` (rooms, availability, settings, menu, gallery, CMS content, `POST /bookings`, `POST /otp/send`, `POST /otp/verify`).
 
 Demo credentials for seeded users live in `docs/ROLES_AND_USERS.md`.
 

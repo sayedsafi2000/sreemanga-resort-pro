@@ -22,6 +22,7 @@ import expenditureRoutes from './routes/expenditureRoutes';
 import salaryRoutes from './routes/salaryRoutes';
 import pendingPaymentRoutes from './routes/pendingPaymentRoutes';
 import brandingRoutes from './routes/brandingRoutes';
+import { stripeWebhook } from './controllers/stripeController';
 import { authenticateToken } from './middleware/auth';
 import { roleCheck } from './middleware/roleCheck';
 
@@ -47,6 +48,10 @@ app.use(cors({
     ],
   credentials: true,
 }));
+// Stripe webhook needs the raw body for signature verification — must be
+// registered BEFORE express.json() consumes it.
+app.post('/api/public/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
