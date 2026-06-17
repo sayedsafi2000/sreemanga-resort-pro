@@ -19,15 +19,34 @@ function apiBase(): string {
   return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
 }
 
-// Resilient fetch — returns null on any failure (network, non-2xx, JSON parse error)
-// so render never crashes when the API is unreachable.
+// Bounded so a dead API can't stall every SSR render. 4s is well under
+// Next.js dev's pipe timeout but long enough for cold starts on prod.
+const FETCH_TIMEOUT_MS = 4000;
+
+/**
+ * Resilient fetch — returns null on any failure (network, non-2xx, JSON parse,
+ * timeout). Render code never crashes when the API is unreachable.
+ *
+ * Uses an explicit AbortController + timeout because relying on undici's
+ * default behaviour lets ECONNREFUSED surface as an unhandled rejection in
+ * Next.js 14 dev, killing the response pipe.
+ */
 async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, init);
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
     if (!res.ok) return null;
-    return (await res.json()) as T;
+    try {
+      return (await res.json()) as T;
+    } catch {
+      return null;
+    }
   } catch {
+    // Network failure (ECONNREFUSED, timeout, DNS, TLS) — render with defaults.
     return null;
+  } finally {
+    clearTimeout(t);
   }
 }
 
@@ -97,7 +116,7 @@ async function getGalleryUncached(): Promise<GalleryItem[]> {
   const data = await safeFetch<{
     success: boolean;
     items: Array<{ id: string; imageUrl: string; alt: string; category: string }>;
-  }>(`${apiBase()}/gallery`, { next: { revalidate: 15 } });
+  }>(`${apiBase()}/gallery`, { cache: 'no-store' });
   const rows = data?.items || [];
   return rows.map((row) => ({
     id: row.id,
