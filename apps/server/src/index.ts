@@ -17,6 +17,7 @@ import inventoryRoutes from './routes/inventoryRoutes';
 import accountRoutes from './routes/accountRoutes';
 import shareholderRoutes from './routes/shareholderRoutes';
 import shareholderPortalRoutes from './routes/shareholderPortalRoutes';
+import staffRoutes from './routes/staffRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import reportRoutes from './routes/reportRoutes';
 import publicRoutes from './routes/publicRoutes';
@@ -81,6 +82,7 @@ app.use('/api/inventory', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER'
 app.use('/api/accounts', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), accountRoutes);
 app.use('/api/shareholders', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), shareholderRoutes);
 app.use('/api/shareholder', authenticateToken, roleCheck(['SHAREHOLDER']), shareholderPortalRoutes);
+app.use('/api/staff', authenticateToken, staffRoutes);
 app.use('/api/settings', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), settingsRoutes);
 app.use('/api/gallery', authenticateToken, galleryRoutes);
 app.use('/api/nearby-spots', authenticateToken, nearbySpotsRoutes);

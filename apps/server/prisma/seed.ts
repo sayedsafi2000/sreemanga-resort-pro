@@ -1104,7 +1104,45 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
     });
   }
 
-  // ── Sample shareholder with portal login (Phase 5) ─────────────────────────
+  // ── Staff HR sample data (Phase 6) ─────────────────────────────────────────
+  if ((await prisma.department.count()) === 0) {
+    const frontOffice = await prisma.department.create({ data: { name: 'Front Office', sortOrder: 1 } });
+    const housekeeping = await prisma.department.create({ data: { name: 'Housekeeping', sortOrder: 2 } });
+    const foodBev = await prisma.department.create({ data: { name: 'Food & Beverage', sortOrder: 3 } });
+    const accounts = await prisma.department.create({ data: { name: 'Accounts', sortOrder: 4 } });
+
+    const reception = await prisma.designation.create({ data: { title: 'Receptionist', departmentId: frontOffice.id } });
+    await prisma.designation.create({ data: { title: 'Front Desk Manager', departmentId: frontOffice.id, sortOrder: 1 } });
+    const housekeeper = await prisma.designation.create({ data: { title: 'Housekeeper', departmentId: housekeeping.id } });
+    const chef = await prisma.designation.create({ data: { title: 'Chef', departmentId: foodBev.id } });
+    const accountant = await prisma.designation.create({ data: { title: 'Accountant', departmentId: accounts.id } });
+
+    await prisma.shift.createMany({
+      data: [
+        { name: 'Morning', startTime: '07:00', endTime: '15:00' },
+        { name: 'Evening', startTime: '15:00', endTime: '23:00' },
+        { name: 'Night', startTime: '23:00', endTime: '07:00' },
+        { name: 'General', startTime: '09:00', endTime: '17:00' },
+      ],
+    });
+
+    // Link demo user accounts to staff profiles.
+    const profiles: Array<{ email: string; deptId: string; desigId: string; empId: string; salary: number }> = [
+      { email: demoReceptionistEmail, deptId: frontOffice.id, desigId: reception.id, empId: 'EMP-001', salary: 20000 },
+      { email: demoHousekeepingEmail, deptId: housekeeping.id, desigId: housekeeper.id, empId: 'EMP-002', salary: 15000 },
+      { email: demoStaffEmail, deptId: foodBev.id, desigId: chef.id, empId: 'EMP-003', salary: 25000 },
+      { email: demoAccountantEmail, deptId: accounts.id, desigId: accountant.id, empId: 'EMP-004', salary: 30000 },
+    ];
+    for (const p of profiles) {
+      const u = await prisma.user.findUnique({ where: { email: p.email } });
+      if (u && !(await prisma.staffProfile.findUnique({ where: { userId: u.id } }))) {
+        await prisma.staffProfile.create({
+          data: { userId: u.id, employeeId: p.empId, departmentId: p.deptId, designationId: p.desigId, basicSalary: p.salary, joiningDate: new Date('2025-01-01') },
+        });
+      }
+    }
+  }
+
   if ((await prisma.shareholder.count()) === 0) {
     const shUser = await prisma.user.upsert({
       where: { email: 'shareholder@resortnirjon.com' },

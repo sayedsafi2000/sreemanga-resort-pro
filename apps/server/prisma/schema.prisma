@@ -103,6 +103,9 @@ model User {
   accountTransactions AccountTransaction[]
   shareholder       Shareholder?
   createdDistributions ProfitDistribution[]
+  staffProfile      StaffProfile?
+  markedAttendance  Attendance[]         @relation("AttendanceMarkedBy")
+  approvedLeaves    Leave[]              @relation("LeaveApprovedBy")
 
   @@index([email])
   @@index([role])
@@ -739,6 +742,173 @@ enum RoomType {
   SUITE
   FAMILY
   PRESIDENTIAL
+}
+
+// ── Staff HR module (Phase 6) ──────────────────────────────────────────────
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  LEAVE
+  HOLIDAY
+}
+
+enum LeaveType {
+  SICK
+  CASUAL
+  ANNUAL
+  MATERNITY
+  PATERNITY
+  UNPAID
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Department {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  description String?
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  designations Designation[]
+  staff        StaffProfile[]
+
+  @@index([isActive])
+}
+
+model Designation {
+  id           String       @id @default(uuid())
+  title        String
+  departmentId String
+  department   Department   @relation(fields: [departmentId], references: [id])
+  sortOrder    Int          @default(0)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  staff        StaffProfile[]
+
+  @@unique([title, departmentId])
+  @@index([departmentId])
+}
+
+model StaffProfile {
+  id               String       @id @default(uuid())
+  userId           String       @unique
+  user             User         @relation(fields: [userId], references: [id])
+  employeeId       String?      @unique
+  departmentId     String?
+  department       Department?  @relation(fields: [departmentId], references: [id])
+  designationId    String?
+  designation      Designation? @relation(fields: [designationId], references: [id])
+  phone            String?
+  emergencyContact String?
+  emergencyPhone   String?
+  presentAddress   String?
+  permanentAddress String?
+  bloodGroup       String?
+  dateOfBirth      DateTime?
+  joiningDate      DateTime?
+  resignDate       DateTime?
+  bankName         String?
+  bankAccountNo    String?
+  bankBranch       String?
+  basicSalary      Float?
+  isActive         Boolean      @default(true)
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  dutyRosters      DutyRoster[]
+  attendance       Attendance[]
+  leaves           Leave[]
+
+  @@index([departmentId])
+  @@index([designationId])
+  @@index([isActive])
+}
+
+model Shift {
+  id          String       @id @default(uuid())
+  name        String
+  startTime   String
+  endTime     String
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  dutyRosters DutyRoster[]
+
+  @@index([isActive])
+}
+
+model DutyRoster {
+  id        String       @id @default(uuid())
+  staffId   String
+  staff     StaffProfile @relation(fields: [staffId], references: [id])
+  shiftId   String
+  shift     Shift        @relation(fields: [shiftId], references: [id])
+  date      DateTime
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([staffId, date])
+  @@index([date])
+  @@index([shiftId])
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  staffId    String
+  staff      StaffProfile     @relation(fields: [staffId], references: [id])
+  date       DateTime
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     AttendanceStatus @default(PRESENT)
+  notes      String?
+  markedById String?
+  markedBy   User?            @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([staffId, date])
+  @@index([date])
+  @@index([status])
+  @@index([staffId, date])
+}
+
+model Leave {
+  id              String       @id @default(uuid())
+  staffId         String
+  staff           StaffProfile @relation(fields: [staffId], references: [id])
+  type            LeaveType
+  startDate       DateTime
+  endDate         DateTime
+  totalDays       Int
+  reason          String?
+  status          LeaveStatus  @default(PENDING)
+  approvedById    String?
+  approvedBy      User?        @relation("LeaveApprovedBy", fields: [approvedById], references: [id])
+  rejectionReason String?
+  documents       String[]     @default([])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([staffId])
+  @@index([status])
+  @@index([startDate, endDate])
 }
 
 enum RoomStatus {

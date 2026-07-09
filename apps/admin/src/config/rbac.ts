@@ -23,6 +23,7 @@ import {
   Boxes,
   Landmark,
   PieChart,
+  Users2,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -73,6 +74,7 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/inventory': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'HOUSEKEEPING', 'RESTAURANT_STAFF'],
   '/accounts': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/shareholders': ['SUPER_ADMIN', 'MANAGER'],
+  '/staff-hr': ['SUPER_ADMIN', 'MANAGER'],
   '/users': ['SUPER_ADMIN'],
   '/reports': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/templates': ['SUPER_ADMIN'],
@@ -110,12 +112,13 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
       { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
+      { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'gal', label: 'Site gallery', path: '/gallery', icon: Images },
       { key: 'near', label: 'Nearby explore', path: '/nearby-explore', icon: Compass },
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
-      { key: 'staff', label: 'Staff Management', path: '/users', icon: UserCog },
+      { key: 'staff', label: 'User Accounts', path: '/users', icon: UserCog },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
       { key: 'brand', label: 'Branding', path: '/branding', icon: Palette },
       { key: 'tmpl', label: 'Website Templates', path: '/templates', icon: Layout },
@@ -132,6 +135,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
       { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
+      { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
