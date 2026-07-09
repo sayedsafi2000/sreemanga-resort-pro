@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogOut, Menu, X, Mountain, ChevronDown, ChevronUp, Plus, Bell, Settings, Search, CalendarCheck, DollarSign, BedDouble, UtensilsCrossed, AlertCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getSidebarItems, navItemHref, sidebarItemActive, canAccessPath, EXPENDITURE_SIDEBAR_KEY } from '@/config/rbac';
+import { getSidebarItems, navItemHref, sidebarItemActive, canAccessPath, EXPENDITURE_SIDEBAR_KEY, SIDEBAR_SECTION } from '@/config/rbac';
 import { InitialsAvatar } from '@/components/ui/avatar';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
@@ -157,6 +157,7 @@ const ROLE_META: Record<string, { label: string; dark: string; light: string }> 
   HOUSEKEEPING:     { label: 'Housekeeping',     dark: 'bg-amber-500/15 text-amber-300',    light: 'bg-amber-50 text-amber-700' },
   RESTAURANT_STAFF: { label: 'Restaurant Staff', dark: 'bg-orange-500/15 text-orange-300',  light: 'bg-orange-50 text-orange-700' },
   ACCOUNTANT:       { label: 'Accountant',       dark: 'bg-teal-500/15 text-teal-300',      light: 'bg-teal-50 text-teal-700' },
+  SHAREHOLDER:      { label: 'Shareholder',      dark: 'bg-fuchsia-500/15 text-fuchsia-300', light: 'bg-fuchsia-50 text-fuchsia-700' },
 };
 
 // ── Expenditure nav group ─────────────────────────────────────────────────────
@@ -358,38 +359,55 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </button>
         </div>
 
-        {/* ── Nav items ─────────────────────────────────────────────────── */}
+        {/* ── Nav items (grouped into sections) ─────────────────────────── */}
         <nav className="flex-1 space-y-0.5 px-3 py-4">
-          {sidebarItems.map((item) => {
-            const Icon = item.icon;
-            if (item.key === EXPENDITURE_SIDEBAR_KEY) {
+          {(() => {
+            let lastSection = '__init__';
+            return sidebarItems.map((item) => {
+              const Icon = item.icon;
+              const section = SIDEBAR_SECTION[item.key] ?? '';
+              const showHeader = section && section !== lastSection;
+              lastSection = section || lastSection;
+
+              const header = showHeader ? (
+                <p key={`sec-${item.key}`} className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {section}
+                </p>
+              ) : null;
+
+              if (item.key === EXPENDITURE_SIDEBAR_KEY) {
+                return (
+                  <React.Fragment key={item.key}>
+                    {header}
+                    <ExpenditureNavGroup
+                      label={item.label}
+                      Icon={Icon}
+                      onNavigate={() => setSidebarOpen(false)}
+                    />
+                  </React.Fragment>
+                );
+              }
+              const href = navItemHref(item);
+              const isActive = sidebarItemActive(location.pathname, location.search, item);
               return (
-                <ExpenditureNavGroup
-                  key={item.key}
-                  label={item.label}
-                  Icon={Icon}
-                  onNavigate={() => setSidebarOpen(false)}
-                />
+                <React.Fragment key={item.key}>
+                  {header}
+                  <Link
+                    to={href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? 'bg-sidebar-item-active text-white shadow-sm shadow-amber-900/50'
+                        : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-white'
+                    }`}
+                  >
+                    <Icon className={`h-[18px] w-[18px] shrink-0 transition-transform duration-150 ${isActive ? '' : 'group-hover:scale-110'}`} />
+                    {item.label}
+                  </Link>
+                </React.Fragment>
               );
-            }
-            const href = navItemHref(item);
-            const isActive = sidebarItemActive(location.pathname, location.search, item);
-            return (
-              <Link
-                key={item.key}
-                to={href}
-                onClick={() => setSidebarOpen(false)}
-                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? 'bg-sidebar-item-active text-white shadow-sm shadow-amber-900/50'
-                    : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-white'
-                }`}
-              >
-                <Icon className={`h-[18px] w-[18px] shrink-0 transition-transform duration-150 ${isActive ? '' : 'group-hover:scale-110'}`} />
-                {item.label}
-              </Link>
-            );
-          })}
+            });
+          })()}
         </nav>
 
         {/* ── New Booking CTA ───────────────────────────────────────────── */}

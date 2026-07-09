@@ -33,7 +33,8 @@ export type StaffRole =
   | 'RECEPTIONIST'
   | 'HOUSEKEEPING'
   | 'RESTAURANT_STAFF'
-  | 'ACCOUNTANT';
+  | 'ACCOUNTANT'
+  | 'SHAREHOLDER';
 
 export type SidebarItem = {
   key: string;
@@ -42,6 +43,18 @@ export type SidebarItem = {
   icon: LucideIcon;
   tab?: string;
   openNewBooking?: boolean;
+};
+
+/** Sidebar section labels keyed by item.key — used to group the nav for clarity. */
+export const SIDEBAR_SECTION: Record<string, string> = {
+  dash: '', 'book-new': '',
+  rooms: 'Operations', book: 'Operations', 'book-all': 'Operations', guest: 'Operations',
+  rest: 'Operations', daylong: 'Operations', ord: 'Operations', menu: 'Operations', inv: 'Operations',
+  pay: 'Finance', acct: 'Finance', share: 'Finance', rep: 'Finance', exp: 'Finance',
+  hr: 'People', sal: 'People', staff: 'People',
+  gal: 'Content', near: 'Content', blog: 'Content',
+  brand: 'System', tmpl: 'System', audit: 'System', set: 'System',
+  portal: '',
 };
 
 /** Layout renders category children under this key (fetched from API). */
@@ -87,7 +100,8 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/blogs': ['SUPER_ADMIN', 'MANAGER'],
   '/expenditures': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/staff-salaries': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
-  '/unauthorized': allRoles,
+  '/portal': ['SHAREHOLDER'],
+  '/unauthorized': [...allRoles, 'SHAREHOLDER'],
 };
 
 export function canAccessPath(role: string | undefined, path: string): boolean {
@@ -98,6 +112,11 @@ export function canAccessPath(role: string | undefined, path: string): boolean {
   return allowed.includes(role as StaffRole);
 }
 
+/** Where a user lands after login. Shareholders get their portal, staff the dashboard. */
+export function landingPath(role: string | undefined): string {
+  return role === 'SHAREHOLDER' ? '/portal' : '/dashboard';
+}
+
 export function getSidebarItems(role: string | undefined): SidebarItem[] {
   if (!role) return [];
   const r = role as StaffRole;
@@ -105,23 +124,28 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
   const base: Record<StaffRole, SidebarItem[]> = {
     SUPER_ADMIN: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      // Operations
       { key: 'rooms', label: 'Rooms Management', path: '/rooms', icon: BedDouble },
       { key: 'book', label: 'Bookings', path: '/bookings', icon: CalendarCheck },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
-      { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
+      // Finance
+      { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
-      { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
-      { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
       expenditureParent,
+      { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
+      { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      // People
+      { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
+      { key: 'staff', label: 'User Accounts', path: '/users', icon: UserCog },
+      // Content
       { key: 'gal', label: 'Site gallery', path: '/gallery', icon: Images },
       { key: 'near', label: 'Nearby explore', path: '/nearby-explore', icon: Compass },
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
-      { key: 'staff', label: 'User Accounts', path: '/users', icon: UserCog },
-      { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      // System
       { key: 'brand', label: 'Branding', path: '/branding', icon: Palette },
       { key: 'tmpl', label: 'Website Templates', path: '/templates', icon: Layout },
       { key: 'audit', label: 'Audit Log', path: '/audit-log', icon: ScrollText },
@@ -129,21 +153,26 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     ],
     MANAGER: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      // Operations
       { key: 'rooms', label: 'Rooms', path: '/rooms', icon: BedDouble },
       { key: 'book', label: 'Bookings', path: '/bookings', icon: CalendarCheck },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
-      { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
+      // Finance
+      { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
-      { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
-      { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
       expenditureParent,
-      { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
-      { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
-      { key: 'brand', label: 'Branding', path: '/branding', icon: Palette },
+      { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      // People
+      { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
+      { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
+      // Content
+      { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
+      // System
+      { key: 'brand', label: 'Branding', path: '/branding', icon: Palette },
     ],
     RECEPTIONIST: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -171,6 +200,9 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+    ],
+    SHAREHOLDER: [
+      { key: 'portal', label: 'My Portal', path: '/portal', icon: PieChart },
     ],
   };
 

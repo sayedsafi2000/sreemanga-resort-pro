@@ -14,6 +14,7 @@ import Accounts from '@/pages/Accounts/Accounts';
 import Shareholders from '@/pages/Shareholders/Shareholders';
 import StaffHR from '@/pages/StaffHR/StaffHR';
 import AuditLog from '@/pages/AuditLog/AuditLog';
+import ShareholderPortal from '@/pages/Portal/ShareholderPortal';
 import Settings from '@/pages/Settings/Settings';
 import Users from '@/pages/Users/Users';
 import Reports from '@/pages/Reports/Reports';
@@ -27,6 +28,7 @@ import Unauthorized from '@/pages/Unauthorized/Unauthorized';
 import Templates from '@/pages/Templates/Templates';
 import Layout from '@/components/layout/Layout';
 import RoleGuard from '@/components/RoleGuard';
+import { landingPath } from '@/config/rbac';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,12 +44,20 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+// Role-aware landing: shareholders → /portal, staff → /dashboard.
+const RootRedirect: React.FC = () => {
+  const { user, token, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user || !token) return <Navigate to="/login" replace />;
+  return <Navigate to={landingPath(user.role)} replace />;
+};
+
 const App: React.FC = () => {
   return (
     <Layout>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<RootRedirect />} />
         <Route path="/dashboard" element={<ProtectedRoute><RoleGuard path="/dashboard"><Dashboard /></RoleGuard></ProtectedRoute>} />
         <Route path="/rooms" element={<ProtectedRoute><RoleGuard path="/rooms"><Rooms /></RoleGuard></ProtectedRoute>} />
         <Route path="/bookings" element={<ProtectedRoute><RoleGuard path="/bookings"><Bookings /></RoleGuard></ProtectedRoute>} />
@@ -60,6 +70,7 @@ const App: React.FC = () => {
         <Route path="/shareholders" element={<ProtectedRoute><RoleGuard path="/shareholders"><Shareholders /></RoleGuard></ProtectedRoute>} />
         <Route path="/staff-hr" element={<ProtectedRoute><RoleGuard path="/staff-hr"><StaffHR /></RoleGuard></ProtectedRoute>} />
         <Route path="/audit-log" element={<ProtectedRoute><RoleGuard path="/audit-log"><AuditLog /></RoleGuard></ProtectedRoute>} />
+        <Route path="/portal" element={<ProtectedRoute><RoleGuard path="/portal"><ShareholderPortal /></RoleGuard></ProtectedRoute>} />
         <Route path="/gallery" element={<ProtectedRoute><RoleGuard path="/gallery"><Gallery /></RoleGuard></ProtectedRoute>} />
         <Route path="/nearby-explore" element={<ProtectedRoute><RoleGuard path="/nearby-explore"><NearbyExplore /></RoleGuard></ProtectedRoute>} />
         <Route path="/blogs" element={<ProtectedRoute><RoleGuard path="/blogs"><Blogs /></RoleGuard></ProtectedRoute>} />
