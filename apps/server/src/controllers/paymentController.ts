@@ -12,9 +12,6 @@ export const getAllPayments = async (
   try {
     const { status, method, bookingId, from, to } = req.query;
 
-    // Backfill payment rows for older website bookings that only stored payment info on Booking.
-    await backfillMissingBookingPayments();
-
     const where: any = {};
 
     if (status) where.status = status;
@@ -122,10 +119,11 @@ export const createPayment = async (
     });
 
     // Send email outside transaction
-    if (payment.booking.guest.email) {
-      emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
-        bookingId: payment.booking.id,
-        guestName: payment.booking.guest.name,
+    const cBooking = payment.booking;
+    if (cBooking?.guest?.email) {
+      emailService.sendPaymentConfirmationEmail(cBooking.guest.email, {
+        bookingId: cBooking.id,
+        guestName: cBooking.guest.name,
         amount: payment.amount,
         method: payment.method,
         transactionId: payment.transactionId || undefined,
@@ -172,13 +170,13 @@ export const updatePayment = async (
         },
       });
 
-      if (status === 'COMPLETED' && updated.booking.status === 'PENDING') {
+      if (status === 'COMPLETED' && updated.booking && updated.booking.status === 'PENDING') {
         const totalPaid = updated.booking.payments.reduce((sum, p) => {
           if (p.id === updated.id) return sum + updated.amount;
           return sum + (p.status === 'COMPLETED' ? p.amount : 0);
         }, 0);
 
-        if (totalPaid >= updated.booking.totalAmount) {
+        if (totalPaid >= updated.booking.totalAmount && updated.bookingId) {
           await tx.booking.update({
             where: { id: updated.bookingId },
             data: { status: 'CONFIRMED' },
@@ -189,13 +187,11 @@ export const updatePayment = async (
       return updated;
     });
 
-    if (
-      status === 'COMPLETED' &&
-      payment.booking.guest.email
-    ) {
-      emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
-        bookingId: payment.booking.id,
-        guestName: payment.booking.guest.name,
+    const uBooking = payment.booking;
+    if (status === 'COMPLETED' && uBooking?.guest?.email) {
+      emailService.sendPaymentConfirmationEmail(uBooking.guest.email, {
+        bookingId: uBooking.id,
+        guestName: uBooking.guest.name,
         amount: payment.amount,
         method: payment.method,
         transactionId: payment.transactionId || undefined,
@@ -203,6 +199,21 @@ export const updatePayment = async (
     }
 
     res.json({ success: true, payment });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Explicit backfill (Phase 0.5): create Payment rows for older website bookings
+// that only stored payment info on the Booking. Moved off the GET path — call on demand.
+export const backfillPayments = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const created = await backfillMissingBookingPayments();
+    res.json({ success: true, created });
   } catch (error) {
     next(error);
   }

@@ -2,7 +2,9 @@
 
 **Goal:** Prepare the database and codebase for all new modules. Fix existing bugs.
 
-**Prerequisite for:** All phases (1-6)
+**Prerequisite for:** All phases (1-8)
+
+**Quick-win fixes to ship in this phase** (see `00-CURRENT-ISSUES.md`): C2 (BANK_TRANSFER→CARD), C5 (PaymentMethod enum), H1 (backfill off the GET path). Small, isolated, unblock accounting.
 
 **Effort:** ~3-4 days
 
@@ -58,6 +60,7 @@ model Account {
 | 1002 | Bank Accounts | BANK | 1000 |
 | 1003 | Mobile Banking | MOBILE_BANKING | 1000 |
 | 1004 | Accounts Receivable | RECEIVABLE | 1000 |
+| 1005 | Inventory | ASSET | 1000 |
 | 1100 | Fixed Assets | ASSET | null |
 | 1101 | Furniture & Fixtures | ASSET | 1100 |
 | 1102 | Equipment | ASSET | 1100 |
@@ -76,6 +79,7 @@ model Account {
 | 5002 | Salary Expenses | EXPENSE | 5000 |
 | 5003 | Maintenance | EXPENSE | 5000 |
 | 5004 | Food Supplies | EXPENSE | 5000 |
+| 5007 | Inventory / COGS | EXPENSE | 5000 |
 | 5005 | Marketing | EXPENSE | 5000 |
 | 5006 | Miscellaneous | EXPENSE | 5000 |
 

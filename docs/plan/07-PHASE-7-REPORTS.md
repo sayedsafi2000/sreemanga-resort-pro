@@ -1,10 +1,12 @@
-# Phase 5: Reporting Enhancements
+# Phase 7: Reporting Enhancements
 
 **Goal:** Add comprehensive financial and operational reports including segmented P&L, Balance Sheet, Cash Flow, and enhanced dashboards.
 
-**Depends on:** Phases 1-4 (needs data from all business lines)
+**Depends on:** Phases 1-6 (needs data from all business lines)
 
 **Effort:** ~4-5 days
+
+> **Accounting note:** the system uses the **simplified signed cashbook** (Phase 4), not double-entry. Wherever this doc says "DEBIT/CREDIT," read it as: revenue/expense/cash tallies from `IN`/`OUT` movements. **Trial Balance is dropped** (a signed cashbook has no zero-sum guarantee) and replaced by an **Account Balances** report (every account + its running balance). The Balance Sheet is an **estimate** (assets vs liabilities+equity may not tie out exactly — show the difference as a "unreconciled" line rather than forcing it).
 
 ---
 
@@ -30,7 +32,7 @@
    │ • Balance Sheet  │   │ • Revenue by Line  │   │ • Distribution Hist. │
    │ • Cash Flow      │   │ • Staff Summary   │   │ • ROI Analysis       │
    │ • Trial Balance  │   │ • Attendance Rep. │   │                      │
-   │ • Expense Report │   │ • Leave Report    │   │                      │
+   │   → Account Bal. │   │ • Leave Report    │   │                      │
    └──────────────────┘   └────────────────────┘   └──────────────────────┘
 ```
 
@@ -44,7 +46,7 @@
 | GET | `/api/reports/profit-loss` | P&L statement (filter: date range, business line) |
 | GET | `/api/reports/balance-sheet` | Balance sheet (as of a date) |
 | GET | `/api/reports/cash-flow` | Simplified cash flow statement |
-| GET | `/api/reports/trial-balance` | Trial balance (all accounts with balances) |
+| GET | `/api/reports/account-balances` | All accounts with running balances (replaces trial balance) |
 | GET | `/api/reports/expense-category` | Expenses by category with drill-down |
 | GET | `/api/reports/revenue-by-line` | Revenue segmented by Room/Restaurant/Day Long |
 
@@ -114,10 +116,10 @@ async function getProfitLoss(startDate: Date, endDate: Date, businessLine?: stri
   });
 
   // Calculate income totals from transactions
-  // ... aggregate DEBIT/CREDIT by account within date range
+  // ... aggregate IN/OUT by account within date range (income balance = SUM(IN) - SUM(OUT))
 
   // Calculate expense totals from transactions
-  // ... aggregate DEBIT/CREDIT by account within date range
+  // ... aggregate IN/OUT by account within date range (expense balance = SUM(IN) - SUM(OUT))
 
   // If businessLine filter, only include related income/expense accounts
   // ...

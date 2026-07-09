@@ -8,11 +8,14 @@ import {
   createOrder,
   getOrders,
   updateOrder,
+  recordOrderPayment,
+  getOrderPayments,
 } from '../controllers/restaurantController';
 import { roleCheck } from '../middleware/roleCheck';
 
 const R_ALL = ['SUPER_ADMIN', 'MANAGER', 'RESTAURANT_STAFF'] as const;
 const R_MENU_WRITE = ['SUPER_ADMIN', 'MANAGER'] as const;
+const R_PAY = ['SUPER_ADMIN', 'MANAGER', 'RESTAURANT_STAFF', 'RECEPTIONIST'] as const;
 
 const router = Router();
 
@@ -25,5 +28,7 @@ router.delete('/menu/:id', roleCheck([...R_MENU_WRITE]), deleteMenuItem);
 router.post('/orders', roleCheck([...R_ALL]), createOrder);
 router.get('/orders', roleCheck([...R_ALL]), getOrders);
 router.put('/orders/:id', roleCheck([...R_ALL]), updateOrder);
+router.get('/orders/:id/payments', roleCheck([...R_PAY]), getOrderPayments);
+router.post('/orders/:id/payments', roleCheck([...R_PAY]), recordOrderPayment);
 
 export default router;

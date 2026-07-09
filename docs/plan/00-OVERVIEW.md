@@ -29,7 +29,8 @@
 │                      PostgreSQL Database                          │
 │  Tables: User, Room, Booking, Guest, Payment, RestaurantMenu,    │
 │  RestaurantOrder, DayLongProduct, DayLongBooking, Account,       │
-│  AccountTransaction, Shareholder, ProfitDistribution,            │
+│  AccountTransaction, InventoryItem, Supplier, StockMovement,     │
+│  MenuItemIngredient, Shareholder, ProfitDistribution,            │
 │  ProfitShare, Department, Designation, StaffProfile, Shift,      │
 │  DutyRoster, Attendance, Leave, Expense, ExpenseCategory,        │
 │  PendingPayment, StaffSalary, Setting, SiteGalleryItem,          │
@@ -42,14 +43,15 @@
 | Area | Current | Future |
 |------|---------|--------|
 | **Room Booking** | ✅ Full CRUD, payments, availability | ✅ Enhanced with business-line tagging |
-| **Restaurant** | ⚠️ Menu + Orders exist, NO revenue tracking | ✅ Orders create payments/account transactions |
-| **Day Long** | ❌ Does not exist | ✅ Full booking + payment + reporting |
-| **Accounts** | ❌ Basic expenses only | ✅ Chart of Accounts, transactions, balance sheet |
-| **Shareholders** | ❌ Does not exist | ✅ Full management + login portal |
-| **Staff HR** | ❌ Basic user CRUD + salary only | ✅ Departments, shifts, attendance, leave, payroll |
-| **Reports** | ⚠️ Basic revenue + occupancy + expenses | ✅ P&L by business line, Balance Sheet, Cash Flow |
-| **RBAC** | ⚠️ Route-level only | ✅ Granular permissions + SHAREHOLDER role |
-| **Audit** | ❌ Does not exist | ✅ Full audit trail |
+| **Restaurant** | ⚠️ Menu + Orders exist, NO revenue tracking | ✅ Orders create payments + ledger entries (Phase 2) |
+| **Inventory** | ❌ Does not exist | ✅ Products/Food/Amenities, purchase-in, auto-deduct (Phase 3) |
+| **Day Long** | ❌ Does not exist | ✅ Full booking + payment + reporting (Phase 1) |
+| **Accounts** | ❌ Basic expenses only | ✅ Chart of Accounts, signed cashbook, balance-sheet estimate (Phase 4) |
+| **Shareholders** | ❌ Does not exist | ✅ Full management + login portal (Phase 5) |
+| **Staff HR** | ❌ Basic user CRUD + salary only | ✅ Departments, shifts, attendance, leave, payroll (Phase 6) |
+| **Reports** | ⚠️ Basic revenue + occupancy + expenses | ✅ P&L by business line, Balance Sheet, Cash Flow (Phase 7) |
+| **RBAC** | ⚠️ Route-level only | ✅ Granular permissions + SHAREHOLDER role (Phase 5/8) |
+| **Audit** | ❌ Does not exist | ✅ Full audit trail (Phase 8) |
 
 ## Business Line Data Flow (Future State)
 
@@ -97,17 +99,23 @@
 ## Implementation Phases (Dependency Order)
 
 ```
-Phase 0 ──Foundation Schema Changes──
+Phase 0 ──Foundation Schema + Quick-Win Bug Fixes──
   │
-  ├──▶ Phase 1 ──Day Long Module──────▶ Phase 5 ──Reports──▶ Done
-  │                                    (depends on 1-4)
-  ├──▶ Phase 2 ──Accounts System───────▶
+  ├──▶ Phase 1 ──Day Long Module──────────┐
+  ├──▶ Phase 2 ──Restaurant Revenue───────┤
+  ├──▶ Phase 3 ──Inventory (auto-deduct)──┤──▶ Phase 4 ──Accounts──▶ Phase 7 ──Reports──▶ Done
+  │         (Phase 2 feeds Phase 3 recipes)│      (needs 1,2,3 revenue+cost)
+  ├──▶ Phase 5 ──Shareholder System───────┘  (needs Phase 4 profit)
   │
-  ├──▶ Phase 3 ──Shareholder System────▶
-  │
-  └──▶ Phase 4 ──Staff HR─────────────▶
-                                       Phase 6 (Cross-cutting) runs in parallel
+  └──▶ Phase 6 ──Staff HR─────────────────▶
+                                          Phase 8 (Cross-cutting) runs in parallel
 ```
+
+Full dependency notes:
+- **Phase 4 (Accounts)** consumes revenue from 1/2 and cost from 3 → sequence 1,2,3 → 4.
+- **Phase 5 (Shareholder)** needs Phase 4 profit numbers.
+- **Phase 7 (Reports)** needs data from 1-6.
+- **Phase 0** ships the C2/C5/H1 quick-win fixes (see `00-CURRENT-ISSUES.md`).
 
 ## File Structure Additions
 
@@ -137,12 +145,29 @@ apps/web/src/
 
 ## Role & Permission Matrix (Planned)
 
-| Role | Day Long | Accounts | Shareholders | Staff HR | Reports |
-|------|----------|----------|--------------|----------|---------|
-| SUPER_ADMIN | Full | Full | Full | Full | Full |
-| MANAGER | Full | View + Create | View Only | View + Approve | Full |
-| ACCOUNTANT | View | Full | View | View | Full |
-| RECEPTIONIST | Create Bookings | View | — | — | View |
-| HOUSEKEEPING | — | — | — | View duty | — |
-| RESTAURANT_STAFF | — | — | — | View duty | — |
-| SHAREHOLDER | — | — | Own data | — | Own reports |
+| Role | Day Long | Restaurant | Inventory | Accounts | Shareholders | Staff HR | Reports |
+|------|----------|-----------|-----------|----------|--------------|----------|---------|
+| SUPER_ADMIN | Full | Full | Full | Full | Full | Full | Full |
+| MANAGER | Full | Full | Full | View + Create | View Only | View + Approve | Full |
+| ACCOUNTANT | View | View | View + Purchase | Full | View | View | Full |
+| RECEPTIONIST | Create Bookings | Take orders/payments | — | View | — | — | View |
+| HOUSEKEEPING | — | — | Issue amenities | — | — | View duty | — |
+| RESTAURANT_STAFF | — | Take orders/payments | Issue/consume | — | — | View duty | — |
+| SHAREHOLDER | — | — | — | — | Own data | — | Own reports |
+
+## Phase Index
+
+| # | Phase | File | Effort |
+|---|-------|------|--------|
+| — | Current Issues list | `00-CURRENT-ISSUES.md` | — |
+| 0 | Foundation + quick-win fixes | `00-PHASE-0-FOUNDATION.md` | 3-4d |
+| 1 | Day Long | `01-PHASE-1-DAYLONG.md` | 5-6d |
+| 2 | Restaurant Revenue | `02-PHASE-2-RESTAURANT-REVENUE.md` | 3-4d |
+| 3 | Inventory | `03-PHASE-3-INVENTORY.md` | 6-7d |
+| 4 | Accounts (signed cashbook) | `04-PHASE-4-ACCOUNTS.md` | 5-6d |
+| 5 | Shareholder | `05-PHASE-5-SHAREHOLDER.md` | 5-6d |
+| 6 | Staff HR | `06-PHASE-6-STAFF-HR.md` | 8-10d |
+| 7 | Reports | `07-PHASE-7-REPORTS.md` | 4-5d |
+| 8 | Cross-cutting / hardening | `08-PHASE-8-IMPROVEMENTS.md` | 5-6d |
+| — | Data flow reference | `09-DATA-FLOW.md` | — |
+| — | Testing strategy | `10-TESTING.md` | — |

@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, ImageIcon, UtensilsCrossed, ShoppingBag, LayoutGrid } from 'lucide-react';
+import { Plus, Pencil, Trash2, ImageIcon, UtensilsCrossed, ShoppingBag, LayoutGrid, Wallet } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -59,6 +59,12 @@ const Restaurant: React.FC = () => {
   const [orderStatus, setOrderStatus] = useState('PENDING');
   const [orderDateFrom, setOrderDateFrom] = useState('');
   const [orderDateTo, setOrderDateTo] = useState('');
+  // Restaurant payment (Phase 2)
+  const [payOpen, setPayOpen] = useState(false);
+  const [payOrder, setPayOrder] = useState<any>(null);
+  const [payForm, setPayForm] = useState<{ amount: string; method: string; transactionId: string }>({ amount: '', method: 'CASH', transactionId: '' });
+  const [paySaving, setPaySaving] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const [staff, setStaff] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const [editOrderForm, setEditOrderForm] = useState<{
     items: Array<{ menuId?: string; name: string; qty: number; price: number }>;
@@ -210,6 +216,53 @@ const Restaurant: React.FC = () => {
     if (Array.isArray(items)) return items.length;
     if (items && typeof items === 'object') return Object.keys(items as object).length;
     return 0;
+  };
+
+  // Payment status pill + balance for an order (Phase 2).
+  const orderNet = (o: any): number =>
+    o.netAmount ?? Math.max(0, (o.totalPrice ?? 0) - (o.discount ?? 0) + (o.serviceCharge ?? 0));
+  const orderBalance = (o: any): number => orderNet(o) - (o.paidAmount ?? 0);
+  const paymentPill = (o: any) => {
+    const st = o.paymentStatus ?? 'UNPAID';
+    const map: Record<string, string> = {
+      PAID: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60',
+      PARTIAL: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60',
+      UNPAID: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/60',
+    };
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className={`inline-flex w-fit items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase ${map[st] ?? map.UNPAID}`}>{st}</span>
+        {st !== 'PAID' && st !== 'UNPAID' && (
+          <span className="text-[11px] text-muted-foreground">Due ৳{orderBalance(o).toLocaleString()}</span>
+        )}
+      </div>
+    );
+  };
+
+  const openPayment = (o: any) => {
+    setPayOrder(o);
+    setPayForm({ amount: String(orderBalance(o) || ''), method: 'CASH', transactionId: '' });
+    setPayError(null);
+    setPayOpen(true);
+  };
+
+  const handleTakePayment = async () => {
+    if (!payOrder) return;
+    setPaySaving(true);
+    setPayError(null);
+    try {
+      await api.post(`/restaurant/orders/${payOrder.id}/payments`, {
+        amount: Number(payForm.amount),
+        method: payForm.method,
+        transactionId: payForm.transactionId || undefined,
+      });
+      setPayOpen(false);
+      await fetchData();
+    } catch (err: any) {
+      setPayError(err?.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setPaySaving(false);
+    }
   };
 
   const openNewOrder = () => {
@@ -493,6 +546,7 @@ const Restaurant: React.FC = () => {
                     <TableHead>Items</TableHead>
                     <TableHead>Assigned to</TableHead>
                     <TableHead>Total</TableHead>
+                    <TableHead>Payment</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -516,6 +570,7 @@ const Restaurant: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{o.user?.name || '—'}</TableCell>
                       <TableCell className="font-semibold tabular">৳{o.totalPrice?.toLocaleString?.() ?? o.totalPrice}</TableCell>
+                      <TableCell>{paymentPill(o)}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-bold uppercase tracking-tight ${pill.cls}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />
@@ -524,12 +579,15 @@ const Restaurant: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="text-right">
+                        {o.paymentStatus !== 'PAID' && o.status !== 'CANCELLED' && (
+                          <Button variant="ghost" size="icon" title="Take payment" onClick={() => openPayment(o)}><Wallet className="h-4 w-4" /></Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => openEditOrder(o)}><Pencil className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                     );
                   })}
-                  {orders.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground">No orders</TableCell></TableRow>}
+                  {orders.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-12 text-muted-foreground">No orders</TableCell></TableRow>}
                 </TableBody>
                 </Table>
               </CardContent>
@@ -726,6 +784,52 @@ const Restaurant: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOrderEditOpen(false)}>Cancel</Button>
             <Button onClick={handleUpdateOrderStatus}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Take payment dialog (Phase 2) */}
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Take Payment</DialogTitle>
+          </DialogHeader>
+          {payOrder && (
+            <div className="space-y-3">
+              <div className="rounded-md bg-muted/40 px-3 py-2 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">Net amount</span><span className="font-medium">৳{orderNet(payOrder).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-medium">৳{(payOrder.paidAmount ?? 0).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Balance due</span><span className="font-semibold text-foreground">৳{orderBalance(payOrder).toLocaleString()}</span></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Amount</Label>
+                  <Input type="number" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Method</Label>
+                  <Select value={payForm.method} onValueChange={(v) => setPayForm({ ...payForm, method: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['CASH', 'BKASH', 'NAGAD', 'CARD', 'BANK_TRANSFER', 'MOBILE_BANKING'].map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Transaction ID (optional)</Label>
+                <Input value={payForm.transactionId} onChange={(e) => setPayForm({ ...payForm, transactionId: e.target.value })} />
+              </div>
+              {payError && <p className="text-sm text-red-600">{payError}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
+            <Button onClick={handleTakePayment} disabled={paySaving || !Number(payForm.amount)}>
+              {paySaving ? 'Saving…' : 'Record Payment'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

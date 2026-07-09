@@ -1,5 +1,12 @@
 # Complete Data Flow Documentation
 
+> **Accounting terminology note:** diagrams below use classic "DEBIT/CREDIT" labels. The system actually uses the **simplified signed cashbook** (see `04-PHASE-4-ACCOUNTS.md`). Translate as:
+> - `DEBIT Cash/Bank` → **Cash account `IN`** (+amount)
+> - `CREDIT Revenue` → **Income account `IN`** (revenue tally +amount)
+> - `DEBIT Expense` → **Expense account `IN`** (+amount)
+> - `CREDIT Cash/Bank` → **Cash account `OUT`** (−amount)
+> One rule everywhere: `IN` adds, `OUT` subtracts. No per-type sign flipping. Restaurant/Day-Long unpaid balances also create a **Receivable** (`IN`) until collected.
+
 ## Data Flow Diagrams
 
 ### 1. Room Booking Flow (Current + Enhanced)

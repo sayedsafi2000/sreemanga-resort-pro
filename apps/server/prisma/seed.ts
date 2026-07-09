@@ -126,6 +126,7 @@ async function main() {
   }
 
   /** Set menus + à la carte — rebuilt each seed run for `/restaurant`. */
+  await prisma.menuItemIngredient.deleteMany({});
   await prisma.restaurantMenu.deleteMany({});
 
   await prisma.restaurantMenu.createMany({
@@ -510,20 +511,94 @@ async function main() {
     });
   }
 
+  // ── Chart of Accounts (Phase 0.1) ─────────────────────────────────────────
+  // Idempotent upsert by unique code. parentCode resolved after all created.
+  const accountSeed: Array<{
+    code: string;
+    name: string;
+    type:
+      | 'CASH' | 'BANK' | 'MOBILE_BANKING' | 'RECEIVABLE' | 'PAYABLE'
+      | 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
+    parentCode: string | null;
+    sortOrder: number;
+  }> = [
+    { code: '1000', name: 'Current Assets', type: 'ASSET', parentCode: null, sortOrder: 1 },
+    { code: '1001', name: 'Cash in Hand', type: 'CASH', parentCode: '1000', sortOrder: 2 },
+    { code: '1002', name: 'Bank Accounts', type: 'BANK', parentCode: '1000', sortOrder: 3 },
+    { code: '1003', name: 'Mobile Banking', type: 'MOBILE_BANKING', parentCode: '1000', sortOrder: 4 },
+    { code: '1004', name: 'Accounts Receivable', type: 'RECEIVABLE', parentCode: '1000', sortOrder: 5 },
+    { code: '1005', name: 'Inventory', type: 'ASSET', parentCode: '1000', sortOrder: 6 },
+    { code: '1100', name: 'Fixed Assets', type: 'ASSET', parentCode: null, sortOrder: 7 },
+    { code: '1101', name: 'Furniture & Fixtures', type: 'ASSET', parentCode: '1100', sortOrder: 8 },
+    { code: '1102', name: 'Equipment', type: 'ASSET', parentCode: '1100', sortOrder: 9 },
+    { code: '2000', name: 'Current Liabilities', type: 'LIABILITY', parentCode: null, sortOrder: 10 },
+    { code: '2001', name: 'Accounts Payable', type: 'PAYABLE', parentCode: '2000', sortOrder: 11 },
+    { code: '2002', name: 'Accrued Expenses', type: 'PAYABLE', parentCode: '2000', sortOrder: 12 },
+    { code: '3000', name: 'Equity', type: 'EQUITY', parentCode: null, sortOrder: 13 },
+    { code: '3001', name: "Owner's Capital", type: 'EQUITY', parentCode: '3000', sortOrder: 14 },
+    { code: '3002', name: 'Retained Earnings', type: 'EQUITY', parentCode: '3000', sortOrder: 15 },
+    { code: '4000', name: 'Income', type: 'INCOME', parentCode: null, sortOrder: 16 },
+    { code: '4001', name: 'Room Revenue', type: 'INCOME', parentCode: '4000', sortOrder: 17 },
+    { code: '4002', name: 'Restaurant Revenue', type: 'INCOME', parentCode: '4000', sortOrder: 18 },
+    { code: '4003', name: 'Day Long Revenue', type: 'INCOME', parentCode: '4000', sortOrder: 19 },
+    { code: '5000', name: 'Expenses', type: 'EXPENSE', parentCode: null, sortOrder: 20 },
+    { code: '5001', name: 'Utility Expenses', type: 'EXPENSE', parentCode: '5000', sortOrder: 21 },
+    { code: '5002', name: 'Salary Expenses', type: 'EXPENSE', parentCode: '5000', sortOrder: 22 },
+    { code: '5003', name: 'Maintenance', type: 'EXPENSE', parentCode: '5000', sortOrder: 23 },
+    { code: '5004', name: 'Food Supplies', type: 'EXPENSE', parentCode: '5000', sortOrder: 24 },
+    { code: '5005', name: 'Marketing', type: 'EXPENSE', parentCode: '5000', sortOrder: 25 },
+    { code: '5006', name: 'Miscellaneous', type: 'EXPENSE', parentCode: '5000', sortOrder: 26 },
+    { code: '5007', name: 'Inventory / COGS', type: 'EXPENSE', parentCode: '5000', sortOrder: 27 },
+  ];
+
+  // Pass 1: upsert all accounts without parent link.
+  for (const a of accountSeed) {
+    await prisma.account.upsert({
+      where: { code: a.code },
+      update: { name: a.name, type: a.type, sortOrder: a.sortOrder },
+      create: { code: a.code, name: a.name, type: a.type, sortOrder: a.sortOrder },
+    });
+  }
+  // Pass 2: wire parent relationships now that every account exists.
+  for (const a of accountSeed) {
+    if (!a.parentCode) continue;
+    const parent = await prisma.account.findUnique({ where: { code: a.parentCode } });
+    if (parent) {
+      await prisma.account.update({ where: { code: a.code }, data: { parentId: parent.id } });
+    }
+  }
+
+  // Expense categories (Phase 0.2) — link each to a chart-of-accounts EXPENSE account.
+  const expenseAccounts = await prisma.account.findMany({ where: { type: 'EXPENSE' } });
+  const acctByCode = new Map(expenseAccounts.map((a) => [a.code, a.id]));
+  const categorySeed: Array<{ name: string; sortOrder: number; accountCode: string }> = [
+    { name: 'Staff Salary', sortOrder: 1, accountCode: '5002' },
+    { name: 'Food & Kitchen', sortOrder: 2, accountCode: '5004' },
+    { name: 'Utilities', sortOrder: 3, accountCode: '5001' },
+    { name: 'Maintenance', sortOrder: 4, accountCode: '5003' },
+    { name: 'Supplies', sortOrder: 5, accountCode: '5007' },
+    { name: 'Marketing', sortOrder: 6, accountCode: '5005' },
+    { name: 'Transport', sortOrder: 7, accountCode: '5006' },
+    { name: 'Rent/Tax', sortOrder: 8, accountCode: '5006' },
+    { name: 'Events', sortOrder: 9, accountCode: '5006' },
+    { name: 'Miscellaneous', sortOrder: 10, accountCode: '5006' },
+  ];
   if ((await prisma.expenseCategory.count()) === 0) {
-    const categories = [
-      { name: 'Staff Salary', sortOrder: 1 },
-      { name: 'Food & Kitchen', sortOrder: 2 },
-      { name: 'Utilities', sortOrder: 3 },
-      { name: 'Maintenance', sortOrder: 4 },
-      { name: 'Supplies', sortOrder: 5 },
-      { name: 'Marketing', sortOrder: 6 },
-      { name: 'Transport', sortOrder: 7 },
-      { name: 'Rent/Tax', sortOrder: 8 },
-      { name: 'Events', sortOrder: 9 },
-      { name: 'Miscellaneous', sortOrder: 10 },
-    ];
-    await prisma.expenseCategory.createMany({ data: categories });
+    for (const c of categorySeed) {
+      await prisma.expenseCategory.create({
+        data: { name: c.name, sortOrder: c.sortOrder, accountId: acctByCode.get(c.accountCode) ?? null },
+      });
+    }
+  } else {
+    // Backfill accountId on existing categories that match by name (safe, idempotent).
+    for (const c of categorySeed) {
+      const accountId = acctByCode.get(c.accountCode);
+      if (!accountId) continue;
+      await prisma.expenseCategory.updateMany({
+        where: { name: c.name, accountId: null },
+        data: { accountId },
+      });
+    }
   }
 
   const demoStaffEmail = 'restaurant@resortnirjon.com';
@@ -574,6 +649,34 @@ async function main() {
     },
   });
 
+  // ── Inventory sample data (Phase 3) ────────────────────────────────────────
+  if ((await prisma.inventoryItem.count()) === 0) {
+    const supplier = await prisma.supplier.create({
+      data: { name: 'Sreemangal Wholesale', phone: '01800000000' },
+    });
+    const invSeed: Array<{ name: string; category: 'FOOD_ITEM' | 'AMENITY' | 'SUPPLY'; unit: string; stock: number; reorder: number; cost: number }> = [
+      { name: 'Rice (Basmati)', category: 'FOOD_ITEM', unit: 'kg', stock: 100, reorder: 20, cost: 90 },
+      { name: 'Chicken', category: 'FOOD_ITEM', unit: 'kg', stock: 40, reorder: 10, cost: 260 },
+      { name: 'Cooking Oil', category: 'FOOD_ITEM', unit: 'litre', stock: 30, reorder: 8, cost: 170 },
+      { name: 'Bath Towel', category: 'AMENITY', unit: 'pcs', stock: 80, reorder: 20, cost: 250 },
+      { name: 'Toiletries Kit', category: 'AMENITY', unit: 'pcs', stock: 120, reorder: 30, cost: 60 },
+      { name: 'Cleaning Liquid', category: 'SUPPLY', unit: 'litre', stock: 25, reorder: 5, cost: 140 },
+    ];
+    for (const s of invSeed) {
+      const item = await prisma.inventoryItem.create({
+        data: {
+          name: s.name, category: s.category, unit: s.unit,
+          currentStock: s.stock, reorderLevel: s.reorder, costPrice: s.cost,
+          supplierId: supplier.id,
+        },
+      });
+      // Opening-stock movement for a complete audit trail.
+      await prisma.stockMovement.create({
+        data: { itemId: item.id, type: 'ADJUSTMENT', quantity: s.stock, unitCost: s.cost, balanceAfter: s.stock, referenceType: 'MANUAL', notes: 'Opening stock (seed)' },
+      });
+    }
+  }
+
   const demoManagerEmail = 'manager@resortnirjon.com';
   await prisma.user.upsert({
     where: { email: demoManagerEmail },
@@ -585,6 +688,62 @@ async function main() {
       role: 'MANAGER',
     },
   });
+
+  // ── Day Long sample products (Phase 1) ─────────────────────────────────────
+  if ((await prisma.dayLongProduct.count()) === 0) {
+    await prisma.dayLongProduct.createMany({
+      data: [
+        {
+          name: 'Swimming Pool Day Pass',
+          category: 'POOL',
+          description: 'Full-day access to the resort swimming pool with changing rooms and towels.',
+          basePrice: 300,
+          pricePerPerson: 200,
+          maxCapacity: 40,
+          minCapacity: 1,
+          facilities: ['Changing Room', 'Shower', 'Towel', 'Poolside Seating'],
+          availableSlots: [{ start: '09:00', end: '18:00', label: 'Full Day' }],
+          sortOrder: 1,
+        },
+        {
+          name: 'Day Cottage (Garden)',
+          category: 'COTTAGE',
+          description: 'Private day-use cottage with garden view — rest, relax, no overnight stay.',
+          basePrice: 2500,
+          maxCapacity: 6,
+          minCapacity: 1,
+          facilities: ['Private Cottage', 'Garden View', 'Fan', 'Tea/Coffee'],
+          availableSlots: [{ start: '10:00', end: '17:00', label: 'Day Use' }],
+          sortOrder: 2,
+        },
+        {
+          name: 'Conference Room (Half Day)',
+          category: 'CONFERENCE',
+          description: 'Air-conditioned conference room with projector, seats up to 30.',
+          basePrice: 8000,
+          maxCapacity: 30,
+          facilities: ['Projector', 'AC', 'Whiteboard', 'Sound System', 'WiFi'],
+          availableSlots: [
+            { start: '09:00', end: '13:00', label: 'Morning' },
+            { start: '14:00', end: '18:00', label: 'Afternoon' },
+          ],
+          sortOrder: 3,
+        },
+        {
+          name: 'Picnic Spot (Group)',
+          category: 'PICNIC',
+          description: 'Reserved picnic area near the tea garden — ideal for family and corporate outings.',
+          basePrice: 1500,
+          pricePerPerson: 150,
+          maxCapacity: 60,
+          minCapacity: 10,
+          facilities: ['Shaded Area', 'BBQ Grill', 'Tables', 'Parking'],
+          availableSlots: [{ start: '09:00', end: '18:00', label: 'Full Day' }],
+          sortOrder: 4,
+        },
+      ],
+    });
+  }
 
   if ((await prisma.siteGalleryItem.count()) === 0) {
     await prisma.siteGalleryItem.createMany({

@@ -82,11 +82,16 @@ async function fulfillCheckout(session: CheckoutSessionLike): Promise<void> {
     console.warn(`[Stripe] Webhook: no payment for session ${session.id}`);
     return;
   }
+  if (!payment.booking || !payment.bookingId) {
+    console.warn(`[Stripe] Webhook: payment ${payment.id} has no booking; skipping.`);
+    return;
+  }
   // Idempotency — Stripe retries webhooks; only fulfill once.
   if (payment.status === 'COMPLETED') return;
 
   const piId = paymentIntentId(session);
 
+  const bookingId = payment.bookingId;
   await prisma.$transaction([
     prisma.payment.update({
       where: { id: payment.id },
@@ -97,7 +102,7 @@ async function fulfillCheckout(session: CheckoutSessionLike): Promise<void> {
       },
     }),
     prisma.booking.update({
-      where: { id: payment.bookingId },
+      where: { id: bookingId },
       data: { status: 'CONFIRMED' },
     }),
   ]);
@@ -134,6 +139,10 @@ async function expireCheckout(session: CheckoutSessionLike): Promise<void> {
     where: { stripeSessionId: session.id },
   });
   if (!payment || payment.status === 'COMPLETED') return;
+  if (!payment.bookingId) {
+    await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED' } });
+    return;
+  }
 
   await prisma.$transaction([
     prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED' } }),

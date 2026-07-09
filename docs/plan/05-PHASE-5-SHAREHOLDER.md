@@ -1,8 +1,8 @@
-# Phase 3: Shareholder Management System
+# Phase 5: Shareholder Management System
 
 **Goal:** Allow SUPER_ADMIN to create and manage shareholders, define profit-sharing models, and give shareholders a login portal to view their investments and returns.
 
-**Depends on:** Phase 2 (Accounts for profit calculation)
+**Depends on:** Phase 4 (Accounts for profit calculation)
 
 **Effort:** ~5-6 days
 

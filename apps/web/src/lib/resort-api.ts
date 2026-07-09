@@ -180,6 +180,77 @@ async function getRestaurantMenuUncached(category?: string): Promise<MenuItem[]>
 
 export const getRestaurantMenu = cache(getRestaurantMenuUncached);
 
+// ── Day Long ────────────────────────────────────────────────────────────────
+export interface DayLongProduct {
+  id: string;
+  name: string;
+  category: 'POOL' | 'COTTAGE' | 'CONFERENCE' | 'EVENT' | 'PICNIC';
+  description?: string | null;
+  images: string[];
+  basePrice: number;
+  pricePerPerson?: number | null;
+  maxCapacity?: number | null;
+  minCapacity?: number | null;
+  facilities?: string[] | null;
+  availableSlots?: { start: string; end: string; label?: string }[] | null;
+}
+
+async function getDayLongProductsUncached(category?: string): Promise<DayLongProduct[]> {
+  const url = `${apiBase()}/day-long/products${category ? `?category=${encodeURIComponent(category)}` : ''}`;
+  const data = await safeFetch<{ success: boolean; products: DayLongProduct[] }>(url, {
+    next: { revalidate: 30 },
+  });
+  return data?.products || [];
+}
+
+export const getDayLongProducts = cache(getDayLongProductsUncached);
+
+export async function getDayLongProductById(id: string): Promise<DayLongProduct | null> {
+  const data = await safeFetch<{ success: boolean; product: DayLongProduct }>(
+    `${apiBase()}/day-long/products/${encodeURIComponent(id)}`,
+    { cache: 'no-store' },
+  );
+  return data?.product ?? null;
+}
+
+export interface DayLongBookingInput {
+  productId: string;
+  guestName: string;
+  guestPhone: string;
+  guestEmail?: string;
+  bookingDate: string;
+  slotStart: string;
+  slotEnd: string;
+  adults: number;
+  children: number;
+  notes?: string;
+}
+
+export async function submitDayLongBooking(
+  payload: DayLongBookingInput
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await fetch(`${apiBase()}/day-long/bookings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      let msg = 'Could not complete booking.';
+      try {
+        const j = await res.json();
+        msg = j.message || msg;
+      } catch {
+        /* ignore */
+      }
+      return { ok: false, message: msg };
+    }
+    return { ok: true, message: 'Day-long booking submitted. We will contact you shortly.' };
+  } catch {
+    return { ok: false, message: 'Network error. Please try again.' };
+  }
+}
+
 export async function getTestimonials(): Promise<Testimonial[]> {
   const data = await safeFetch<{ success: boolean; settings: Record<string, string> }>(
     `${apiBase()}/settings`,

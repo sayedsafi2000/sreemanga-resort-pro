@@ -19,6 +19,8 @@ import {
   Banknote,
   Layout,
   Palette,
+  Sun,
+  Boxes,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -65,6 +67,8 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/guests': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
   '/payments': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST'],
   '/restaurant': ['SUPER_ADMIN', 'MANAGER', 'RESTAURANT_STAFF'],
+  '/day-long': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
+  '/inventory': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'HOUSEKEEPING', 'RESTAURANT_STAFF'],
   '/users': ['SUPER_ADMIN'],
   '/reports': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/templates': ['SUPER_ADMIN'],
@@ -98,6 +102,8 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
+      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
+      { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'gal', label: 'Site gallery', path: '/gallery', icon: Images },
@@ -116,6 +122,8 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
+      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
+      { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
@@ -129,6 +137,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'book-all', label: 'All Bookings', path: '/bookings', icon: ListChecks },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
+      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
     ],
     HOUSEKEEPING: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -142,6 +151,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     ACCOUNTANT: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
+      { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },

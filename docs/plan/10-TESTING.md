@@ -638,19 +638,40 @@ npm run test:web -- --changed
 | Booking status transitions | Integration | `dayLongRoutes.test.ts` |
 | Payment + AccountTransaction creation | Integration | `accountTransaction.test.ts` |
 
-### Phase 2 — Accounts
+### Phase 2 — Restaurant Revenue
+| Test | Type | File |
+|------|------|--------|
+| Record full payment → order PAID | Integration | `restaurantPayment.test.ts` |
+| Partial payment → order PARTIAL, balance correct | Integration | `restaurantPayment.test.ts` |
+| Overpayment rejected | Integration | `restaurantPayment.test.ts` |
+| netAmount = total − discount + service charge | Unit | `restaurantPayment.test.ts` |
+| Payment creates ledger revenue (RESTAURANT) | Integration | `accountLedger.test.ts` |
+
+### Phase 3 — Inventory
+| Test | Type | File |
+|------|------|--------|
+| Item CRUD | Integration | `inventoryRoutes.test.ts` |
+| PURCHASE increases stock + creates expense | Integration | `inventoryRoutes.test.ts` |
+| CONSUMPTION on order deducts recipe qty | Integration | `inventoryRoutes.test.ts` |
+| OUT move blocked when stock insufficient | Integration | `inventoryRoutes.test.ts` |
+| balanceAfter snapshot correct across moves | Unit | `inventory.test.ts` |
+| Low-stock alert at/below reorder level | Integration | `inventoryRoutes.test.ts` |
+
+### Phase 4 — Accounts
 | Test | Type | File |
 |------|------|--------|
 | Account CRUD | Integration | `accountRoutes.test.ts` |
 | Create transaction updates balance | Integration | `accountRoutes.test.ts` |
 | Transfer between accounts (both sides) | Integration | `accountRoutes.test.ts` |
-| Payment auto-creates DEBIT/CREDIT | Integration | `accountTransaction.test.ts` |
-| Expense auto-creates DEBIT/CREDIT | Integration | `accountTransaction.test.ts` |
+| IN adds / OUT subtracts (uniform, all types) | Unit | `accountLedger.test.ts` |
+| recordRevenue: cash IN + income IN | Integration | `accountLedger.test.ts` |
+| recordExpense: expense IN + cash OUT | Integration | `accountLedger.test.ts` |
+| Ledger write rolls back with failed payment | Integration | `accountLedger.test.ts` |
 | Receivable CRUD + payment | Integration | `receivableRoutes.test.ts` |
 | Balance Sheet calculation | Unit | `reportController.test.ts` |
 | P&L calculation | Unit | `reportController.test.ts` |
 
-### Phase 3 — Shareholder
+### Phase 5 — Shareholder
 | Test | Type | File |
 |------|------|--------|
 | Shareholder CRUD | Integration | `shareholderRoutes.test.ts` |
@@ -661,7 +682,7 @@ npm run test:web -- --changed
 | Shareholder can only see own data | Integration | `shareholderPortalRoutes.test.ts` |
 | Role check: non-admin cannot access admin endpoints | Integration | `shareholderRoutes.test.ts` |
 
-### Phase 4 — Staff HR
+### Phase 6 — Staff HR
 | Test | Type | File |
 |------|------|--------|
 | Department CRUD | Integration | `departmentRoutes.test.ts` |
@@ -676,7 +697,7 @@ npm run test:web -- --changed
 | Leave balance calculation | Unit | `leaveController.test.ts` |
 | Attendance % calculation | Unit | `staffDashboardController.test.ts` |
 
-### Phase 5 — Reports
+### Phase 7 — Reports
 | Test | Type | File |
 |------|------|--------|
 | P&L matches revenue − expenses | Integration | `reportRoutes.test.ts` |
@@ -684,7 +705,7 @@ npm run test:web -- --changed
 | Revenue by business line sums correctly | Integration | `reportRoutes.test.ts` |
 | CSV export produces valid CSV | Unit | `reportController.test.ts` |
 
-### Phase 6 — Improvements
+### Phase 8 — Improvements
 | Test | Type | File |
 |------|------|--------|
 | Permission check blocks/proceeds correctly | Integration | `permission.test.ts` |

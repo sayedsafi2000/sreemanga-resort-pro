@@ -1,4 +1,4 @@
-# Phase 4: Staff Management — Full HR System
+# Phase 6: Staff Management — Full HR System
 
 **Goal:** Complete HR management with departments, designations, shifts, duty rostering, attendance tracking, leave management, and enhanced payroll.
 

@@ -13,6 +13,9 @@ datasource db {
 model ExpenseCategory {
   id         String     @id @default(uuid())
   name       String
+  // Link to a chart-of-accounts EXPENSE account (Phase 0.2). Optional during migration.
+  accountId  String?
+  account    Account?   @relation(fields: [accountId], references: [id])
   isActive   Boolean   @default(true)
   sortOrder  Int       @default(0)
   // Array of CategoryField definitions: [{ key, label, type, required, options? }]
@@ -25,6 +28,7 @@ model ExpenseCategory {
 
   @@index([isActive])
   @@index([sortOrder])
+  @@index([accountId])
 }
 
 model PendingPayment {
@@ -94,6 +98,8 @@ model User {
   salaryPayments    StaffSalary[]
   pendingPayments   PendingPayment[]
   passwordResets    PasswordReset[]
+  dayLongBookings   DayLongBooking[]
+  stockMovements    StockMovement[]
 
   @@index([email])
   @@index([role])
@@ -220,7 +226,7 @@ model Guest {
 
 model Payment {
   id            String   @id @default(uuid())
-  bookingId     String
+  bookingId     String?
   amount        Float
   method        PaymentMethod
   status        PaymentStatus @default(PENDING)
@@ -228,16 +234,23 @@ model Payment {
   stripeSessionId       String? @unique
   stripePaymentIntentId String?
   notes         String?
+  // Polymorphic reference (Phase 0.4). For non-room payments bookingId is null.
+  // referenceType: "BOOKING" | "RESTAURANT_ORDER" | "DAY_LONG_BOOKING"
+  referenceType String?
+  referenceId   String?
+  businessLine  BusinessLine?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
-  booking       Booking  @relation(fields: [bookingId], references: [id])
+  booking       Booking?  @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
   @@index([method])
   @@index([status])
   @@index([stripeSessionId])
+  @@index([referenceType, referenceId])
+  @@index([businessLine])
 }
 
 model RestaurantMenu {
@@ -253,6 +266,8 @@ model RestaurantMenu {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  ingredients MenuItemIngredient[]
+
   @@index([category])
   @@index([category, sortOrder])
   @@index([isAvailable])
@@ -264,6 +279,12 @@ model RestaurantOrder {
   userId      String?
   items       Json
   totalPrice  Float
+  discount      Float   @default(0)
+  serviceCharge Float   @default(0)
+  netAmount     Float?  // totalPrice - discount + serviceCharge (computed on write)
+  paidAmount    Float   @default(0)
+  paymentStatus RestaurantOrderPaymentStatus @default(UNPAID)
+  businessLine  BusinessLine @default(RESTAURANT)
   status      OrderStatus @default(PENDING)
   notes       String?
   createdAt   DateTime @default(now())
@@ -275,6 +296,7 @@ model RestaurantOrder {
 
   @@index([roomId])
   @@index([status])
+  @@index([paymentStatus])
 }
 
 model Setting {
@@ -347,6 +369,119 @@ model SiteBlog {
   @@index([category])
 }
 
+// Chart of Accounts (Phase 0.1). Hierarchical tree of accounts.
+model Account {
+  id             String      @id @default(uuid())
+  code           String      @unique   // e.g., "1001", "4002"
+  name           String
+  type           AccountType
+  parentId       String?
+  parent         Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children       Account[]   @relation("AccountHierarchy")
+  description    String?
+  openingBalance Float       @default(0)
+  currentBalance Float       @default(0)
+  isActive       Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  expenseCategories ExpenseCategory[]
+
+  @@index([type])
+  @@index([parentId])
+  @@index([code])
+}
+
+// Booking OTP persisted to DB (Phase 0.6) — replaces in-memory Map in publicController.
+model OtpCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([email, code])
+  @@index([expiresAt])
+}
+
+// ── Day Long module (Phase 1) ──────────────────────────────────────────────
+enum DayLongCategory {
+  POOL
+  COTTAGE
+  CONFERENCE
+  EVENT
+  PICNIC
+}
+
+enum DayLongBookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+model DayLongProduct {
+  id             String          @id @default(uuid())
+  name           String
+  category       DayLongCategory
+  description    String?
+  images         String[]
+  basePrice      Float           // per-slot / base rate
+  pricePerPerson Float?          // optional per-person charge
+  maxCapacity    Int?
+  minCapacity    Int?
+  facilities     Json?           // ["Shower", "Changing Room", ...]
+  availableSlots Json?           // [{ start, end, label }]
+  duration       Int?            // default hours
+  bookingRules   Json?
+  isActive       Boolean         @default(true)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  bookings       DayLongBooking[]
+
+  @@index([category])
+  @@index([isActive, sortOrder])
+}
+
+model DayLongBooking {
+  id                     String               @id @default(uuid())
+  productId              String
+  product                DayLongProduct       @relation(fields: [productId], references: [id])
+  guestName              String
+  guestPhone             String
+  guestEmail             String?
+  guestNid               String?
+  guestAddress           String?
+  bookingDate            DateTime
+  slotStart              String
+  slotEnd                String
+  adults                 Int                  @default(1)
+  children               Int                  @default(0)
+  totalAmount            Float
+  paidAmount             Float                @default(0)
+  status                 DayLongBookingStatus @default(PENDING)
+  notes                  String?
+  preferredPaymentTiming String?              // INSTANT | LATER
+  preferredPaymentMethod String?
+  paymentTransactionId   String?
+  paymentProofImage      String?
+  createdById            String?
+  createdBy              User?                @relation(fields: [createdById], references: [id])
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@index([productId])
+  @@index([bookingDate])
+  @@index([status])
+  @@index([bookingDate, status])
+}
+
 enum Role {
   SUPER_ADMIN
   MANAGER
@@ -354,6 +489,105 @@ enum Role {
   HOUSEKEEPING
   RESTAURANT_STAFF
   ACCOUNTANT
+}
+
+// ── Inventory module (Phase 3) ─────────────────────────────────────────────
+enum InventoryCategory {
+  FOOD_ITEM
+  AMENITY
+  PRODUCT
+  SUPPLY
+  ASSET
+}
+
+enum StockMoveType {
+  PURCHASE      // stock in (buy)
+  SALE          // stock out (sold directly)
+  CONSUMPTION   // stock out (used by restaurant order / day-long)
+  ISSUE         // stock out (housekeeping/amenity issue)
+  ADJUSTMENT    // manual +/- (correction, wastage)
+  RETURN        // stock in (return/supplier reversal)
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     InventoryItem[]
+  purchases StockMovement[]
+
+  @@index([isActive])
+}
+
+model InventoryItem {
+  id                 String            @id @default(uuid())
+  sku                String?           @unique
+  name               String
+  category           InventoryCategory
+  unit               String            // "kg", "pcs", "litre", "box"
+  currentStock       Float             @default(0)
+  reorderLevel       Float             @default(0)
+  costPrice          Float             @default(0)   // last purchase unit cost
+  sellPrice          Float?
+  supplierId         String?
+  supplier           Supplier?         @relation(fields: [supplierId], references: [id])
+  expenseAccountCode String?           // which account a purchase hits (default by category)
+  isActive           Boolean           @default(true)
+  notes              String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  movements  StockMovement[]
+  menuLinks  MenuItemIngredient[]
+
+  @@index([category])
+  @@index([isActive])
+  @@index([currentStock])
+}
+
+model StockMovement {
+  id            String        @id @default(uuid())
+  itemId        String
+  item          InventoryItem @relation(fields: [itemId], references: [id])
+  type          StockMoveType
+  quantity      Float         // always positive; sign implied by type
+  unitCost      Float?
+  totalCost     Float?
+  balanceAfter  Float         // stock snapshot after this move
+  supplierId    String?
+  supplier      Supplier?     @relation(fields: [supplierId], references: [id])
+  referenceType String?       // "RESTAURANT_ORDER" | "DAY_LONG_BOOKING" | "PURCHASE" | "MANUAL"
+  referenceId   String?
+  expenseId     String?       // link to created Expense (for PURCHASE)
+  notes         String?
+  createdById   String?
+  createdBy     User?         @relation(fields: [createdById], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([itemId])
+  @@index([type])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+}
+
+// Recipe link: a menu item consumes N units of an inventory food-item.
+model MenuItemIngredient {
+  id         String         @id @default(uuid())
+  menuItemId String
+  menuItem   RestaurantMenu @relation(fields: [menuItemId], references: [id])
+  itemId     String
+  item       InventoryItem  @relation(fields: [itemId], references: [id])
+  quantity   Float          // units consumed per 1 menu item sold
+  createdAt  DateTime       @default(now())
+
+  @@unique([menuItemId, itemId])
+  @@index([menuItemId])
 }
 
 enum RoomType {
@@ -385,6 +619,29 @@ enum PaymentMethod {
   NAGAD
   CARD
   STRIPE
+  BANK_TRANSFER
+  MOBILE_BANKING
+}
+
+// Which revenue stream a transaction belongs to. Used for segmented P&L.
+enum BusinessLine {
+  ROOM
+  RESTAURANT
+  DAY_LONG
+}
+
+// Chart-of-accounts classification (Phase 0 / Phase 4 accounts system).
+enum AccountType {
+  CASH
+  BANK
+  MOBILE_BANKING
+  RECEIVABLE
+  PAYABLE
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
 }
 
 enum PaymentStatus {
@@ -400,4 +657,10 @@ enum OrderStatus {
   READY
   DELIVERED
   CANCELLED
+}
+
+enum RestaurantOrderPaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
 }

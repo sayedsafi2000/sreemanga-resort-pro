@@ -1,4 +1,4 @@
-# Phase 6: Cross-Cutting Improvements & Bug Fixes
+# Phase 8: Cross-Cutting Improvements & Bug Fixes
 
 **Goal:** Production hardening — audit trail, granular permissions, rate limiting, cloud storage, API documentation.
 

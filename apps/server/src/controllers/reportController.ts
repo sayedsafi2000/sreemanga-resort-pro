@@ -45,7 +45,8 @@ export const getRevenueReport = async (
     // Group by room type
     const revenueByRoomType: Record<string, number> = {};
     payments.forEach((p) => {
-      const type = p.booking.room.type;
+      const type = p.booking?.room?.type;
+      if (!type) return;
       revenueByRoomType[type] =
         (revenueByRoomType[type] || 0) + p.amount;
     });
