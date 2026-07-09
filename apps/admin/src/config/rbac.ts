@@ -24,6 +24,7 @@ import {
   Landmark,
   PieChart,
   Users2,
+  ScrollText,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -75,6 +76,7 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/accounts': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/shareholders': ['SUPER_ADMIN', 'MANAGER'],
   '/staff-hr': ['SUPER_ADMIN', 'MANAGER'],
+  '/audit-log': ['SUPER_ADMIN'],
   '/users': ['SUPER_ADMIN'],
   '/reports': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/templates': ['SUPER_ADMIN'],
@@ -122,6 +124,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
       { key: 'brand', label: 'Branding', path: '/branding', icon: Palette },
       { key: 'tmpl', label: 'Website Templates', path: '/templates', icon: Layout },
+      { key: 'audit', label: 'Audit Log', path: '/audit-log', icon: ScrollText },
       { key: 'set', label: 'Settings', path: '/settings', icon: Settings },
     ],
     MANAGER: [

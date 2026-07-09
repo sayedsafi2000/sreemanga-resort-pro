@@ -6,6 +6,15 @@
 
 **Effort:** ~5-6 days (can run in parallel with phases 1-4)
 
+> **Implementation status:**
+> - ✅ **Register lockdown (C3)** — public `/api/auth/register` forces RECEPTIONIST, ignores body `role`. Staff roles set only via SUPER_ADMIN `/api/users`.
+> - ✅ **Rate limiting** — `express-rate-limit`: auth (20/15min), OTP send (5/5min), global API (300/min).
+> - ✅ **Audit trail** — `AuditLog` model + `audit()` middleware on all mutating route groups; SUPER_ADMIN-only viewer at `/audit-log` (API `/api/audit-logs`).
+> - ✅ **.env.example** — documents all server/web/admin env vars.
+> - ⏸ **Cloud image uploads (S3/R2)** — deferred: needs bucket credentials to build/verify. Images still stored as data URLs (H2). Do when infra is provisioned.
+> - ⏸ **Granular per-permission RBAC** — deferred: route-level `roleCheck` already enforces access across all modules; the `Permission`/`RolePermission` layer is an enhancement, not a gap. Revisit if per-action overrides are needed.
+> - ⏸ **Swagger/OpenAPI docs** — deferred (nice-to-have).
+
 ---
 
 ## Task 6.1: Granular RBAC with Permissions

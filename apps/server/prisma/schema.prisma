@@ -468,6 +468,27 @@ model OtpCode {
   @@index([expiresAt])
 }
 
+// Audit trail (Phase 8) — records successful mutations for accountability.
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  userName  String?
+  userRole  String?
+  action    String   // CREATE | UPDATE | DELETE | LOGIN | APPROVE | REJECT | ...
+  entity    String   // Booking | Payment | Expense | Account | Shareholder | ...
+  entityId  String?
+  method    String?
+  path      String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action, entity])
+}
+
 // ── Day Long module (Phase 1) ──────────────────────────────────────────────
 enum DayLongCategory {
   POOL

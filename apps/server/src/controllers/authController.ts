@@ -55,7 +55,7 @@ export const register = async (
   next: NextFunction
 ) => {
   try {
-    const { name, email, password, role } = registerSchema.parse(req.body);
+    const { name, email, password } = registerSchema.parse(req.body);
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -67,12 +67,15 @@ export const register = async (
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // SECURITY: public self-registration is always RECEPTIONIST. Any `role` in
+    // the body is ignored — staff roles (MANAGER/ACCOUNTANT/SUPER_ADMIN/…) are
+    // assigned only via the SUPER_ADMIN-gated /api/users endpoint.
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: role || 'RECEPTIONIST',
+        role: 'RECEPTIONIST',
       },
     });
 
