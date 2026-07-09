@@ -1104,6 +1104,31 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
     });
   }
 
+  // ── Sample shareholder with portal login (Phase 5) ─────────────────────────
+  if ((await prisma.shareholder.count()) === 0) {
+    const shUser = await prisma.user.upsert({
+      where: { email: 'shareholder@resortnirjon.com' },
+      update: { role: 'SHAREHOLDER', name: 'Demo Shareholder' },
+      create: {
+        email: 'shareholder@resortnirjon.com',
+        name: 'Demo Shareholder',
+        password: await bcrypt.hash('Share@12345', 10),
+        role: 'SHAREHOLDER',
+      },
+    });
+    await prisma.shareholder.create({
+      data: {
+        userId: shUser.id,
+        name: 'Demo Shareholder',
+        phone: '01900000000',
+        email: 'shareholder@resortnirjon.com',
+        shareType: 'PERCENTAGE',
+        shareValue: 50,
+        investmentAmount: 500000,
+      },
+    });
+  }
+
   console.log('Seed complete. Admin:', adminEmail, '| Restaurant staff:', demoStaffEmail);
 }
 

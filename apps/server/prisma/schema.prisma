@@ -101,6 +101,8 @@ model User {
   dayLongBookings   DayLongBooking[]
   stockMovements    StockMovement[]
   accountTransactions AccountTransaction[]
+  shareholder       Shareholder?
+  createdDistributions ProfitDistribution[]
 
   @@index([email])
   @@index([role])
@@ -545,6 +547,91 @@ enum Role {
   HOUSEKEEPING
   RESTAURANT_STAFF
   ACCOUNTANT
+  SHAREHOLDER
+}
+
+// ── Shareholder module (Phase 5) ───────────────────────────────────────────
+enum ShareType {
+  PERCENTAGE   // gets X% of the distributable pool (relative to other percentage holders)
+  FIXED        // gets a fixed amount per distribution
+  CUSTOM       // admin sets amount manually per distribution
+}
+
+enum DistributionStatus {
+  DRAFT
+  APPROVED
+  DISTRIBUTED
+  CANCELLED
+}
+
+enum ProfitShareStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Shareholder {
+  id               String    @id @default(uuid())
+  userId           String?   @unique
+  user             User?     @relation(fields: [userId], references: [id])
+  name             String
+  phone            String
+  email            String?   @unique
+  address          String?
+  nid              String?
+  shareType        ShareType @default(PERCENTAGE)
+  shareValue       Float     @default(0)   // percentage number OR fixed amount
+  totalShares      Int?
+  investmentAmount Float?
+  joinDate         DateTime  @default(now())
+  isActive         Boolean   @default(true)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  profitShares     ProfitShare[]
+
+  @@index([email])
+  @@index([isActive])
+}
+
+model ProfitDistribution {
+  id               String             @id @default(uuid())
+  periodLabel      String
+  periodStart      DateTime
+  periodEnd        DateTime
+  totalProfit      Float
+  totalDistributed Float              @default(0)
+  distributionDate DateTime?
+  status           DistributionStatus @default(DRAFT)
+  notes            String?
+  createdById      String?
+  createdBy        User?              @relation(fields: [createdById], references: [id])
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  shares           ProfitShare[]
+
+  @@index([status])
+  @@index([periodStart, periodEnd])
+}
+
+model ProfitShare {
+  id             String             @id @default(uuid())
+  distributionId String
+  distribution   ProfitDistribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  shareholderId  String
+  shareholder    Shareholder        @relation(fields: [shareholderId], references: [id])
+  amount         Float
+  status         ProfitShareStatus  @default(PENDING)
+  paidDate       DateTime?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([distributionId, shareholderId])
+  @@index([shareholderId])
+  @@index([status])
 }
 
 // ── Inventory module (Phase 3) ─────────────────────────────────────────────

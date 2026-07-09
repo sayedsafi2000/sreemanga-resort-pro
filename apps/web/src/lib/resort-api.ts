@@ -251,6 +251,79 @@ export async function submitDayLongBooking(
   }
 }
 
+// ── Shareholder portal ──────────────────────────────────────────────────────
+// The portal talks to the API root (…/api), not the public sub-path.
+function apiRoot(): string {
+  return apiBase().replace(/\/public$/, '');
+}
+
+export async function shareholderLogin(
+  email: string,
+  password: string
+): Promise<{ ok: boolean; message: string; token?: string; role?: string }> {
+  try {
+    const res = await fetch(`${apiRoot()}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, message: j.message || 'Login failed' };
+    if (j.user?.role !== 'SHAREHOLDER') {
+      return { ok: false, message: 'This portal is for shareholders only.' };
+    }
+    return { ok: true, message: 'ok', token: j.token, role: j.user.role };
+  } catch {
+    return { ok: false, message: 'Network error. Please try again.' };
+  }
+}
+
+export interface ShareholderSummary {
+  name: string;
+  shareType: string;
+  shareValue: number;
+  investmentAmount: number;
+  totalReceived: number;
+  pending: number;
+  distributionsCount: number;
+}
+
+export async function getShareholderSummary(token: string): Promise<ShareholderSummary | null> {
+  try {
+    const res = await fetch(`${apiRoot()}/shareholder/summary`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j.summary ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export interface ShareholderShare {
+  id: string;
+  amount: number;
+  status: string;
+  paidDate?: string | null;
+  distribution: { periodLabel: string; status: string; distributionDate?: string | null };
+}
+
+export async function getShareholderShares(token: string): Promise<ShareholderShare[]> {
+  try {
+    const res = await fetch(`${apiRoot()}/shareholder/profit-shares`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const j = await res.json();
+    return j.shares ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getTestimonials(): Promise<Testimonial[]> {
   const data = await safeFetch<{ success: boolean; settings: Record<string, string> }>(
     `${apiBase()}/settings`,
