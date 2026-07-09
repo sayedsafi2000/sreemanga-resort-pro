@@ -100,6 +100,7 @@ model User {
   passwordResets    PasswordReset[]
   dayLongBookings   DayLongBooking[]
   stockMovements    StockMovement[]
+  accountTransactions AccountTransaction[]
 
   @@index([email])
   @@index([role])
@@ -387,10 +388,65 @@ model Account {
   updatedAt      DateTime    @updatedAt
 
   expenseCategories ExpenseCategory[]
+  transactions      AccountTransaction[]
 
   @@index([type])
   @@index([parentId])
   @@index([code])
+}
+
+enum TxnDirection {
+  IN    // money into this account   → balance += amount
+  OUT   // money out of this account  → balance -= amount
+}
+
+enum ReceivableStatus {
+  OPEN
+  PARTIAL
+  COLLECTED
+  CANCELLED
+}
+
+// Amount owed TO the resort (unpaid booking/order balances, other debts).
+model Receivable {
+  id              String           @id @default(uuid())
+  customerName    String
+  amount          Float
+  collectedAmount Float            @default(0)
+  dueDate         DateTime?
+  status          ReceivableStatus @default(OPEN)
+  referenceType   String?          // BOOKING | RESTAURANT_ORDER | DAY_LONG_BOOKING | OTHER
+  referenceId     String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([referenceType, referenceId])
+}
+
+// Signed cashbook ledger entry (Phase 4). One uniform rule: IN adds, OUT subtracts.
+model AccountTransaction {
+  id              String        @id @default(uuid())
+  accountId       String
+  account         Account       @relation(fields: [accountId], references: [id])
+  direction       TxnDirection
+  amount          Float         // always positive
+  description     String?
+  businessLine    BusinessLine?
+  referenceType   String?       // BOOKING | RESTAURANT_ORDER | DAY_LONG_BOOKING | EXPENSE | TRANSFER | INVOICE | DISTRIBUTION
+  referenceId     String?
+  transactionDate DateTime      @default(now())
+  createdById     String?
+  createdBy       User?         @relation(fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@index([accountId])
+  @@index([transactionDate])
+  @@index([businessLine])
+  @@index([referenceType, referenceId])
 }
 
 // Booking OTP persisted to DB (Phase 0.6) — replaces in-memory Map in publicController.

@@ -21,6 +21,7 @@ import {
   Palette,
   Sun,
   Boxes,
+  Landmark,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -69,6 +70,7 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/restaurant': ['SUPER_ADMIN', 'MANAGER', 'RESTAURANT_STAFF'],
   '/day-long': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
   '/inventory': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'HOUSEKEEPING', 'RESTAURANT_STAFF'],
+  '/accounts': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/users': ['SUPER_ADMIN'],
   '/reports': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/templates': ['SUPER_ADMIN'],
@@ -104,6 +106,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
+      { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'gal', label: 'Site gallery', path: '/gallery', icon: Images },
@@ -124,6 +127,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
+      { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'blog', label: 'Blog Posts', path: '/blogs', icon: FileText },
@@ -152,6 +156,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
+      { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },

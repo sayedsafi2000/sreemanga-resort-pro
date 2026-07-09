@@ -3,6 +3,7 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
 import { backfillMissingBookingPayments } from '../utils/bookingPayment';
+import { recordRevenue } from '../utils/accountLedger';
 
 export const getAllPayments = async (
   req: Request,
@@ -106,7 +107,10 @@ export const createPayment = async (
       }
 
       const newPayment = await tx.payment.create({
-        data: { bookingId, amount: numAmount, method, transactionId, notes, status: 'COMPLETED' },
+        data: {
+          bookingId, amount: numAmount, method, transactionId, notes, status: 'COMPLETED',
+          referenceType: 'BOOKING', referenceId: bookingId, businessLine: 'ROOM',
+        },
         include: { booking: { include: { room: true, guest: true } } },
       });
 
@@ -114,6 +118,16 @@ export const createPayment = async (
       if (totalPaid + numAmount >= booking.totalAmount && booking.status === 'PENDING') {
         await tx.booking.update({ where: { id: bookingId }, data: { status: 'CONFIRMED' } });
       }
+
+      // Ledger: cash IN + room income IN.
+      await recordRevenue(tx, {
+        amount: numAmount,
+        method,
+        businessLine: 'ROOM',
+        referenceType: 'BOOKING',
+        referenceId: bookingId,
+        createdById: (req as any).user?.id,
+      });
 
       return newPayment;
     });
@@ -182,6 +196,19 @@ export const updatePayment = async (
             data: { status: 'CONFIRMED' },
           });
         }
+      }
+
+      // Record revenue when a PENDING payment first transitions to COMPLETED
+      // (website pay-later bookings). Only fire on the state change.
+      if (status === 'COMPLETED' && existing.status !== 'COMPLETED' && updated.bookingId) {
+        await recordRevenue(tx, {
+          amount: updated.amount,
+          method: updated.method,
+          businessLine: (updated.businessLine as string) || 'ROOM',
+          referenceType: updated.referenceType || 'BOOKING',
+          referenceId: updated.referenceId || updated.bookingId,
+          createdById: (req as any).user?.id,
+        });
       }
 
       return updated;

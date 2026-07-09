@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { recordExpense } from '../utils/accountLedger';
 import {
   expenditureCategorySchema,
   expenditureSchema,
@@ -178,9 +179,26 @@ export const createExpenditure = async (req: Request, res: Response, next: NextF
     const data = expenditureSchema.parse(req.body);
     await assertCategoryExists(data.categoryId);
     const userId = (req as any).user?.id;
-    const expenditure = await prisma.expense.create({
-      data: { ...data, createdById: userId },
+
+    const expenditure = await prisma.$transaction(async (tx) => {
+      const created = await tx.expense.create({
+        data: { ...data, createdById: userId },
+      });
+      // Ledger: expense account IN + cash OUT (only for actually-paid expenses).
+      if ((created.status ?? 'PAID') === 'PAID') {
+        const category = await tx.expenseCategory.findUnique({ where: { id: created.categoryId } });
+        await recordExpense(tx, {
+          amount: created.amount,
+          method: created.paymentMethod ?? 'CASH',
+          expenseAccountId: category?.accountId ?? undefined,
+          title: created.title,
+          expenseId: created.id,
+          createdById: userId,
+        });
+      }
+      return created;
     });
+
     res.json({ success: true, expenditure });
   } catch (error) {
     next(error);

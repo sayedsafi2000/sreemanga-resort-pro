@@ -10,6 +10,7 @@ import Payments from '@/pages/Payments/Payments';
 import Restaurant from '@/pages/Restaurant/Restaurant';
 import DayLong from '@/pages/DayLong/DayLong';
 import Inventory from '@/pages/Inventory/Inventory';
+import Accounts from '@/pages/Accounts/Accounts';
 import Settings from '@/pages/Settings/Settings';
 import Users from '@/pages/Users/Users';
 import Reports from '@/pages/Reports/Reports';
@@ -52,6 +53,7 @@ const App: React.FC = () => {
         <Route path="/restaurant" element={<ProtectedRoute><RoleGuard path="/restaurant"><Restaurant /></RoleGuard></ProtectedRoute>} />
         <Route path="/day-long" element={<ProtectedRoute><RoleGuard path="/day-long"><DayLong /></RoleGuard></ProtectedRoute>} />
         <Route path="/inventory" element={<ProtectedRoute><RoleGuard path="/inventory"><Inventory /></RoleGuard></ProtectedRoute>} />
+        <Route path="/accounts" element={<ProtectedRoute><RoleGuard path="/accounts"><Accounts /></RoleGuard></ProtectedRoute>} />
         <Route path="/gallery" element={<ProtectedRoute><RoleGuard path="/gallery"><Gallery /></RoleGuard></ProtectedRoute>} />
         <Route path="/nearby-explore" element={<ProtectedRoute><RoleGuard path="/nearby-explore"><NearbyExplore /></RoleGuard></ProtectedRoute>} />
         <Route path="/blogs" element={<ProtectedRoute><RoleGuard path="/blogs"><Blogs /></RoleGuard></ProtectedRoute>} />
