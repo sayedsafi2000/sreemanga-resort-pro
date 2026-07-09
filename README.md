@@ -12,8 +12,8 @@ Resort management system with Express API, Admin dashboard (Vite), and public we
 On **Fedora with SELinux + Podman**, the dev compose file disables the container SELinux label for app services so bind mounts work with `podman compose`. Start the stack before seeding:
 
 ```bash
-podman compose -f docker-compose.dev.yml up -d
-podman compose -f docker-compose.dev.yml exec api npm run db:seed
+podman-compose -f docker-compose.dev.yml up -d
+podman-compose -f docker-compose.dev.yml exec api npm run db:seed
 ```
 
 ### First-time setup

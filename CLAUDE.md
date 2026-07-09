@@ -48,7 +48,7 @@ cd apps/server && npm run db:migrate   # prisma migrate dev
 cd apps/server && npm run db:seed      # seeds demo users (see docs/ROLES_AND_USERS.md)
 ```
 
-No test runner configured. No CI config in repo.
+Tests use Vitest + Supertest (server) and Vitest + React Testing Library (admin, web). See `docs/plan/08-TESTING.md` for full strategy.
 
 ## Port + URL conventions
 
