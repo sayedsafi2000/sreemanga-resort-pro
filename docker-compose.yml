@@ -6,7 +6,7 @@
 # Coolify → Domains (per https://coolify.io/docs/knowledge-base/docker/compose ):
 #   Put the INTERNAL port in the domain field so Traefik routes correctly:
 #   - web:   https://your-web-host:3002   (port 3002 is required in the field)
-#   - api:   https://your-api-host:8000
+#   - api:   https://your-api-host:3000   (container PORT; map public URL to host :8000 via proxy)
 #   - admin: https://your-admin-host      (container listens on 80; no extra port)
 #   The :3002 / :8000 suffix tells Coolify the backend port; users still open 80/443 on the URL.
 #

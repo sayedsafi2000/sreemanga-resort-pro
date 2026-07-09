@@ -1,0 +1,16 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+COPY scripts/docker-dev-entrypoint.sh /usr/local/bin/docker-dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-dev-entrypoint.sh
+
+COPY apps/admin/package.json apps/admin/package-lock.json* ./
+RUN npm ci --include=dev
+
+ENV NODE_ENV=development
+
+EXPOSE 8001
+
+ENTRYPOINT ["docker-dev-entrypoint.sh"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

@@ -1,0 +1,26 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/docker-dev-entrypoint.sh /usr/local/bin/docker-dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-dev-entrypoint.sh
+
+COPY apps/server/package.json apps/server/package-lock.json* ./
+RUN npm ci --include=dev
+
+COPY apps/server/prisma ./prisma/
+COPY apps/server/tsconfig.json ./
+
+RUN npx prisma generate
+
+ENV NODE_ENV=development
+ENV PORT=8000
+
+EXPOSE 8000
+
+ENTRYPOINT ["docker-dev-entrypoint.sh", "--prisma"]
+CMD ["npx", "tsx", "watch", "src/index.ts"]
