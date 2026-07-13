@@ -12,8 +12,8 @@ Resort management system with Express API, Admin dashboard (Vite), and public we
 On **Fedora with SELinux + Podman**, the dev compose file disables the container SELinux label for app services so bind mounts work with `podman compose`. Start the stack before seeding:
 
 ```bash
-podman-compose -f docker-compose.dev.yml up -d
-podman-compose -f docker-compose.dev.yml exec api npm run db:seed
+podman compose -f docker-compose.dev.yml up -d
+podman compose -f docker-compose.dev.yml exec api npm run db:seed
 ```
 
 ### First-time setup
@@ -25,7 +25,7 @@ Build images once, then start all services:
 docker compose -f docker-compose.dev.yml up --build -d
 
 # Podman
-podman-compose -f docker-compose.dev.yml up --build -d
+podman compose -f docker-compose.dev.yml up --build -d
 ```
 
 | Service | URL | Description |
@@ -46,7 +46,7 @@ No rebuild needed for normal work — source edits hot-reload via bind mounts:
 docker compose -f docker-compose.dev.yml up -d
 
 # Podman
-podman-compose -f docker-compose.dev.yml up -d
+podman compose -f docker-compose.dev.yml up -d
 ```
 
 **Source code** — edit files under `apps/*/src` (and `apps/web` config); changes apply immediately.
@@ -72,7 +72,7 @@ Run once after the first start:
 docker compose -f docker-compose.dev.yml exec api npm run db:seed
 
 # Podman
-podman-compose -f docker-compose.dev.yml exec api npm run db:seed
+podman compose -f docker-compose.dev.yml exec api npm run db:seed
 ```
 
 Default admin login after seeding:
