@@ -603,6 +603,7 @@ model Voucher {
   id                 String               @id @default(uuid())
   codeHash           String
   codeHint           String               // last 4 chars for display
+  codePlain          String?              // full code for admin copy (never exposed on public/mine APIs)
   name               String
   description        String?
   discountType       VoucherDiscountType

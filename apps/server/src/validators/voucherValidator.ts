@@ -75,6 +75,48 @@ function normalizeAssignees(data: {
   return [];
 }
 
+function optionalNonNegNumber() {
+  return z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    if (typeof val === 'number' && Number.isNaN(val)) return null;
+    if (typeof val === 'string') {
+      const t = val.trim();
+      if (!t) return null;
+      const n = Number(t);
+      return Number.isNaN(n) ? null : n;
+    }
+    return val;
+  }, z.number().nonnegative().nullable().optional());
+}
+
+function optionalPositiveNumber() {
+  return z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    if (typeof val === 'number' && Number.isNaN(val)) return null;
+    if (typeof val === 'string') {
+      const t = val.trim();
+      if (!t) return null;
+      const n = Number(t);
+      return Number.isNaN(n) ? null : n;
+    }
+    return val;
+  }, z.number().positive().nullable().optional());
+}
+
+function optionalPositiveInt() {
+  return z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    if (typeof val === 'number' && Number.isNaN(val)) return null;
+    if (typeof val === 'string') {
+      const t = val.trim();
+      if (!t) return null;
+      const n = Number(t);
+      return Number.isNaN(n) ? null : n;
+    }
+    return val;
+  }, z.number().int().positive().nullable().optional());
+}
+
 export const voucherCreateSchema = z
   .object({
     name: z.string().min(2),
@@ -87,12 +129,12 @@ export const voucherCreateSchema = z
     appliesRoom: z.boolean().default(true),
     appliesDayLong: z.boolean().default(true),
     appliesRestaurant: z.boolean().default(true),
-    minSpend: z.number().nonnegative().optional().nullable(),
-    maxDiscountAmount: z.number().positive().optional().nullable(),
+    minSpend: optionalNonNegNumber(),
+    maxDiscountAmount: optionalPositiveNumber(),
     startsAt: z.string().optional().nullable(),
     expiresAt: z.string().optional().nullable(),
-    maxRedemptions: z.number().int().positive().optional().nullable(),
-    maxPerAssignee: z.number().int().positive().optional().nullable(),
+    maxRedemptions: optionalPositiveInt(),
+    maxPerAssignee: optionalPositiveInt(),
     isSecure: z.boolean().default(true),
     /** Multi-assignee (preferred). Empty = public. */
     assignees: z.array(assigneeEntrySchema).max(50).optional().default([]),
@@ -127,12 +169,12 @@ export const voucherUpdateSchema = z
     appliesRoom: z.boolean().optional(),
     appliesDayLong: z.boolean().optional(),
     appliesRestaurant: z.boolean().optional(),
-    minSpend: z.number().nonnegative().optional().nullable(),
-    maxDiscountAmount: z.number().positive().optional().nullable(),
+    minSpend: optionalNonNegNumber(),
+    maxDiscountAmount: optionalPositiveNumber(),
     startsAt: z.string().optional().nullable(),
     expiresAt: z.string().optional().nullable(),
-    maxRedemptions: z.number().int().positive().optional().nullable(),
-    maxPerAssignee: z.number().int().positive().optional().nullable(),
+    maxRedemptions: optionalPositiveInt(),
+    maxPerAssignee: optionalPositiveInt(),
     isSecure: z.boolean().optional(),
     isActive: z.boolean().optional(),
     assignees: z.array(assigneeEntrySchema).max(50).optional(),
@@ -203,10 +245,31 @@ export const voucherValidateSchema = z.object({
       })
     )
     .optional(),
-  guestId: z.string().uuid().optional().nullable(),
-  guestEmail: z.string().email().optional().nullable(),
-  userId: z.string().uuid().optional().nullable(),
-  shareholderId: z.string().uuid().optional().nullable(),
+  guestId: z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    if (typeof val === 'string' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val)) {
+      return null; // synthetic ids like shareholder:… — use email instead
+    }
+    return val;
+  }, z.string().uuid().optional().nullable()),
+  guestEmail: z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    return val;
+  }, z.string().email().optional().nullable()),
+  userId: z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    if (typeof val === 'string' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val)) {
+      return null;
+    }
+    return val;
+  }, z.string().uuid().optional().nullable()),
+  shareholderId: z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    if (typeof val === 'string' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val)) {
+      return null;
+    }
+    return val;
+  }, z.string().uuid().optional().nullable()),
 });
 
 export const voucherForEmailSchema = z.object({

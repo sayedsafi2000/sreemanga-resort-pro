@@ -106,7 +106,6 @@ export const updateShareholder = async (req: Request, res: Response, next: NextF
         userId = user.id;
       }
 
-      const shareType = data.shareType ?? existing.shareType;
       const shareValue =
         data.shareType === 'CUSTOM'
           ? 0

@@ -37,6 +37,7 @@ const orderSchema = z.object({
   serviceCharge: z.number().nonnegative().optional(),
   notes: z.string().optional(),
   voucherCode: z.string().min(1).optional(),
+  guestEmail: z.string().email().optional().nullable(),
 });
 
 const orderUpdateSchema = z.object({
@@ -49,6 +50,7 @@ const orderUpdateSchema = z.object({
   userId: z.string().uuid().optional().nullable(),
   roomId: z.string().uuid().optional().nullable(),
   voucherCode: z.string().min(1).optional().nullable(),
+  guestEmail: z.string().email().optional().nullable(),
 });
 
 const orderPaymentSchema = z.object({
@@ -189,7 +191,10 @@ export const createOrder = async (
           channel: 'RESTAURANT',
           grossAmount: data.totalPrice,
           lineItems,
-          assignee: { userId: data.userId || req.user?.id },
+          assignee: {
+            userId: data.userId || req.user?.id,
+            guestEmail: data.guestEmail ?? null,
+          },
         });
         discount = applied.discountAmount;
         voucherId = applied.voucher.id;
@@ -301,7 +306,10 @@ export const updateOrder = async (
           channel: 'RESTAURANT',
           grossAmount: totalPrice,
           lineItems,
-          assignee: { userId: data.userId || existing.userId || req.user?.id },
+          assignee: {
+            userId: data.userId || existing.userId || req.user?.id,
+            guestEmail: data.guestEmail ?? null,
+          },
         });
         discount = applied.discountAmount;
         voucherId = applied.voucher.id;

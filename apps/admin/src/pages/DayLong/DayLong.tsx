@@ -35,6 +35,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageRooms } from '@/config/rbac';
 import GuestPicker, { type GuestPick } from '@/components/GuestPicker';
+import VoucherApplyField from '@/components/VoucherApplyField';
 
 const CATEGORIES = ['POOL', 'COTTAGE', 'CONFERENCE', 'EVENT', 'PICNIC'] as const;
 const BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'] as const;
@@ -136,7 +137,7 @@ const DayLong: React.FC = () => {
   const [useExistingGuest, setUseExistingGuest] = useState(false);
   const [pickedGuest, setPickedGuest] = useState<GuestPick | null>(null);
   const [voucherCode, setVoucherCode] = useState('');
-  const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
+  const [voucherPreview, setVoucherPreview] = useState<{ discountAmount: number; netAmount: number } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -654,53 +655,34 @@ const DayLong: React.FC = () => {
             </div>
             <div className="text-sm text-muted-foreground">
               Estimated total:{' '}
-              <span className="font-semibold text-foreground">৳{previewTotal}</span>
+              <span className="font-semibold text-foreground">
+                ৳{(voucherPreview?.netAmount ?? previewTotal).toLocaleString()}
+              </span>
+              {voucherPreview && (
+                <span className="ml-1">(was ৳{previewTotal.toLocaleString()})</span>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label>Voucher code (optional)</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={voucherCode}
-                  onChange={(e) => {
-                    setVoucherCode(e.target.value.toUpperCase());
-                    setVoucherPreview(null);
-                  }}
-                  placeholder="Code"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!voucherCode.trim() || !bookingForm.productId || previewTotal <= 0}
-                  onClick={async () => {
-                    try {
-                      const res = await api.post('/vouchers/validate', {
-                        code: voucherCode.trim(),
-                        channel: 'DAY_LONG',
-                        grossAmount: previewTotal,
-                        lineItems: [
-                          {
-                            itemType: 'DAY_LONG_PRODUCT',
-                            itemId: bookingForm.productId,
-                            amount: previewTotal,
-                          },
-                        ],
-                        guestEmail: bookingForm.guestEmail || pickedGuest?.email || undefined,
-                      });
-                      setVoucherPreview(
-                        `Save ৳${res.data.discountAmount} — net ৳${res.data.netAmount}`
-                      );
-                      setError(null);
-                    } catch (e: any) {
-                      setVoucherPreview(null);
-                      setError(e?.response?.data?.message || 'Invalid voucher');
-                    }
-                  }}
-                >
-                  Apply
-                </Button>
-              </div>
-              {voucherPreview && <p className="text-sm text-green-700">{voucherPreview}</p>}
-            </div>
+            <VoucherApplyField
+              channel="DAY_LONG"
+              grossAmount={previewTotal}
+              lineItems={
+                bookingForm.productId && previewTotal > 0
+                  ? [
+                      {
+                        itemType: 'DAY_LONG_PRODUCT',
+                        itemId: bookingForm.productId,
+                        amount: previewTotal,
+                      },
+                    ]
+                  : undefined
+              }
+              guestEmail={bookingForm.guestEmail || pickedGuest?.email}
+              value={voucherCode}
+              onChange={setVoucherCode}
+              preview={voucherPreview}
+              onPreview={setVoucherPreview}
+              onError={setError}
+            />
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
           <DialogFooter>

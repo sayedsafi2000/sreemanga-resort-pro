@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import GuestPicker, { type GuestPick } from '@/components/GuestPicker';
+import VoucherApplyField from '@/components/VoucherApplyField';
 
 type RoomRow = { id: string; name: string; price: number; status?: string };
 type GuestRow = { id: string; name: string; phone: string; email?: string | null };
@@ -56,7 +57,6 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests:
   const [error, setError] = useState<string | null>(null);
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherPreview, setVoucherPreview] = useState<{ discountAmount: number; netAmount: number } | null>(null);
-  const [voucherChecking, setVoucherChecking] = useState(false);
   const [paymentAccounts, setPaymentAccounts] = useState({
     bkashNumber: ENV_BKASH_NUMBER,
     bankAccountName: ENV_BANK_ACCOUNT_NAME,
@@ -209,8 +209,20 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests:
       ...(voucherCode.trim() ? { voucherCode: voucherCode.trim() } : {}),
     };
 
-    if (useExistingGuest) {
-      body.guestId = pickedGuest!.id;
+    if (useExistingGuest && pickedGuest) {
+      const isRealGuest =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          pickedGuest.id
+        );
+      if (isRealGuest) {
+        body.guestId = pickedGuest.id;
+      } else {
+        // GuestPicker may return shareholder:/linked rows — create booking guest from details
+        body.guestName = pickedGuest.name;
+        body.guestPhone = (pickedGuest.phone || '').trim() || 'N/A';
+        const em = pickedGuest.email || pickedGuest.shareholder?.email || pickedGuest.user?.email;
+        if (em) body.guestEmail = em;
+      }
     } else {
       body.guestName = guestName.trim();
       body.guestPhone = guestPhone.trim();
@@ -514,57 +526,37 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests:
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Voucher code (optional)</Label>
-            <div className="flex gap-2">
-              <Input
-                value={voucherCode}
-                onChange={(e) => {
-                  setVoucherCode(e.target.value.toUpperCase());
-                  setVoucherPreview(null);
-                }}
-                placeholder="e.g. SUMMER10"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!voucherCode.trim() || previewTotal <= 0 || voucherChecking}
-                onClick={async () => {
-                  if (!selectedRoom || previewTotal <= 0) return;
-                  setVoucherChecking(true);
-                  setError(null);
-                  try {
-                    const res = await api.post('/vouchers/validate', {
-                      code: voucherCode.trim(),
-                      channel: 'ROOM',
-                      grossAmount: previewTotal,
-                      lineItems: [{ itemType: 'ROOM', itemId: selectedRoom.id, amount: previewTotal }],
-                      guestId: useExistingGuest ? pickedGuest?.id : undefined,
-                      guestEmail: useExistingGuest ? pickedGuest?.email : guestEmail || undefined,
-                    });
-                    setVoucherPreview({
-                      discountAmount: res.data.discountAmount,
-                      netAmount: res.data.netAmount,
-                    });
-                  } catch (err: unknown) {
-                    const ax = err as { response?: { data?: { message?: string } } };
-                    setVoucherPreview(null);
-                    setError(ax.response?.data?.message || 'Invalid voucher');
-                  } finally {
-                    setVoucherChecking(false);
-                  }
-                }}
-              >
-                {voucherChecking ? '…' : 'Apply'}
-              </Button>
-            </div>
-            {voucherPreview && (
-              <p className="text-sm text-green-700">
-                Save ৳{voucherPreview.discountAmount.toLocaleString()} — net ৳
-                {voucherPreview.netAmount.toLocaleString()}
-              </p>
-            )}
-          </div>
+          <VoucherApplyField
+            channel="ROOM"
+            grossAmount={previewTotal}
+            lineItems={
+              selectedRoom && previewTotal > 0
+                ? [{ itemType: 'ROOM', itemId: selectedRoom.id, amount: previewTotal }]
+                : undefined
+            }
+            guestEmail={
+              useExistingGuest
+                ? pickedGuest?.email ||
+                  pickedGuest?.shareholder?.email ||
+                  pickedGuest?.user?.email
+                : guestEmail
+            }
+            guestId={
+              useExistingGuest &&
+              pickedGuest &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                pickedGuest.id
+              )
+                ? pickedGuest.id
+                : undefined
+            }
+            value={voucherCode}
+            onChange={setVoucherCode}
+            preview={voucherPreview}
+            onPreview={setVoucherPreview}
+            onError={setError}
+            disabled={saving}
+          />
 
           {previewTotal > 0 && (
             <p className="text-sm font-medium">

@@ -1190,6 +1190,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
       data: {
         codeHash: hashCode(publicCode),
         codeHint: hint(publicCode),
+        codePlain: publicCode,
         name: 'Summer 10% Off',
         description: 'Public overall discount for room, day-long, and restaurant',
         discountType: 'PERCENT',
@@ -1213,6 +1214,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
         data: {
           codeHash: hashCode(dayCode),
           codeHint: hint(dayCode),
+          codePlain: dayCode,
           name: 'Pool Day ৳500 Off',
           description: 'Fixed discount on Swimming Pool Day Pass only',
           discountType: 'FIXED',
@@ -1239,6 +1241,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
         data: {
           codeHash: hashCode(staffCode),
           codeHint: hint(staffCode),
+          codePlain: staffCode,
           name: 'Staff Perk 15%',
           description: 'Personal voucher for demo receptionist',
           discountType: 'PERCENT',
@@ -1267,6 +1270,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
         data: {
           codeHash: hashCode(shCode),
           codeHint: hint(shCode),
+          codePlain: shCode,
           name: 'Shareholder 20%',
           description: 'Personal voucher for demo shareholder',
           discountType: 'PERCENT',
@@ -1317,6 +1321,18 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
   }
   if (legacy.length > 0) {
     console.log(`Backfilled ${legacy.length} voucher assignee row(s)`);
+  }
+
+  // Backfill known demo plaintext codes when missing (local seed codes only)
+  const demoCodes = ['SUMMER10', 'POOL500', 'STAFF15', 'SHARE20'] as const;
+  for (const code of demoCodes) {
+    const codeHash = hashCode(code);
+    await prisma.voucher
+      .updateMany({
+        where: { codeHash, codePlain: null },
+        data: { codePlain: code },
+      })
+      .catch(() => undefined);
   }
 
   console.log('Seed complete. Admin:', adminEmail, '| Restaurant staff:', demoStaffEmail);

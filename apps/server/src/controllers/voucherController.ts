@@ -24,11 +24,12 @@ const voucherInclude = {
 } as const;
 
 function serializeVoucher(v: any, plaintextCode?: string) {
-  const { codeHash: _h, ...rest } = v;
+  const { codeHash: _h, codePlain, ...rest } = v;
+  const code = plaintextCode || codePlain || undefined;
   return {
     ...rest,
     assignees: v.assignees || [],
-    ...(plaintextCode ? { code: plaintextCode } : {}),
+    ...(code ? { code } : {}),
     redemptionCount: v._count?.redemptions ?? v.redemptions?.length ?? undefined,
   };
 }
@@ -74,6 +75,7 @@ async function createOneVoucher(
     data: {
       codeHash,
       codeHint: codeHintFrom(normalized),
+      codePlain: normalized,
       name: data.name,
       description: data.description ?? null,
       discountType: data.discountType,
@@ -137,13 +139,65 @@ export async function backfillVoucherAssignees() {
       },
     }).catch(() => undefined);
   }
+
+  // Restore known local demo plaintext codes for admin copy (hash match only).
+  for (const code of ['SUMMER10', 'POOL500', 'STAFF15', 'SHARE20'] as const) {
+    const codeHash = hashVoucherCode(code);
+    await prisma.voucher
+      .updateMany({ where: { codeHash, codePlain: null }, data: { codePlain: code } })
+      .catch(() => undefined);
+  }
+
   return legacy.length;
 }
 
 export const listVouchers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     await backfillVoucherAssignees();
-    const { active, q } = req.query;
+    const { active, q, email } = req.query;
+    const emailStr = typeof email === 'string' ? email.trim() : '';
+
+    // Lookup vouchers available to a person (Guest / User / Shareholder by email)
+    if (emailStr) {
+      const identities = await resolveAssigneeIdentities(prisma, { guestEmail: emailStr });
+      let vouchers = await findVouchersForIdentities(prisma, identities);
+
+      const publicOnes = await prisma.voucher.findMany({
+        where: {
+          isActive: true,
+          assignees: { none: {} },
+          OR: [{ assigneeType: 'NONE' }, { assigneeId: null }],
+        },
+        include: voucherInclude,
+        orderBy: [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
+      });
+
+      const byId = new Map<string, any>();
+      for (const v of [...vouchers, ...publicOnes]) byId.set(v.id, v);
+      let merged: any[] = Array.from(byId.values());
+
+      if (typeof q === 'string' && q.trim()) {
+        const needle = q.trim().toLowerCase();
+        const hint = q.trim().toUpperCase();
+        merged = merged.filter(
+          (v: any) =>
+            (v.name || '').toLowerCase().includes(needle) ||
+            (v.codeHint || '').includes(hint) ||
+            (v.description || '').toLowerCase().includes(needle)
+        );
+      }
+      if (active === 'true') merged = merged.filter((v: any) => v.isActive);
+      if (active === 'false') merged = merged.filter((v: any) => !v.isActive);
+
+      res.json({
+        success: true,
+        vouchers: merged.map((v: any) => serializeVoucher(v)),
+        identities: identities.map((i) => i.type),
+        lookupEmail: emailStr,
+      });
+      return;
+    }
+
     const where: any = {};
     if (active === 'true') where.isActive = true;
     if (active === 'false') where.isActive = false;
@@ -151,6 +205,7 @@ export const listVouchers = async (req: Request, res: Response, next: NextFuncti
       where.OR = [
         { name: { contains: q.trim(), mode: 'insensitive' } },
         { codeHint: { contains: q.trim().toUpperCase() } },
+        { description: { contains: q.trim(), mode: 'insensitive' } },
       ];
     }
     const vouchers = await prisma.voucher.findMany({
@@ -418,6 +473,53 @@ export const listVouchersForEmail = async (req: Request, res: Response, next: Ne
       success: true,
       vouchers: vouchers.map(toSafeMineVoucher),
       identities: identities.map((i) => i.type),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Staff apply lookup: vouchers for an email (assigned + public), includes codePlain as `code`.
+ * APPLY roles only — never expose codeHash.
+ */
+export const lookupVouchersByEmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const emailRaw = typeof req.query.email === 'string' ? req.query.email.trim() : '';
+    const { email } = voucherForEmailSchema.parse({ email: emailRaw });
+    await backfillVoucherAssignees();
+
+    const identities = await resolveAssigneeIdentities(prisma, { guestEmail: email });
+    let vouchers = await findVouchersForIdentities(prisma, identities);
+
+    const publicOnes = await prisma.voucher.findMany({
+      where: {
+        isActive: true,
+        assignees: { none: {} },
+        OR: [{ assigneeType: 'NONE' }, { assigneeId: null }],
+      },
+      include: {
+        assignees: true,
+        _count: { select: { redemptions: true } },
+      },
+      orderBy: [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    const byId = new Map<string, any>();
+    for (const v of [...vouchers, ...publicOnes]) byId.set(v.id, v);
+    vouchers = Array.from(byId.values()).filter((v: any) => v.isActive !== false);
+
+    res.json({
+      success: true,
+      vouchers: vouchers.map((v: any) => {
+        const safe = toSafeMineVoucher(v);
+        return {
+          ...safe,
+          ...(v.codePlain ? { code: v.codePlain } : {}),
+        };
+      }),
+      identities: identities.map((i) => i.type),
+      lookupEmail: email,
     });
   } catch (error) {
     next(error);

@@ -9,6 +9,7 @@ import {
   validateVoucher,
   listRedemptions,
   listMyVouchers,
+  lookupVouchersByEmail,
 } from '../controllers/voucherController';
 
 const MANAGE = ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'] as const;
@@ -27,6 +28,7 @@ const ALL_AUTH = [
 const router = Router();
 
 router.get('/mine', roleCheck([...ALL_AUTH]), listMyVouchers);
+router.get('/lookup', roleCheck([...APPLY]), lookupVouchersByEmail);
 router.get('/', roleCheck([...MANAGE]), listVouchers);
 router.post('/validate', roleCheck([...APPLY]), validateVoucher);
 router.get('/:id', roleCheck([...MANAGE]), getVoucher);

@@ -125,6 +125,12 @@ const ItemChecklist = ({
 const Vouchers: React.FC = () => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQ, setSearchQ] = useState('');
+  const [emailLookup, setEmailLookup] = useState('');
+  const [lookupMeta, setLookupMeta] = useState<{ email: string; identities: string[] } | null>(null);
+  const [copiedHintId, setCopiedHintId] = useState<string | null>(null);
+  const [copiedCodeIdx, setCopiedCodeIdx] = useState<number | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -145,11 +151,24 @@ const Vouchers: React.FC = () => {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [selectedMenuIds, setSelectedMenuIds] = useState<string[]>([]);
 
-  const load = async () => {
+  const load = async (opts?: { q?: string; email?: string }) => {
     setLoading(true);
     try {
-      const res = await api.get('/vouchers');
+      const params = new URLSearchParams();
+      const q = (opts?.q ?? searchQ).trim();
+      const email = (opts?.email ?? emailLookup).trim();
+      if (q) params.set('q', q);
+      if (email) params.set('email', email);
+      const res = await api.get(`/vouchers${params.toString() ? `?${params}` : ''}`);
       setVouchers(unwrapList<Voucher>(res, ['vouchers']));
+      if (email && res.data?.lookupEmail) {
+        setLookupMeta({
+          email: res.data.lookupEmail,
+          identities: Array.isArray(res.data.identities) ? res.data.identities : [],
+        });
+      } else if (!email) {
+        setLookupMeta(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -157,7 +176,17 @@ const Vouchers: React.FC = () => {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Debounced search / email lookup
+  useEffect(() => {
+    const t = setTimeout(() => {
+      load({ q: searchQ, email: emailLookup });
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQ, emailLookup]);
 
   const loadAudienceOptions = async () => {
     try {
@@ -266,12 +295,21 @@ const Vouchers: React.FC = () => {
         appliesRoom: form.appliesRoom,
         appliesDayLong: form.appliesDayLong,
         appliesRestaurant: form.appliesRestaurant,
-        minSpend: form.minSpend === '' ? null : Number(form.minSpend),
-        maxDiscountAmount: form.maxDiscountAmount === '' ? null : Number(form.maxDiscountAmount),
+        minSpend: form.minSpend === '' || Number.isNaN(Number(form.minSpend)) ? null : Number(form.minSpend),
+        maxDiscountAmount:
+          form.maxDiscountAmount === '' || Number.isNaN(Number(form.maxDiscountAmount))
+            ? null
+            : Number(form.maxDiscountAmount),
         startsAt: form.startsAt || null,
         expiresAt: form.expiresAt || null,
-        maxRedemptions: form.maxRedemptions === '' ? null : Number(form.maxRedemptions),
-        maxPerAssignee: form.maxPerAssignee === '' ? null : Number(form.maxPerAssignee),
+        maxRedemptions:
+          form.maxRedemptions === '' || Number.isNaN(Number(form.maxRedemptions))
+            ? null
+            : Number(form.maxRedemptions),
+        maxPerAssignee:
+          form.maxPerAssignee === '' || Number.isNaN(Number(form.maxPerAssignee))
+            ? null
+            : Number(form.maxPerAssignee),
         isSecure: form.isSecure,
         assignees: assignees.map((a) => ({
           assigneeType: a.assigneeType,
@@ -303,10 +341,80 @@ const Vouchers: React.FC = () => {
     await load();
   };
 
+  const flashCopy = (msg: string, ok: boolean) => {
+    setCopyNotice(msg);
+    setTimeout(() => setCopyNotice(null), ok ? 1500 : 4000);
+  };
+
+  const copyText = async (text: string): Promise<boolean> => {
+    const value = (text || '').trim();
+    if (!value) return false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch {
+      /* fall through */
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, value.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const copyCodes = async () => {
-    await navigator.clipboard.writeText(revealedCodes.join('\n'));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    const ok = await copyText(revealedCodes.join('\n'));
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+      flashCopy('Codes copied', true);
+    } else {
+      flashCopy('Could not copy — select the code and use Ctrl/Cmd+C', false);
+    }
+  };
+
+  const copyOneCode = async (code: string, idx: number) => {
+    const ok = await copyText(code);
+    if (ok) {
+      setCopiedCodeIdx(idx);
+      setTimeout(() => setCopiedCodeIdx(null), 1500);
+      flashCopy('Code copied', true);
+    } else {
+      flashCopy('Could not copy — select the code and use Ctrl/Cmd+C', false);
+    }
+  };
+
+  const copyHint = async (v: Voucher) => {
+    const text = (v.code && v.code.trim()) || '';
+    if (!text) {
+      flashCopy(
+        'Full code not stored for this voucher (created before copy support). Create a new one to get a copyable code.',
+        false
+      );
+      return;
+    }
+    const ok = await copyText(text);
+    if (ok) {
+      setCopiedHintId(v.id);
+      setTimeout(() => setCopiedHintId(null), 1500);
+      flashCopy(`Copied ${text}`, true);
+    } else {
+      flashCopy(`Could not copy “${text}”. Try selecting it manually.`, false);
+    }
   };
 
   return (
@@ -320,6 +428,55 @@ const Vouchers: React.FC = () => {
           </Button>
         }
       />
+
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Search vouchers</Label>
+              <Input
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Name, description, or code hint…"
+              />
+            </div>
+            <div>
+              <Label>Available for email / account</Label>
+              <Input
+                value={emailLookup}
+                onChange={(e) => setEmailLookup(e.target.value)}
+                placeholder="e.g. shareholder@resortnirjon.com"
+                type="email"
+              />
+            </div>
+          </div>
+          {lookupMeta && (
+            <p className="text-xs text-muted-foreground">
+              Showing vouchers for <span className="font-medium text-foreground">{lookupMeta.email}</span>
+              {lookupMeta.identities.length > 0
+                ? ` (matched: ${[...new Set(lookupMeta.identities)].join(', ')})`
+                : ' (no Guest/User/Shareholder match — public vouchers only)'}
+              {' · '}
+              <button
+                type="button"
+                className="underline underline-offset-2"
+                onClick={() => setEmailLookup('')}
+              >
+                Clear
+              </button>
+            </p>
+          )}
+          {copyNotice && (
+            <p
+              className={`text-xs ${
+                copyNotice.startsWith('Could') ? 'text-red-600' : 'text-green-700'
+              }`}
+            >
+              {copyNotice}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -359,7 +516,31 @@ const Vouchers: React.FC = () => {
                           <div className="text-xs text-muted-foreground">Public</div>
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">••••{v.codeHint}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-sm select-all">
+                            {v.code ? v.code : `••••${v.codeHint}`}
+                          </span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            title={v.code ? `Copy ${v.code}` : 'Full code not available'}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void copyHint(v);
+                            }}
+                          >
+                            {copiedHintId === v.id ? (
+                              <Check className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {v.discountType === 'PERCENT' ? `${v.discountValue}%` : `৳${v.discountValue}`}
                         <span className="text-xs text-muted-foreground ml-1">
@@ -397,7 +578,9 @@ const Vouchers: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       <Ticket className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                      No vouchers yet. Create one to offer discounts across bookings and orders.
+                      {emailLookup.trim() || searchQ.trim()
+                        ? 'No vouchers match this search / email.'
+                        : 'No vouchers yet. Create one to offer discounts across bookings and orders.'}
                     </TableCell>
                   </TableRow>
                 )}
@@ -418,13 +601,35 @@ const Vouchers: React.FC = () => {
               <p className="text-sm text-amber-800 bg-amber-50 rounded-md px-3 py-2">
                 Copy these codes now — they are hashed and will not be shown again.
               </p>
-              <pre className="rounded-md border bg-muted/40 p-3 text-sm font-mono whitespace-pre-wrap">
-                {revealedCodes.join('\n')}
-              </pre>
-              <Button type="button" variant="outline" onClick={copyCodes}>
-                {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-                {copied ? 'Copied' : 'Copy codes'}
-              </Button>
+              <ul className="space-y-2">
+                {revealedCodes.map((code, idx) => (
+                  <li
+                    key={`${code}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2"
+                  >
+                    <span className="font-mono text-sm break-all">{code}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyOneCode(code, idx)}
+                    >
+                      {copiedCodeIdx === idx ? (
+                        <Check className="h-4 w-4 mr-1 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4 mr-1" />
+                      )}
+                      {copiedCodeIdx === idx ? 'Copied' : 'Copy'}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {revealedCodes.length > 1 && (
+                <Button type="button" variant="outline" onClick={copyCodes}>
+                  {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                  {copied ? 'Copied all' : 'Copy all codes'}
+                </Button>
+              )}
               <DialogFooter>
                 <Button onClick={() => { setOpen(false); setRevealedCodes([]); }}>Done</Button>
               </DialogFooter>
