@@ -14,7 +14,7 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { InitialsAvatar } from '@/components/ui/avatar';
 
-const allRoles = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT'];
+const staffRoles = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT'];
 
 const emptyForm = () => ({
   name: '',
@@ -27,11 +27,22 @@ const emptyForm = () => ({
 
 const Users: React.FC = () => {
   const { user: authUser } = useAuth();
-  const roleChoices = authUser?.role === 'SUPER_ADMIN' ? allRoles : allRoles.filter((r) => r !== 'SUPER_ADMIN');
   const [users, setUsers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState(emptyForm());
+
+  const roleChoices = (() => {
+    let roles =
+      authUser?.role === 'SUPER_ADMIN'
+        ? [...staffRoles]
+        : staffRoles.filter((r) => r !== 'SUPER_ADMIN');
+    // Preserve portal logins created from Shareholders
+    if (editing?.role === 'SHAREHOLDER' || form.role === 'SHAREHOLDER') {
+      if (!roles.includes('SHAREHOLDER')) roles = [...roles, 'SHAREHOLDER'];
+    }
+    return roles;
+  })();
 
   const fetchUsers = async () => {
     try {

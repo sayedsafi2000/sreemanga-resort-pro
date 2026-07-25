@@ -5,19 +5,39 @@ const optionalPhone = z
   .optional()
   .transform((v) => (v === '' || v == null ? null : v));
 
+/** Staff roles creatable from Users admin (portal logins use SHAREHOLDER via Shareholders). */
+const staffRoleEnum = z.enum([
+  'SUPER_ADMIN',
+  'MANAGER',
+  'RECEPTIONIST',
+  'HOUSEKEEPING',
+  'RESTAURANT_STAFF',
+  'ACCOUNTANT',
+]);
+
+const userRoleEnum = z.enum([
+  'SUPER_ADMIN',
+  'MANAGER',
+  'RECEPTIONIST',
+  'HOUSEKEEPING',
+  'RESTAURANT_STAFF',
+  'ACCOUNTANT',
+  'SHAREHOLDER',
+]);
+
 export const createUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   phone: optionalPhone,
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT']),
+  role: staffRoleEnum,
 });
 
 export const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
   phone: optionalPhone,
-  role: z.enum(['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT']).optional(),
+  role: userRoleEnum.optional(),
 }).partial();
 
 export const changePasswordSchema = z.object({
