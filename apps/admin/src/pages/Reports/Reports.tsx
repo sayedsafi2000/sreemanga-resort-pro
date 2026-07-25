@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { Download, RefreshCw, DollarSign, Wallet, TrendingUp, TrendingDown, BedDouble, CalendarCheck } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import FinancialReports from '@/components/reports/FinancialReports';
 
 type RevenueResp = {
   totalRevenue?: number;
@@ -87,6 +88,7 @@ function downloadCsv(filename: string, rows: string[][]): void {
 }
 
 const Reports: React.FC = () => {
+  const [view, setView] = useState<'operational' | 'financial'>('operational');
   const [startDate, setStartDate] = useState<string>(firstOfMonth());
   const [endDate, setEndDate] = useState<string>(todayIso());
   const [rev, setRev] = useState<RevenueResp | null>(null);
@@ -216,6 +218,15 @@ const Reports: React.FC = () => {
         </div>
       )}
 
+      <div className="flex gap-2">
+        <Button variant={view === 'operational' ? 'default' : 'outline'} onClick={() => setView('operational')}>Operational</Button>
+        <Button variant={view === 'financial' ? 'default' : 'outline'} onClick={() => setView('financial')}>Financial (P&L / Balance Sheet)</Button>
+      </div>
+
+      {view === 'financial' ? (
+        <FinancialReports startDate={startDate} endDate={endDate} />
+      ) : (
+      <div className="space-y-6">
       {/* Headline cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {loading ? (
@@ -421,6 +432,8 @@ const Reports: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+      </div>
+      )}
     </div>
   );
 };

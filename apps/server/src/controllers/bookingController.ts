@@ -4,6 +4,7 @@ import { bookingSchema, updateBookingSchema } from '../validators/bookingValidat
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
 import { createPaymentFromBooking } from '../utils/bookingPayment';
+import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
 
 export const getAllBookings = async (
   req: Request,
@@ -134,7 +135,7 @@ export const createBooking = async (
     const days = Math.ceil(
       (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
     );
-    const totalAmount = room.price * days;
+    const grossAmount = room.price * days;
 
     const {
       guestName,
@@ -147,6 +148,7 @@ export const createBooking = async (
       paymentProofImage,
       status: requestedStatus,
       notes,
+      voucherCode,
       ...rest
     } = data;
 
@@ -162,18 +164,41 @@ export const createBooking = async (
       guestId = guest.id;
     }
 
+    const guest = await prisma.guest.findUnique({ where: { id: guestId } });
     const status = requestedStatus ?? 'PENDING';
 
     const booking = await prisma.$transaction(async (tx) => {
+      let discountAmount = 0;
+      let voucherId: string | undefined;
+      if (voucherCode?.trim()) {
+        const applied = await validateVoucherForCheckout(tx, {
+          code: voucherCode,
+          channel: 'ROOM',
+          grossAmount,
+          lineItems: [{ itemType: 'ROOM', itemId: room.id, amount: grossAmount }],
+          assignee: {
+            guestId,
+            guestEmail: guest?.email || guestEmail?.trim() || null,
+            userId: req.user?.id,
+          },
+        });
+        discountAmount = applied.discountAmount;
+        voucherId = applied.voucher.id;
+      }
+
+      const totalAmount = Math.max(0, Math.round((grossAmount - discountAmount) * 100) / 100);
+
       const created = await tx.booking.create({
         data: {
           roomId: rest.roomId,
-          guestId,
+          guestId: guestId!,
           adults: rest.adults,
           children: rest.children,
           checkInDate: checkIn,
           checkOutDate: checkOut,
           totalAmount,
+          discountAmount,
+          voucherId,
           status,
           staffId: req.user?.id,
           notes: notes?.trim() || undefined,
@@ -191,6 +216,20 @@ export const createBooking = async (
           staff: true,
         },
       });
+
+      if (voucherId && discountAmount > 0) {
+        await recordVoucherRedemption(tx, {
+          voucherId,
+          amountDiscounted: discountAmount,
+          referenceType: 'BOOKING',
+          referenceId: created.id,
+          redeemedById: req.user?.id,
+          guestId,
+          guestEmail: (created as any).guest?.email ?? null,
+          source: 'ADMIN',
+          channel: 'ROOM',
+        });
+      }
 
       if (preferredPaymentTiming) {
         await createPaymentFromBooking(tx, created);

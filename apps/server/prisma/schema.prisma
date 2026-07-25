@@ -13,6 +13,9 @@ datasource db {
 model ExpenseCategory {
   id         String     @id @default(uuid())
   name       String
+  // Link to a chart-of-accounts EXPENSE account (Phase 0.2). Optional during migration.
+  accountId  String?
+  account    Account?   @relation(fields: [accountId], references: [id])
   isActive   Boolean   @default(true)
   sortOrder  Int       @default(0)
   // Array of CategoryField definitions: [{ key, label, type, required, options? }]
@@ -25,6 +28,7 @@ model ExpenseCategory {
 
   @@index([isActive])
   @@index([sortOrder])
+  @@index([accountId])
 }
 
 model PendingPayment {
@@ -82,6 +86,7 @@ model User {
   id        String   @id @default(uuid())
   name      String
   email     String   @unique
+  phone     String?
   password  String
   role      Role     @default(RECEPTIONIST)
   createdAt DateTime @default(now())
@@ -94,6 +99,15 @@ model User {
   salaryPayments    StaffSalary[]
   pendingPayments   PendingPayment[]
   passwordResets    PasswordReset[]
+  dayLongBookings   DayLongBooking[]
+  stockMovements    StockMovement[]
+  accountTransactions AccountTransaction[]
+  shareholder       Shareholder?
+  createdDistributions ProfitDistribution[]
+  staffProfile      StaffProfile?
+  markedAttendance  Attendance[]         @relation("AttendanceMarkedBy")
+  approvedLeaves    Leave[]              @relation("LeaveApprovedBy")
+  createdVouchers   Voucher[]            @relation("VoucherCreatedBy")
 
   @@index([email])
   @@index([role])
@@ -185,6 +199,9 @@ model Booking {
   paymentTransactionId String?
   paymentProofImage String?
   totalAmount   Float
+  discountAmount Float  @default(0)
+  voucherId     String?
+  voucher       Voucher? @relation(fields: [voucherId], references: [id])
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -220,7 +237,7 @@ model Guest {
 
 model Payment {
   id            String   @id @default(uuid())
-  bookingId     String
+  bookingId     String?
   amount        Float
   method        PaymentMethod
   status        PaymentStatus @default(PENDING)
@@ -228,16 +245,23 @@ model Payment {
   stripeSessionId       String? @unique
   stripePaymentIntentId String?
   notes         String?
+  // Polymorphic reference (Phase 0.4). For non-room payments bookingId is null.
+  // referenceType: "BOOKING" | "RESTAURANT_ORDER" | "DAY_LONG_BOOKING"
+  referenceType String?
+  referenceId   String?
+  businessLine  BusinessLine?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
-  booking       Booking  @relation(fields: [bookingId], references: [id])
+  booking       Booking?  @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
   @@index([method])
   @@index([status])
   @@index([stripeSessionId])
+  @@index([referenceType, referenceId])
+  @@index([businessLine])
 }
 
 model RestaurantMenu {
@@ -253,6 +277,8 @@ model RestaurantMenu {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  ingredients MenuItemIngredient[]
+
   @@index([category])
   @@index([category, sortOrder])
   @@index([isAvailable])
@@ -264,6 +290,14 @@ model RestaurantOrder {
   userId      String?
   items       Json
   totalPrice  Float
+  discount      Float   @default(0)
+  serviceCharge Float   @default(0)
+  netAmount     Float?  // totalPrice - discount + serviceCharge (computed on write)
+  paidAmount    Float   @default(0)
+  paymentStatus RestaurantOrderPaymentStatus @default(UNPAID)
+  businessLine  BusinessLine @default(RESTAURANT)
+  voucherId     String?
+  voucher       Voucher? @relation(fields: [voucherId], references: [id])
   status      OrderStatus @default(PENDING)
   notes       String?
   createdAt   DateTime @default(now())
@@ -275,6 +309,8 @@ model RestaurantOrder {
 
   @@index([roomId])
   @@index([status])
+  @@index([paymentStatus])
+  @@index([voucherId])
 }
 
 model Setting {
@@ -347,6 +383,313 @@ model SiteBlog {
   @@index([category])
 }
 
+// Chart of Accounts (Phase 0.1). Hierarchical tree of accounts.
+model Account {
+  id             String      @id @default(uuid())
+  code           String      @unique   // e.g., "1001", "4002"
+  name           String
+  type           AccountType
+  parentId       String?
+  parent         Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children       Account[]   @relation("AccountHierarchy")
+  description    String?
+  openingBalance Float       @default(0)
+  currentBalance Float       @default(0)
+  isActive       Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  expenseCategories ExpenseCategory[]
+  transactions      AccountTransaction[]
+
+  @@index([type])
+  @@index([parentId])
+  @@index([code])
+}
+
+enum TxnDirection {
+  IN    // money into this account   → balance += amount
+  OUT   // money out of this account  → balance -= amount
+}
+
+enum ReceivableStatus {
+  OPEN
+  PARTIAL
+  COLLECTED
+  CANCELLED
+}
+
+// Amount owed TO the resort (unpaid booking/order balances, other debts).
+model Receivable {
+  id              String           @id @default(uuid())
+  customerName    String
+  amount          Float
+  collectedAmount Float            @default(0)
+  dueDate         DateTime?
+  status          ReceivableStatus @default(OPEN)
+  referenceType   String?          // BOOKING | RESTAURANT_ORDER | DAY_LONG_BOOKING | OTHER
+  referenceId     String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([referenceType, referenceId])
+}
+
+// Signed cashbook ledger entry (Phase 4). One uniform rule: IN adds, OUT subtracts.
+model AccountTransaction {
+  id              String        @id @default(uuid())
+  accountId       String
+  account         Account       @relation(fields: [accountId], references: [id])
+  direction       TxnDirection
+  amount          Float         // always positive
+  description     String?
+  businessLine    BusinessLine?
+  referenceType   String?       // BOOKING | RESTAURANT_ORDER | DAY_LONG_BOOKING | EXPENSE | TRANSFER | INVOICE | DISTRIBUTION
+  referenceId     String?
+  transactionDate DateTime      @default(now())
+  createdById     String?
+  createdBy       User?         @relation(fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@index([accountId])
+  @@index([transactionDate])
+  @@index([businessLine])
+  @@index([referenceType, referenceId])
+}
+
+// Booking OTP persisted to DB (Phase 0.6) — replaces in-memory Map in publicController.
+model OtpCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([email, code])
+  @@index([expiresAt])
+}
+
+// Audit trail (Phase 8) — records successful mutations for accountability.
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  userName  String?
+  userRole  String?
+  action    String   // CREATE | UPDATE | DELETE | LOGIN | APPROVE | REJECT | ...
+  entity    String   // Booking | Payment | Expense | Account | Shareholder | ...
+  entityId  String?
+  method    String?
+  path      String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action, entity])
+}
+
+// ── Day Long module (Phase 1) ──────────────────────────────────────────────
+enum DayLongCategory {
+  POOL
+  COTTAGE
+  CONFERENCE
+  EVENT
+  PICNIC
+}
+
+enum DayLongBookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+model DayLongProduct {
+  id             String          @id @default(uuid())
+  name           String
+  category       DayLongCategory
+  description    String?
+  images         String[]
+  basePrice      Float           // per-slot / base rate
+  pricePerPerson Float?          // optional per-person charge
+  maxCapacity    Int?
+  minCapacity    Int?
+  facilities     Json?           // ["Shower", "Changing Room", ...]
+  availableSlots Json?           // [{ start, end, label }]
+  duration       Int?            // default hours
+  bookingRules   Json?
+  isActive       Boolean         @default(true)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  bookings       DayLongBooking[]
+
+  @@index([category])
+  @@index([isActive, sortOrder])
+}
+
+model DayLongBooking {
+  id                     String               @id @default(uuid())
+  productId              String
+  product                DayLongProduct       @relation(fields: [productId], references: [id])
+  guestName              String
+  guestPhone             String
+  guestEmail             String?
+  guestNid               String?
+  guestAddress           String?
+  bookingDate            DateTime
+  slotStart              String
+  slotEnd                String
+  adults                 Int                  @default(1)
+  children               Int                  @default(0)
+  totalAmount            Float
+  discountAmount         Float                @default(0)
+  paidAmount             Float                @default(0)
+  status                 DayLongBookingStatus @default(PENDING)
+  notes                  String?
+  preferredPaymentTiming String?              // INSTANT | LATER
+  preferredPaymentMethod String?
+  paymentTransactionId   String?
+  paymentProofImage      String?
+  voucherId              String?
+  voucher                Voucher?             @relation(fields: [voucherId], references: [id])
+  createdById            String?
+  createdBy              User?                @relation(fields: [createdById], references: [id])
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@index([productId])
+  @@index([bookingDate])
+  @@index([status])
+  @@index([bookingDate, status])
+  @@index([voucherId])
+}
+
+// ── Vouchers ───────────────────────────────────────────────────────────────
+enum VoucherDiscountType {
+  PERCENT
+  FIXED
+}
+
+enum VoucherScope {
+  OVERALL
+  SELECTED_ITEMS
+}
+
+enum VoucherAssigneeType {
+  NONE
+  GUEST
+  USER
+  SHAREHOLDER
+}
+
+enum VoucherItemType {
+  ROOM
+  DAY_LONG_PRODUCT
+  MENU_ITEM
+}
+
+model Voucher {
+  id                 String               @id @default(uuid())
+  codeHash           String
+  codeHint           String               // last 4 chars for display
+  codePlain          String?              // full code for admin copy (never exposed on public/mine APIs)
+  name               String
+  description        String?
+  discountType       VoucherDiscountType
+  discountValue      Float
+  scope              VoucherScope         @default(OVERALL)
+  appliesRoom        Boolean              @default(true)
+  appliesDayLong     Boolean              @default(true)
+  appliesRestaurant  Boolean              @default(true)
+  minSpend           Float?
+  maxDiscountAmount  Float?
+  startsAt           DateTime?
+  expiresAt          DateTime?
+  maxRedemptions     Int?
+  maxPerAssignee     Int?
+  isActive           Boolean              @default(true)
+  isSecure           Boolean              @default(true)
+  // Audience "All" flags (Selected people live in assignees[])
+  audienceAllGuests       Boolean @default(false)
+  audienceAllStaff        Boolean @default(false)
+  audienceAllShareholders Boolean @default(false)
+  // Legacy single-assignee fields (kept for backfill; prefer assignees[])
+  assigneeType       VoucherAssigneeType  @default(NONE)
+  assigneeId         String?
+  createdById        String?
+  createdBy          User?                @relation("VoucherCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  items              VoucherItem[]
+  assignees          VoucherAssignee[]
+  redemptions        VoucherRedemption[]
+  bookings           Booking[]
+  dayLongBookings    DayLongBooking[]
+  restaurantOrders   RestaurantOrder[]
+
+  @@index([codeHint])
+  @@unique([codeHash])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([assigneeType, assigneeId])
+}
+
+model VoucherAssignee {
+  id           String              @id @default(uuid())
+  voucherId    String
+  voucher      Voucher             @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  assigneeType VoucherAssigneeType // GUEST | USER | SHAREHOLDER (not NONE)
+  assigneeId   String
+
+  @@unique([voucherId, assigneeType, assigneeId])
+  @@index([assigneeType, assigneeId])
+}
+
+model VoucherItem {
+  id        String          @id @default(uuid())
+  voucherId String
+  voucher   Voucher         @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  itemType  VoucherItemType
+  itemId    String
+
+  @@unique([voucherId, itemType, itemId])
+  @@index([itemType, itemId])
+}
+
+model VoucherRedemption {
+  id               String   @id @default(uuid())
+  voucherId        String
+  voucher          Voucher  @relation(fields: [voucherId], references: [id])
+  amountDiscounted Float
+  referenceType    String   // BOOKING | DAY_LONG_BOOKING | RESTAURANT_ORDER
+  referenceId      String
+  redeemedById     String?
+  guestId          String?
+  guestEmail       String?
+  source           String?  // PUBLIC_WEB | ADMIN
+  channel          String?  // ROOM | DAY_LONG | RESTAURANT
+  createdAt        DateTime @default(now())
+
+  @@unique([voucherId, referenceType, referenceId])
+  @@index([voucherId])
+  @@index([referenceType, referenceId])
+  @@index([guestId])
+  @@index([source])
+}
+
 enum Role {
   SUPER_ADMIN
   MANAGER
@@ -354,6 +697,190 @@ enum Role {
   HOUSEKEEPING
   RESTAURANT_STAFF
   ACCOUNTANT
+  SHAREHOLDER
+}
+
+// ── Shareholder module (Phase 5) ───────────────────────────────────────────
+enum ShareType {
+  PERCENTAGE   // gets X% of the distributable pool (relative to other percentage holders)
+  FIXED        // gets a fixed amount per distribution
+  CUSTOM       // admin sets amount manually per distribution
+}
+
+enum DistributionStatus {
+  DRAFT
+  APPROVED
+  DISTRIBUTED
+  CANCELLED
+}
+
+enum ProfitShareStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Shareholder {
+  id               String    @id @default(uuid())
+  userId           String?   @unique
+  user             User?     @relation(fields: [userId], references: [id])
+  name             String
+  phone            String
+  email            String?   @unique
+  address          String?
+  nid              String?
+  shareType        ShareType @default(PERCENTAGE)
+  shareValue       Float     @default(0)   // percentage number OR fixed amount
+  totalShares      Int?
+  investmentAmount Float?
+  joinDate         DateTime  @default(now())
+  isActive         Boolean   @default(true)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  profitShares     ProfitShare[]
+
+  @@index([email])
+  @@index([isActive])
+}
+
+model ProfitDistribution {
+  id               String             @id @default(uuid())
+  periodLabel      String
+  periodStart      DateTime
+  periodEnd        DateTime
+  totalProfit      Float
+  totalDistributed Float              @default(0)
+  distributionDate DateTime?
+  status           DistributionStatus @default(DRAFT)
+  notes            String?
+  createdById      String?
+  createdBy        User?              @relation(fields: [createdById], references: [id])
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  shares           ProfitShare[]
+
+  @@index([status])
+  @@index([periodStart, periodEnd])
+}
+
+model ProfitShare {
+  id             String             @id @default(uuid())
+  distributionId String
+  distribution   ProfitDistribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  shareholderId  String
+  shareholder    Shareholder        @relation(fields: [shareholderId], references: [id])
+  amount         Float
+  status         ProfitShareStatus  @default(PENDING)
+  paidDate       DateTime?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([distributionId, shareholderId])
+  @@index([shareholderId])
+  @@index([status])
+}
+
+// ── Inventory module (Phase 3) ─────────────────────────────────────────────
+enum InventoryCategory {
+  FOOD_ITEM
+  AMENITY
+  PRODUCT
+  SUPPLY
+  ASSET
+}
+
+enum StockMoveType {
+  PURCHASE      // stock in (buy)
+  SALE          // stock out (sold directly)
+  CONSUMPTION   // stock out (used by restaurant order / day-long)
+  ISSUE         // stock out (housekeeping/amenity issue)
+  ADJUSTMENT    // manual +/- (correction, wastage)
+  RETURN        // stock in (return/supplier reversal)
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     InventoryItem[]
+  purchases StockMovement[]
+
+  @@index([isActive])
+}
+
+model InventoryItem {
+  id                 String            @id @default(uuid())
+  sku                String?           @unique
+  name               String
+  category           InventoryCategory
+  unit               String            // "kg", "pcs", "litre", "box"
+  currentStock       Float             @default(0)
+  reorderLevel       Float             @default(0)
+  costPrice          Float             @default(0)   // last purchase unit cost
+  sellPrice          Float?
+  supplierId         String?
+  supplier           Supplier?         @relation(fields: [supplierId], references: [id])
+  expenseAccountCode String?           // which account a purchase hits (default by category)
+  isActive           Boolean           @default(true)
+  notes              String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  movements  StockMovement[]
+  menuLinks  MenuItemIngredient[]
+
+  @@index([category])
+  @@index([isActive])
+  @@index([currentStock])
+}
+
+model StockMovement {
+  id            String        @id @default(uuid())
+  itemId        String
+  item          InventoryItem @relation(fields: [itemId], references: [id])
+  type          StockMoveType
+  quantity      Float         // always positive; sign implied by type
+  unitCost      Float?
+  totalCost     Float?
+  balanceAfter  Float         // stock snapshot after this move
+  supplierId    String?
+  supplier      Supplier?     @relation(fields: [supplierId], references: [id])
+  referenceType String?       // "RESTAURANT_ORDER" | "DAY_LONG_BOOKING" | "PURCHASE" | "MANUAL"
+  referenceId   String?
+  expenseId     String?       // link to created Expense (for PURCHASE)
+  notes         String?
+  createdById   String?
+  createdBy     User?         @relation(fields: [createdById], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([itemId])
+  @@index([type])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+}
+
+// Recipe link: a menu item consumes N units of an inventory food-item.
+model MenuItemIngredient {
+  id         String         @id @default(uuid())
+  menuItemId String
+  menuItem   RestaurantMenu @relation(fields: [menuItemId], references: [id])
+  itemId     String
+  item       InventoryItem  @relation(fields: [itemId], references: [id])
+  quantity   Float          // units consumed per 1 menu item sold
+  createdAt  DateTime       @default(now())
+
+  @@unique([menuItemId, itemId])
+  @@index([menuItemId])
 }
 
 enum RoomType {
@@ -362,6 +889,173 @@ enum RoomType {
   SUITE
   FAMILY
   PRESIDENTIAL
+}
+
+// ── Staff HR module (Phase 6) ──────────────────────────────────────────────
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  LEAVE
+  HOLIDAY
+}
+
+enum LeaveType {
+  SICK
+  CASUAL
+  ANNUAL
+  MATERNITY
+  PATERNITY
+  UNPAID
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Department {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  description String?
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  designations Designation[]
+  staff        StaffProfile[]
+
+  @@index([isActive])
+}
+
+model Designation {
+  id           String       @id @default(uuid())
+  title        String
+  departmentId String
+  department   Department   @relation(fields: [departmentId], references: [id])
+  sortOrder    Int          @default(0)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  staff        StaffProfile[]
+
+  @@unique([title, departmentId])
+  @@index([departmentId])
+}
+
+model StaffProfile {
+  id               String       @id @default(uuid())
+  userId           String       @unique
+  user             User         @relation(fields: [userId], references: [id])
+  employeeId       String?      @unique
+  departmentId     String?
+  department       Department?  @relation(fields: [departmentId], references: [id])
+  designationId    String?
+  designation      Designation? @relation(fields: [designationId], references: [id])
+  phone            String?
+  emergencyContact String?
+  emergencyPhone   String?
+  presentAddress   String?
+  permanentAddress String?
+  bloodGroup       String?
+  dateOfBirth      DateTime?
+  joiningDate      DateTime?
+  resignDate       DateTime?
+  bankName         String?
+  bankAccountNo    String?
+  bankBranch       String?
+  basicSalary      Float?
+  isActive         Boolean      @default(true)
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  dutyRosters      DutyRoster[]
+  attendance       Attendance[]
+  leaves           Leave[]
+
+  @@index([departmentId])
+  @@index([designationId])
+  @@index([isActive])
+}
+
+model Shift {
+  id          String       @id @default(uuid())
+  name        String
+  startTime   String
+  endTime     String
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  dutyRosters DutyRoster[]
+
+  @@index([isActive])
+}
+
+model DutyRoster {
+  id        String       @id @default(uuid())
+  staffId   String
+  staff     StaffProfile @relation(fields: [staffId], references: [id])
+  shiftId   String
+  shift     Shift        @relation(fields: [shiftId], references: [id])
+  date      DateTime
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([staffId, date])
+  @@index([date])
+  @@index([shiftId])
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  staffId    String
+  staff      StaffProfile     @relation(fields: [staffId], references: [id])
+  date       DateTime
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     AttendanceStatus @default(PRESENT)
+  notes      String?
+  markedById String?
+  markedBy   User?            @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([staffId, date])
+  @@index([date])
+  @@index([status])
+  @@index([staffId, date])
+}
+
+model Leave {
+  id              String       @id @default(uuid())
+  staffId         String
+  staff           StaffProfile @relation(fields: [staffId], references: [id])
+  type            LeaveType
+  startDate       DateTime
+  endDate         DateTime
+  totalDays       Int
+  reason          String?
+  status          LeaveStatus  @default(PENDING)
+  approvedById    String?
+  approvedBy      User?        @relation("LeaveApprovedBy", fields: [approvedById], references: [id])
+  rejectionReason String?
+  documents       String[]     @default([])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([staffId])
+  @@index([status])
+  @@index([startDate, endDate])
 }
 
 enum RoomStatus {
@@ -385,6 +1079,29 @@ enum PaymentMethod {
   NAGAD
   CARD
   STRIPE
+  BANK_TRANSFER
+  MOBILE_BANKING
+}
+
+// Which revenue stream a transaction belongs to. Used for segmented P&L.
+enum BusinessLine {
+  ROOM
+  RESTAURANT
+  DAY_LONG
+}
+
+// Chart-of-accounts classification (Phase 0 / Phase 4 accounts system).
+enum AccountType {
+  CASH
+  BANK
+  MOBILE_BANKING
+  RECEIVABLE
+  PAYABLE
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
 }
 
 enum PaymentStatus {
@@ -400,4 +1117,10 @@ enum OrderStatus {
   READY
   DELIVERED
   CANCELLED
+}
+
+enum RestaurantOrderPaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
 }

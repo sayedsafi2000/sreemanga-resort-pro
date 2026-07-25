@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import GuestPicker, { type GuestPick } from '@/components/GuestPicker';
+import VoucherApplyField from '@/components/VoucherApplyField';
 
 type RoomRow = { id: string; name: string; price: number; status?: string };
 type GuestRow = { id: string; name: string; phone: string; email?: string | null };
@@ -33,9 +35,9 @@ type Props = {
   onSuccess: () => void;
 };
 
-export default function ManualBookingDialog({ open, onOpenChange, rooms, guests, onSuccess }: Props) {
+export default function ManualBookingDialog({ open, onOpenChange, rooms, guests: _guests, onSuccess }: Props) {
   const [useExistingGuest, setUseExistingGuest] = useState(false);
-  const [guestId, setGuestId] = useState('');
+  const [pickedGuest, setPickedGuest] = useState<GuestPick | null>(null);
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
@@ -53,6 +55,8 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
   const [calLoading, setCalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherPreview, setVoucherPreview] = useState<{ discountAmount: number; netAmount: number } | null>(null);
   const [paymentAccounts, setPaymentAccounts] = useState({
     bkashNumber: ENV_BKASH_NUMBER,
     bankAccountName: ENV_BANK_ACCOUNT_NAME,
@@ -172,13 +176,14 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
       return;
     }
     if (useExistingGuest) {
-      if (!guestId) {
-        setError('Select a guest, or turn off “existing guest” and enter name + phone.');
+      if (!pickedGuest?.id) {
+        setError('Search and select a guest, or switch to new guest and enter name + phone.');
         return;
       }
     } else {
-      if (guestName.trim().length < 2 || guestPhone.trim().length < 10) {
-        setError('Guest name (2+ chars) and phone (10+ chars) are required.');
+      const phoneDigits = guestPhone.replace(/\D/g, '');
+      if (guestName.trim().length < 2 || phoneDigits.length < 10) {
+        setError('Guest name (2+ chars) and phone (at least 10 digits) are required.');
         return;
       }
     }
@@ -202,10 +207,36 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
       preferredPaymentMethod: preferredPaymentTiming === 'INSTANT' ? preferredPaymentMethod : undefined,
       paymentTransactionId: preferredPaymentTiming === 'INSTANT' ? paymentTransactionId.trim() : undefined,
       paymentProofImage: preferredPaymentTiming === 'INSTANT' ? paymentProofImage : undefined,
+      ...(voucherCode.trim() ? { voucherCode: voucherCode.trim() } : {}),
     };
 
-    if (useExistingGuest) {
-      body.guestId = guestId;
+    if (useExistingGuest && pickedGuest) {
+      const isRealGuest =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          pickedGuest.id
+        );
+      if (isRealGuest) {
+        body.guestId = pickedGuest.id;
+      } else {
+        // GuestPicker may return shareholder:/linked rows — create booking guest from details
+        const phone = (
+          pickedGuest.phone ||
+          pickedGuest.user?.phone ||
+          pickedGuest.shareholder?.phone ||
+          ''
+        ).trim();
+        const phoneDigits = phone.replace(/\D/g, '');
+        if (phoneDigits.length < 10) {
+          setError(
+            'This contact has no usable phone (need 10+ digits). Switch to “New guest” and enter name + phone.'
+          );
+          return;
+        }
+        body.guestName = pickedGuest.name;
+        body.guestPhone = phone;
+        const em = pickedGuest.email || pickedGuest.shareholder?.email || pickedGuest.user?.email;
+        if (em) body.guestEmail = em;
+      }
     } else {
       body.guestName = guestName.trim();
       body.guestPhone = guestPhone.trim();
@@ -220,7 +251,7 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
       setGuestName('');
       setGuestPhone('');
       setGuestEmail('');
-      setGuestId('');
+      setPickedGuest(null);
       setRange(undefined);
       setPaymentTransactionId('');
       setPaymentProofImage(undefined);
@@ -228,6 +259,8 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
       setPreferredPaymentTiming('LATER');
       setStatus('PENDING');
       setUseExistingGuest(false);
+      setVoucherCode('');
+      setVoucherPreview(null);
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } };
       setError(ax.response?.data?.message || 'Could not create booking.');
@@ -247,36 +280,38 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <label className="flex cursor-pointer flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2">
-            <input
-              type="checkbox"
-              checked={useExistingGuest}
-              onChange={(e) => {
-                setUseExistingGuest(e.target.checked);
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={useExistingGuest ? 'default' : 'outline'}
+              onClick={() => {
+                setUseExistingGuest(true);
                 setError(null);
               }}
-              className="h-4 w-4 rounded border"
-            />
-            <span className="text-sm">Existing guest (select from list)</span>
-          </label>
+            >
+              Search existing guest
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={!useExistingGuest ? 'default' : 'outline'}
+              onClick={() => {
+                setUseExistingGuest(false);
+                setPickedGuest(null);
+                setError(null);
+              }}
+            >
+              New guest
+            </Button>
+          </div>
 
           {useExistingGuest ? (
-            <div className="space-y-2">
-              <Label>Guest</Label>
-              <Select value={guestId} onValueChange={setGuestId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select guest" />
-                </SelectTrigger>
-                <SelectContent>
-                  {guests.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name} — {g.phone}
-                      {g.email ? ` · ${g.email}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <GuestPicker
+              value={pickedGuest}
+              onChange={setPickedGuest}
+              label="Find guest by name, phone, or email"
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
@@ -505,10 +540,54 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests,
             </div>
           </div>
 
+          <VoucherApplyField
+            channel="ROOM"
+            grossAmount={previewTotal}
+            lineItems={
+              selectedRoom && previewTotal > 0
+                ? [{ itemType: 'ROOM', itemId: selectedRoom.id, amount: previewTotal }]
+                : undefined
+            }
+            guestEmail={
+              useExistingGuest
+                ? pickedGuest?.email ||
+                  pickedGuest?.shareholder?.email ||
+                  pickedGuest?.user?.email
+                : guestEmail
+            }
+            guestId={
+              useExistingGuest &&
+              pickedGuest &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                pickedGuest.id
+              )
+                ? pickedGuest.id
+                : undefined
+            }
+            value={voucherCode}
+            onChange={setVoucherCode}
+            preview={voucherPreview}
+            onPreview={setVoucherPreview}
+            onError={setError}
+            disabled={saving}
+          />
+
           {previewTotal > 0 && (
             <p className="text-sm font-medium">
-              Estimated total: ৳{previewTotal.toLocaleString()} ({nights} night{nights !== 1 ? 's' : ''} × ৳
-              {selectedRoom ? Number(selectedRoom.price).toLocaleString() : '—'})
+              Estimated total: ৳
+              {(voucherPreview?.netAmount ?? previewTotal).toLocaleString()}
+              {voucherPreview ? (
+                <span className="text-muted-foreground font-normal">
+                  {' '}
+                  (was ৳{previewTotal.toLocaleString()})
+                </span>
+              ) : (
+                <>
+                  {' '}
+                  ({nights} night{nights !== 1 ? 's' : ''} × ৳
+                  {selectedRoom ? Number(selectedRoom.price).toLocaleString() : '—'})
+                </>
+              )}
             </p>
           )}
 

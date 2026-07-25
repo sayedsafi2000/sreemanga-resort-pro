@@ -282,7 +282,7 @@ const NearbyExplore: React.FC = () => {
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold">Places</h2>
-        <Button variant="ink" onClick={openNew}>
+        <Button variant="default" onClick={openNew}>
           <Plus className="mr-2 h-4 w-4" />
           Add place
         </Button>

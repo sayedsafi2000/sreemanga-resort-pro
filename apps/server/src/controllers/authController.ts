@@ -12,7 +12,7 @@ export const login = async (
   next: NextFunction
 ) => {
   try {
-    const { email, password } = loginSchema.parse(req.body);
+    const { email, password, audience } = loginSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -26,6 +26,14 @@ export const login = async (
 
     if (!isValidPassword) {
       throw new AppError('Invalid credentials', 401);
+    }
+
+    // Reject wrong portal before issuing a JWT — no client login-then-logout.
+    if (audience === 'staff' && user.role === 'SHAREHOLDER') {
+      throw new AppError('Shareholder account — use Shareholder login', 403);
+    }
+    if (audience === 'shareholder' && user.role !== 'SHAREHOLDER') {
+      throw new AppError('Staff account — use Staff login', 403);
     }
 
     const signOptions: SignOptions = {
@@ -55,7 +63,7 @@ export const register = async (
   next: NextFunction
 ) => {
   try {
-    const { name, email, password, role } = registerSchema.parse(req.body);
+    const { name, email, password } = registerSchema.parse(req.body);
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -67,12 +75,15 @@ export const register = async (
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // SECURITY: public self-registration is always RECEPTIONIST. Any `role` in
+    // the body is ignored — staff roles (MANAGER/ACCOUNTANT/SUPER_ADMIN/…) are
+    // assigned only via the SUPER_ADMIN-gated /api/users endpoint.
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: role || 'RECEPTIONIST',
+        role: 'RECEPTIONIST',
       },
     });
 

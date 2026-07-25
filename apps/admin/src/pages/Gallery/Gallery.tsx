@@ -180,7 +180,7 @@ const Gallery: React.FC = () => {
         title="Site Gallery"
         description="Images appear on the public website gallery. Set category (used for filters) and sort order (lower = earlier). Upload a file or paste a URL."
         actions={
-          <Button variant="ink" onClick={openNew}>
+          <Button variant="default" onClick={openNew}>
             <Plus className="mr-2 h-4 w-4" />
             Add image
           </Button>

@@ -16,12 +16,15 @@ export function mapBookingPaymentMethod(method?: string | null): PaymentMethod {
       return 'BKASH';
     case 'NAGAD':
       return 'NAGAD';
+    case 'MOBILE_BANKING':
+      return 'MOBILE_BANKING';
     case 'BANK_TRANSFER':
-      return 'CARD';
+      return 'BANK_TRANSFER';
     case 'STRIPE':
       return 'STRIPE';
+    case 'CARD':
+      return 'CARD';
     case 'CASH':
-      return 'CASH';
     default:
       return 'CASH';
   }
@@ -69,6 +72,9 @@ export async function createPaymentFromBooking(
       status: 'PENDING',
       transactionId: isInstant ? booking.paymentTransactionId?.trim() || undefined : undefined,
       notes: buildPaymentNotesFromBooking(booking),
+      referenceType: 'BOOKING',
+      referenceId: booking.id,
+      businessLine: 'ROOM',
     },
   });
 }

@@ -194,7 +194,7 @@ const Blogs: React.FC = () => {
         title="Blog Posts"
         description="Manage articles and news shown on the public website."
         actions={
-          <Button variant="ink" onClick={openNew}><Plus className="h-4 w-4 mr-2" /> New Blog</Button>
+          <Button variant="default" onClick={openNew}><Plus className="h-4 w-4 mr-2" /> New Blog</Button>
         }
       />
 

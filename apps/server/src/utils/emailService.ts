@@ -391,6 +391,50 @@ class EmailService {
       text: `Reset your ${BRAND_NAME} admin password:\n${resetUrl}\n\nThis link expires in 1 hour. If you did not request this, ignore this email.`,
     });
   }
+
+  // ── 7. Profit Distribution Email ──────────────────────────────────────────
+  async sendProfitDistributionEmail(
+    email: string,
+    payout: {
+      shareholderName: string;
+      periodLabel: string;
+      amount: number;
+      paidDate?: string;
+    }
+  ): Promise<boolean> {
+    const rows: [string, string][] = [
+      ['Period', payout.periodLabel],
+      ['Amount', `৳${payout.amount.toLocaleString()}`],
+    ];
+    if (payout.paidDate) rows.push(['Paid On', payout.paidDate]);
+
+    const html = wrap(bodyPad(`
+      <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#4a6e4a;letter-spacing:2px;text-transform:uppercase;">Profit Distribution</p>
+      <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#0a1b0c;">Your profit share has been paid 💚</h2>
+      <p style="margin:0 0 24px;font-size:15px;color:#3a5a3a;line-height:1.7;">
+        Dear <strong>${payout.shareholderName}</strong>, your profit distribution for
+        <strong>${payout.periodLabel}</strong> has been processed.
+      </p>
+
+      <div style="text-align:center;margin:0 0 24px;">
+        <p style="margin:0 0 4px;font-size:12px;color:#4a6e4a;text-transform:uppercase;letter-spacing:2px;">Amount</p>
+        <p style="margin:0;font-size:42px;font-weight:800;color:${ACCENT_COLOR};">৳${payout.amount.toLocaleString()}</p>
+      </div>
+
+      ${detailTable(rows)}
+
+      <p style="margin:20px 0 0;font-size:13px;color:#6a8e6a;line-height:1.6;">
+        Log in to your ${BRAND_NAME} shareholder portal to view your full distribution history.
+      </p>
+    `));
+
+    return this.sendEmail({
+      to: email,
+      subject: `Profit Distribution — ৳${payout.amount.toLocaleString()} | ${BRAND_NAME}`,
+      html,
+      text: `Profit Distribution Paid\n\nPeriod: ${payout.periodLabel}\nAmount: ৳${payout.amount}${payout.paidDate ? `\nPaid On: ${payout.paidDate}` : ''}\n\nThank you for investing in ${BRAND_NAME}.`,
+    });
+  }
 }
 
 export const emailService = new EmailService();

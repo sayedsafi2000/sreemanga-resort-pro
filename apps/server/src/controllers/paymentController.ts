@@ -3,6 +3,7 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
 import { backfillMissingBookingPayments } from '../utils/bookingPayment';
+import { recordRevenue } from '../utils/accountLedger';
 
 export const getAllPayments = async (
   req: Request,
@@ -11,9 +12,6 @@ export const getAllPayments = async (
 ) => {
   try {
     const { status, method, bookingId, from, to } = req.query;
-
-    // Backfill payment rows for older website bookings that only stored payment info on Booking.
-    await backfillMissingBookingPayments();
 
     const where: any = {};
 
@@ -103,29 +101,80 @@ export const createPayment = async (
       });
       if (!booking) throw new AppError('Booking not found', 404);
 
-      const totalPaid = booking.payments.reduce((s, p) => s + p.amount, 0);
-      if (totalPaid + numAmount > booking.totalAmount) {
-        throw new AppError('Payment amount exceeds remaining balance', 400);
+      // Only COMPLETED counts toward paid — PENDING (website Instant/Later) must not block recording.
+      const totalPaid = booking.payments
+        .filter((p) => p.status === 'COMPLETED')
+        .reduce((s, p) => s + p.amount, 0);
+      const remaining = booking.totalAmount - totalPaid;
+      if (numAmount > remaining + 0.001) {
+        throw new AppError(
+          `Payment amount exceeds remaining balance (৳${Math.max(0, remaining).toFixed(2)} due)`,
+          400
+        );
       }
 
-      const newPayment = await tx.payment.create({
-        data: { bookingId, amount: numAmount, method, transactionId, notes, status: 'COMPLETED' },
-        include: { booking: { include: { room: true, guest: true } } },
-      });
+      // Prefer completing a matching PENDING row (website Instant/Later) instead of duplicating.
+      const matchingPending = booking.payments.find(
+        (p) =>
+          p.status === 'PENDING' && Math.abs(p.amount - numAmount) < 0.01
+      );
+
+      let completedPayment;
+      if (matchingPending) {
+        completedPayment = await tx.payment.update({
+          where: { id: matchingPending.id },
+          data: {
+            status: 'COMPLETED',
+            method,
+            ...(transactionId !== undefined ? { transactionId } : {}),
+            ...(notes !== undefined ? { notes } : {}),
+            referenceType: matchingPending.referenceType || 'BOOKING',
+            referenceId: matchingPending.referenceId || bookingId,
+            businessLine: matchingPending.businessLine || 'ROOM',
+          },
+          include: { booking: { include: { room: true, guest: true } } },
+        });
+      } else {
+        completedPayment = await tx.payment.create({
+          data: {
+            bookingId,
+            amount: numAmount,
+            method,
+            transactionId,
+            notes,
+            status: 'COMPLETED',
+            referenceType: 'BOOKING',
+            referenceId: bookingId,
+            businessLine: 'ROOM',
+          },
+          include: { booking: { include: { room: true, guest: true } } },
+        });
+      }
 
       // Only upgrade PENDING → CONFIRMED, never downgrade
       if (totalPaid + numAmount >= booking.totalAmount && booking.status === 'PENDING') {
         await tx.booking.update({ where: { id: bookingId }, data: { status: 'CONFIRMED' } });
       }
 
-      return newPayment;
+      // Ledger: cash IN + room income IN.
+      await recordRevenue(tx, {
+        amount: numAmount,
+        method,
+        businessLine: 'ROOM',
+        referenceType: 'BOOKING',
+        referenceId: bookingId,
+        createdById: (req as any).user?.id,
+      });
+
+      return completedPayment;
     });
 
     // Send email outside transaction
-    if (payment.booking.guest.email) {
-      emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
-        bookingId: payment.booking.id,
-        guestName: payment.booking.guest.name,
+    const cBooking = payment.booking;
+    if (cBooking?.guest?.email) {
+      emailService.sendPaymentConfirmationEmail(cBooking.guest.email, {
+        bookingId: cBooking.id,
+        guestName: cBooking.guest.name,
         amount: payment.amount,
         method: payment.method,
         transactionId: payment.transactionId || undefined,
@@ -172,13 +221,13 @@ export const updatePayment = async (
         },
       });
 
-      if (status === 'COMPLETED' && updated.booking.status === 'PENDING') {
+      if (status === 'COMPLETED' && updated.booking && updated.booking.status === 'PENDING') {
         const totalPaid = updated.booking.payments.reduce((sum, p) => {
           if (p.id === updated.id) return sum + updated.amount;
           return sum + (p.status === 'COMPLETED' ? p.amount : 0);
         }, 0);
 
-        if (totalPaid >= updated.booking.totalAmount) {
+        if (totalPaid >= updated.booking.totalAmount && updated.bookingId) {
           await tx.booking.update({
             where: { id: updated.bookingId },
             data: { status: 'CONFIRMED' },
@@ -186,16 +235,27 @@ export const updatePayment = async (
         }
       }
 
+      // Record revenue when a PENDING payment first transitions to COMPLETED
+      // (website pay-later bookings). Only fire on the state change.
+      if (status === 'COMPLETED' && existing.status !== 'COMPLETED' && updated.bookingId) {
+        await recordRevenue(tx, {
+          amount: updated.amount,
+          method: updated.method,
+          businessLine: (updated.businessLine as string) || 'ROOM',
+          referenceType: updated.referenceType || 'BOOKING',
+          referenceId: updated.referenceId || updated.bookingId,
+          createdById: (req as any).user?.id,
+        });
+      }
+
       return updated;
     });
 
-    if (
-      status === 'COMPLETED' &&
-      payment.booking.guest.email
-    ) {
-      emailService.sendPaymentConfirmationEmail(payment.booking.guest.email, {
-        bookingId: payment.booking.id,
-        guestName: payment.booking.guest.name,
+    const uBooking = payment.booking;
+    if (status === 'COMPLETED' && uBooking?.guest?.email) {
+      emailService.sendPaymentConfirmationEmail(uBooking.guest.email, {
+        bookingId: uBooking.id,
+        guestName: uBooking.guest.name,
         amount: payment.amount,
         method: payment.method,
         transactionId: payment.transactionId || undefined,
@@ -203,6 +263,21 @@ export const updatePayment = async (
     }
 
     res.json({ success: true, payment });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Explicit backfill (Phase 0.5): create Payment rows for older website bookings
+// that only stored payment info on the Booking. Moved off the GET path — call on demand.
+export const backfillPayments = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const created = await backfillMissingBookingPayments();
+    res.json({ success: true, created });
   } catch (error) {
     next(error);
   }

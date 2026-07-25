@@ -7,27 +7,40 @@ import { format, startOfDay } from 'date-fns';
 import { BedDouble, CalendarDays, Mail, Phone, UserRound, Users } from 'lucide-react';
 import 'react-day-picker/style.css';
 
-import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp } from '@/lib/resort-api';
+import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp, validatePublicVoucher, fetchVouchersForEmail, type PublicMineVoucher } from '@/lib/resort-api';
 import type { Room, RoomAvailabilityCalendar } from '@/types/resort';
 import { cn } from '@/lib/utils';
 
 type Props = {
   rooms: Room[];
   variant?: 'light' | 'dark';
+  paymentAccounts?: {
+    bkashNumber?: string;
+    bankAccountName?: string;
+    bankAccountNumber?: string;
+    bankName?: string;
+    bankBranch?: string;
+  };
 };
 
 const CALENDAR_DAYS = 90;
-const BKASH_NUMBER = process.env.NEXT_PUBLIC_BKASH_NUMBER || '017XXXXXXXX';
-const BANK_ACCOUNT_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "Nirjon Nature's Hideout";
-const BANK_ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '1234567890123';
-const BANK_NAME = process.env.NEXT_PUBLIC_BANK_NAME || 'Dutch-Bangla Bank';
-const BANK_BRANCH = process.env.NEXT_PUBLIC_BANK_BRANCH || 'Sreemangal Branch';
+const ENV_BKASH = process.env.NEXT_PUBLIC_BKASH_NUMBER || '017XXXXXXXX';
+const ENV_BANK_ACCOUNT_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "Nirjon Nature's Hideout";
+const ENV_BANK_ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '1234567890123';
+const ENV_BANK_NAME = process.env.NEXT_PUBLIC_BANK_NAME || 'Dutch-Bangla Bank';
+const ENV_BANK_BRANCH = process.env.NEXT_PUBLIC_BANK_BRANCH || 'Sreemangal Branch';
 
-export default function BookingForm({ rooms, variant = 'light' }: Props) {
+export default function BookingForm({ rooms, variant = 'light', paymentAccounts }: Props) {
   const router = useRouter();
   const sp = useSearchParams();
   const defaultRoom = sp.get('room') || '';
   const isDark = variant === 'dark';
+
+  const BKASH_NUMBER = paymentAccounts?.bkashNumber?.trim() || ENV_BKASH;
+  const BANK_ACCOUNT_NAME = paymentAccounts?.bankAccountName?.trim() || ENV_BANK_ACCOUNT_NAME;
+  const BANK_ACCOUNT_NUMBER = paymentAccounts?.bankAccountNumber?.trim() || ENV_BANK_ACCOUNT_NUMBER;
+  const BANK_NAME = paymentAccounts?.bankName?.trim() || ENV_BANK_NAME;
+  const BANK_BRANCH = paymentAccounts?.bankBranch?.trim() || ENV_BANK_BRANCH;
 
   const [roomId, setRoomId] = useState(defaultRoom || rooms[0]?.id || '');
   const [guestName, setGuestName] = useState('');
@@ -38,6 +51,9 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
   const [children, setChildren] = useState(0);
   const [preferredPaymentTiming, setPreferredPaymentTiming] = useState<'INSTANT' | 'LATER'>('LATER');
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<'BKASH' | 'BANK_TRANSFER' | 'STRIPE'>('BKASH');
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
+  const [emailVouchers, setEmailVouchers] = useState<PublicMineVoucher[]>([]);
   const [paymentTransactionId, setPaymentTransactionId] = useState('');
   const [paymentProofImage, setPaymentProofImage] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle');
@@ -92,6 +108,30 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
     const t = setTimeout(() => setOtpResendTimer((v) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [otpResendTimer]);
+
+  // Load personal vouchers for guest email (Guest / User / Shareholder identities)
+  useEffect(() => {
+    const email = guestEmail.trim();
+    if (!email || !email.includes('@')) {
+      setEmailVouchers([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetchVouchersForEmail(email).then((res) => {
+        setEmailVouchers(
+          res.ok
+            ? res.vouchers.filter(
+                (v) =>
+                  !v.expired &&
+                  !v.exhausted &&
+                  (v.remaining == null || v.remaining > 0)
+              )
+            : []
+        );
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [guestEmail, otpStep]);
 
   async function handleSendOtp() {
     if (!guestEmail.trim()) {
@@ -175,6 +215,11 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
       setMessage('Please enter a valid transaction ID.');
       return;
     }
+    if (guestPhone.replace(/\D/g, '').length < 10) {
+      setStatus('err');
+      setMessage('Phone must be at least 10 digits.');
+      return;
+    }
 
     setStatus('loading');
     setMessage('');
@@ -197,6 +242,7 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
           : undefined,
       checkInDate,
       checkOutDate,
+      ...(voucherCode.trim() ? { voucherCode: voucherCode.trim() } : {}),
     });
     if (res.ok) {
       // Card payment → redirect to Stripe Checkout.
@@ -638,7 +684,7 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
                   </div>
                 </div>
               )}
-              {otpMessage && otpStep !== 'verified' && (
+              {otpMessage && (
                 <p className={cn('text-xs text-center',
                   otpMessage.startsWith('✓')
                     ? isDark ? 'text-forest-300' : 'text-forest-700'
@@ -655,6 +701,109 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
             </p>
           )}
         </label>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {emailVouchers.length > 0 && (
+          <div
+            className={cn(
+              'rounded-lg border p-3 space-y-2',
+              isDark ? 'border-forest-800 bg-forest-950/40' : 'border-forest-200 bg-white/60'
+            )}
+          >
+            <p className={cn('text-xs font-semibold uppercase tracking-wide', isDark ? 'text-forest-400' : 'text-forest-700')}>
+              Vouchers for you
+            </p>
+            <ul className="space-y-1.5">
+              {emailVouchers.map((v) => (
+                <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className={isDark ? 'text-forest-100' : 'text-stone-800'}>
+                    {v.name}{' '}
+                    <span className="text-xs opacity-70">
+                      ({v.discountType === 'PERCENT' ? `${v.discountValue}%` : `৳${v.discountValue}`})
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className={cn(
+                      'font-mono text-xs underline-offset-2 hover:underline',
+                      isDark ? 'text-forest-300' : 'text-forest-700'
+                    )}
+                    onClick={() => {
+                      setMessage(`Your code ends with ${v.codeHint} — enter the full code to apply.`);
+                      setStatus('idle');
+                      setVoucherPreview(null);
+                    }}
+                    title="Code ends with this hint — enter the full code to apply"
+                  >
+                    ••••{v.codeHint}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className={cn('text-[11px]', isDark ? 'text-forest-500' : 'text-stone-500')}>
+              Enter the full code below to apply (hint shown for reference).
+            </p>
+          </div>
+        )}
+        <label>
+          <span className={labelClass}>Voucher code (optional)</span>
+          <div className="flex gap-2">
+            <input
+              value={voucherCode}
+              onChange={(e) => {
+                setVoucherCode(e.target.value.toUpperCase());
+                setVoucherPreview(null);
+              }}
+              className={cn('w-full px-4 py-3', glassField)}
+              placeholder="Have a code?"
+            />
+            <button
+              type="button"
+              className={cn(
+                'shrink-0 rounded-lg px-4 text-sm font-semibold',
+                isDark
+                  ? 'border border-forest-700 bg-forest-900/60 text-forest-200'
+                  : 'border border-forest-400 bg-forest-50 text-forest-800'
+              )}
+              onClick={async () => {
+                const room = rooms.find((r) => r.id === roomId);
+                if (!room || !range?.from || !range?.to || !voucherCode.trim()) return;
+                if (!guestEmail.trim()) {
+                  setMessage('Enter your email so we can check personal vouchers.');
+                  setStatus('err');
+                  return;
+                }
+                const nights = Math.max(
+                  1,
+                  Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
+                );
+                const gross = room.price * nights;
+                const res = await validatePublicVoucher({
+                  code: voucherCode.trim(),
+                  channel: 'ROOM',
+                  grossAmount: gross,
+                  lineItems: [{ itemType: 'ROOM', itemId: room.id, amount: gross }],
+                  guestEmail: guestEmail.trim() || undefined,
+                });
+                if (res.ok) {
+                  setVoucherPreview(`Save ৳${res.discountAmount} — pay ৳${res.netAmount}`);
+                  setStatus('idle');
+                  setMessage('');
+                } else {
+                  setVoucherPreview(null);
+                  setMessage(res.message);
+                  setStatus('err');
+                }
+              }}
+            >
+              Apply
+            </button>
+          </div>
+        </label>
+        {voucherPreview && (
+          <p className={cn('text-sm', isDark ? 'text-forest-300' : 'text-forest-700')}>{voucherPreview}</p>
+        )}
       </div>
 
       <button

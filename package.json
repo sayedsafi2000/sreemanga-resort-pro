@@ -17,7 +17,15 @@
     "install:all": "npm install && cd apps/server && npm install && cd ../admin && npm install && cd ../web && npm install",
     "lint": "npm run lint:admin && npm run lint:web",
     "lint:admin": "cd apps/admin && npm run lint",
-    "lint:web": "cd apps/web && npm run lint"
+    "lint:web": "cd apps/web && npm run lint",
+    "test": "npm run test:server && npm run test:admin && npm run test:web",
+    "test:server": "cd apps/server && npx vitest run",
+    "test:server:watch": "cd apps/server && npx vitest",
+    "test:admin": "cd apps/admin && npx vitest run",
+    "test:admin:watch": "cd apps/admin && npx vitest",
+    "test:web": "cd apps/web && npx vitest run",
+    "test:web:watch": "cd apps/web && npx vitest",
+    "test:coverage": "cd apps/server && npx vitest run --coverage"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

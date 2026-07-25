@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,6 +54,7 @@ import {
   CheckCircle2,
   AlertCircle,
   CreditCard,
+  Banknote,
 } from 'lucide-react';
 
 const STAFF_SALARY_CATEGORY_NAME = 'Staff Salary';
@@ -446,6 +447,7 @@ export default function Expenditures() {
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Expense filters
@@ -485,12 +487,35 @@ export default function Expenditures() {
   });
 
   const canEdit = canEditPayments(user?.role);
+  const staffSalaryCategory = categories.find((c) => c.name === STAFF_SALARY_CATEGORY_NAME);
+  const isStaffSalaryFilter =
+    categoryFilter !== 'all' && staffSalaryCategory?.id === categoryFilter;
+  const selectableCategories = useMemo(
+    () => categories.filter((c) => c.isActive !== false && c.name !== STAFF_SALARY_CATEGORY_NAME),
+    [categories]
+  );
+  const lockedCategoryId =
+    !editingExpense && categoryFilter !== 'all' && !isStaffSalaryFilter ? categoryFilter : null;
+  const lockedCategoryName = lockedCategoryId
+    ? categories.find((c) => c.id === lockedCategoryId)?.name
+    : null;
 
   const activeFields: CategoryField[] = useMemo(() => {
     if (!expenseForm.categoryId) return [];
     const cat = categories.find((c) => c.id === expenseForm.categoryId);
     return cat?.fields ?? [];
   }, [expenseForm.categoryId, categories]);
+
+  const openAddExpense = useCallback(() => {
+    if (isStaffSalaryFilter) return;
+    setEditingExpense(null);
+    setExpenseForm({
+      ...DEFAULT_EXPENSE_FORM,
+      categoryId: categoryFilter !== 'all' && !isStaffSalaryFilter ? categoryFilter : '',
+    });
+    setExpenseMetadata({});
+    setOpenExpense(true);
+  }, [categoryFilter, isStaffSalaryFilter]);
 
   // ── URL helpers ─────────────────────────────────────────────────────────────
 
@@ -549,11 +574,14 @@ export default function Expenditures() {
 
   const fetchAll = useCallback(async () => {
     try {
+      setLoading(true);
       setLoadError(null);
       await Promise.all([fetchCategories(), fetchExpenses(), fetchPendingPayments(), fetchStats()]);
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } };
       setLoadError(ax.response?.data?.message || 'Could not load data. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }, [fetchCategories, fetchExpenses, fetchPendingPayments, fetchStats]);
 
@@ -562,6 +590,31 @@ export default function Expenditures() {
     const t = setTimeout(() => void fetchAll(), delay);
     return () => clearTimeout(t);
   }, [search, statusFilter, categoryFilter, tab, fetchAll]);
+
+  // Deep-link: /expenditures?tab=expenses&categoryId=X&new=1 opens Add Expense with category locked.
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return;
+    if (isStaffSalaryFilter) {
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          p.delete('new');
+          return p;
+        },
+        { replace: true }
+      );
+      return;
+    }
+    openAddExpense();
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete('new');
+        return p;
+      },
+      { replace: true }
+    );
+  }, [searchParams, openAddExpense, setSearchParams, isStaffSalaryFilter]);
 
   // ── Category CRUD ─────────────────────────────────────────────────────────
 
@@ -594,11 +647,20 @@ export default function Expenditures() {
   const handleDeleteCategory = async (id: string) => {
     const cat = categories.find((c) => c.id === id);
     const count = cat?._count?.expenses ?? 0;
-    const msg =
-      count > 0
-        ? `${cat?.name} has ${count} expense${count === 1 ? '' : 's'}. Delete anyway?`
-        : `Delete ${cat?.name ?? 'this category'}?`;
-    if (!confirm(msg)) return;
+    if (count > 0) {
+      const deactivate = confirm(
+        `${cat?.name} has ${count} expense${count === 1 ? '' : 's'} and cannot be deleted. Deactivate it instead?`
+      );
+      if (!deactivate) return;
+      try {
+        await api.patch(`/expenditures/categories/${id}`, { isActive: false });
+        await fetchCategories();
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Could not deactivate category.');
+      }
+      return;
+    }
+    if (!confirm(`Delete ${cat?.name ?? 'this category'}?`)) return;
     try {
       await api.delete(`/expenditures/categories/${id}`);
       await fetchCategories();
@@ -937,6 +999,17 @@ export default function Expenditures() {
       {/* ── EXPENSES TAB ─────────────────────────────────────────────────────── */}
       {tab === 'expenses' && (
         <div className="space-y-4">
+          {isStaffSalaryFilter && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+              <p>
+                Staff salaries are managed on the <strong>Staff Salaries</strong> page — not here.
+                You can still view payroll-synced history below.
+              </p>
+              <Button asChild size="sm" variant="default">
+                <Link to="/staff-salaries">Open Staff Salaries</Link>
+              </Button>
+            </div>
+          )}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-2">
               <div className="relative">
@@ -954,12 +1027,13 @@ export default function Expenditures() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                      {c.name === STAFF_SALARY_CATEGORY_NAME ? ' (system)' : ''}
-                    </SelectItem>
-                  ))}
+                  {categories
+                    .filter((c) => c.name !== STAFF_SALARY_CATEGORY_NAME)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -991,9 +1065,15 @@ export default function Expenditures() {
               >
                 Export CSV
               </Button>
-              <Button onClick={() => { setEditingExpense(null); setExpenseForm({ ...DEFAULT_EXPENSE_FORM }); setExpenseMetadata({}); setOpenExpense(true); }} variant="ink">
-                <Plus className="mr-2 h-4 w-4" /> Add Expense
-              </Button>
+              {isStaffSalaryFilter ? (
+                <Button asChild variant="default">
+                  <Link to="/staff-salaries"><Banknote className="mr-2 h-4 w-4" /> Staff Salaries</Link>
+                </Button>
+              ) : (
+                <Button onClick={openAddExpense} variant="expense">
+                  <Plus className="mr-2 h-4 w-4" /> Add Expense
+                </Button>
+              )}
             </div>
           </div>
           <Card>
@@ -1014,23 +1094,33 @@ export default function Expenditures() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExpenses.map((exp) => (
-                    <ExpenseRow
-                      key={exp.id}
-                      exp={exp}
-                      canEdit={canEdit}
-                      formatCurrency={formatCurrency}
-                      onEdit={openEditExpense}
-                      onDelete={handleDeleteExpense}
-                      onPreview={setPreviewUrl}
-                    />
-                  ))}
-                  {filteredExpenses.length === 0 && (
+                  {loading ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                        No expenses found
+                      <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                       </TableCell>
                     </TableRow>
+                  ) : (
+                    <>
+                      {filteredExpenses.map((exp) => (
+                        <ExpenseRow
+                          key={exp.id}
+                          exp={exp}
+                          canEdit={canEdit}
+                          formatCurrency={formatCurrency}
+                          onEdit={openEditExpense}
+                          onDelete={handleDeleteExpense}
+                          onPreview={setPreviewUrl}
+                        />
+                      ))}
+                      {filteredExpenses.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                            No expenses found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   )}
                 </TableBody>
               </Table>
@@ -1314,14 +1404,20 @@ export default function Expenditures() {
             </div>
             <div className="space-y-2">
               <Label>Category *</Label>
-              <Select value={expenseForm.categoryId} onValueChange={(v) => { setExpenseForm({ ...expenseForm, categoryId: v }); setExpenseMetadata({}); }}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>
-                  {categories.filter((cat) => cat.isActive !== false).map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {lockedCategoryId ? (
+                <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-medium">
+                  {lockedCategoryName || 'Selected category'}
+                </div>
+              ) : (
+                <Select value={expenseForm.categoryId} onValueChange={(v) => { setExpenseForm({ ...expenseForm, categoryId: v }); setExpenseMetadata({}); }}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {selectableCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <CustomFieldsForm fields={activeFields} values={expenseMetadata} onChange={setExpenseMetadata} />
             <div className="grid grid-cols-2 gap-4">
@@ -1512,9 +1608,15 @@ function ExpenseRow({
             )}
             <span>
               {exp.title}
-              {exp.salaryId && <Badge variant="outline" className="ml-2 text-[10px]">Payroll sync</Badge>}
+              {exp.salaryId && (
+                <Link to="/staff-salaries" className="ml-2 inline-flex">
+                  <Badge variant="outline" className="text-[10px] hover:bg-indigo-50">Payroll · Staff Salaries</Badge>
+                </Link>
+              )}
               {!exp.salaryId && exp.category?.name === STAFF_SALARY_CATEGORY_NAME && (
-                <Badge variant="secondary" className="ml-2 text-[10px]">Salary category</Badge>
+                <Link to="/staff-salaries" className="ml-2 inline-flex">
+                  <Badge variant="secondary" className="text-[10px] hover:bg-indigo-50">Salary · open payroll</Badge>
+                </Link>
               )}
             </span>
           </div>
@@ -1537,8 +1639,16 @@ function ExpenseRow({
         </TableCell>
         {canEdit && (
           <TableCell className="text-right">
-            <Button variant="ghost" size="icon" onClick={() => onEdit(exp)}><Edit className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => onDelete(exp.id)}><Trash2 className="h-4 w-4" /></Button>
+            {exp.salaryId || exp.category?.name === STAFF_SALARY_CATEGORY_NAME ? (
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/staff-salaries">Payroll</Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="icon" onClick={() => onEdit(exp)}><Edit className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => onDelete(exp.id)}><Trash2 className="h-4 w-4" /></Button>
+              </>
+            )}
           </TableCell>
         )}
       </TableRow>

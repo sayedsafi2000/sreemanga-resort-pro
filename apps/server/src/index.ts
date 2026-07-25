@@ -12,6 +12,13 @@ import bookingRoutes from './routes/bookingRoutes';
 import guestRoutes from './routes/guestRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import restaurantRoutes from './routes/restaurantRoutes';
+import dayLongRoutes from './routes/dayLongRoutes';
+import inventoryRoutes from './routes/inventoryRoutes';
+import accountRoutes from './routes/accountRoutes';
+import shareholderRoutes from './routes/shareholderRoutes';
+import shareholderPortalRoutes from './routes/shareholderPortalRoutes';
+import staffRoutes from './routes/staffRoutes';
+import voucherRoutes from './routes/voucherRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import reportRoutes from './routes/reportRoutes';
 import publicRoutes from './routes/publicRoutes';
@@ -25,6 +32,9 @@ import brandingRoutes from './routes/brandingRoutes';
 import { stripeWebhook } from './controllers/stripeController';
 import { authenticateToken } from './middleware/auth';
 import { roleCheck } from './middleware/roleCheck';
+import { authLimiter, otpLimiter, apiLimiter } from './middleware/rateLimiter';
+import { audit } from './middleware/audit';
+import auditRoutes from './routes/auditRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -61,25 +71,37 @@ app.get('/health', (_req, res) => {
 });
 
 // Public routes (no auth required)
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/public/otp/send', otpLimiter);
+app.use('/api', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
 
 // Protected routes
-app.use('/api/users', authenticateToken, roleCheck(['SUPER_ADMIN']), userRoutes);
+app.use('/api/users', authenticateToken, roleCheck(['SUPER_ADMIN']), audit('User'), userRoutes);
 app.use('/api/rooms', authenticateToken, roomRoutes);
-app.use('/api/bookings', authenticateToken, bookingRoutes);
+app.use('/api/bookings', authenticateToken, audit('Booking'), bookingRoutes);
 app.use('/api/guests', authenticateToken, guestRoutes);
-app.use('/api/payments', authenticateToken, paymentRoutes);
-app.use('/api/restaurant', authenticateToken, restaurantRoutes);
-app.use('/api/settings', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), settingsRoutes);
+app.use('/api/payments', authenticateToken, audit('Payment'), paymentRoutes);
+app.use('/api/restaurant', authenticateToken, audit('Restaurant'), restaurantRoutes);
+app.use('/api/day-long', authenticateToken, audit('DayLong'), dayLongRoutes);
+app.use('/api/inventory', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'HOUSEKEEPING', 'RESTAURANT_STAFF']), audit('Inventory'), inventoryRoutes);
+app.use('/api/accounts', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Account'), accountRoutes);
+app.use('/api/shareholders', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Shareholder'), shareholderRoutes);
+app.use('/api/shareholder', authenticateToken, roleCheck(['SHAREHOLDER']), shareholderPortalRoutes);
+app.use('/api/vouchers', authenticateToken, audit('Voucher'), voucherRoutes);
+app.use('/api/staff', authenticateToken, audit('Staff'), staffRoutes);
+app.use('/api/settings', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), audit('Setting'), settingsRoutes);
 app.use('/api/gallery', authenticateToken, galleryRoutes);
 app.use('/api/nearby-spots', authenticateToken, nearbySpotsRoutes);
 app.use('/api/blogs', authenticateToken, blogRoutes);
 app.use('/api/reports', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), reportRoutes);
-app.use('/api/expenditures', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), expenditureRoutes);
-app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), salaryRoutes);
-app.use('/api/pending-payments', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), pendingPaymentRoutes);
+app.use('/api/expenditures', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Expense'), expenditureRoutes);
+app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Salary'), salaryRoutes);
+app.use('/api/pending-payments', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('PendingPayment'), pendingPaymentRoutes);
 app.use('/api/branding', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), brandingRoutes);
+app.use('/api/audit-logs', authenticateToken, roleCheck(['SUPER_ADMIN']), auditRoutes);
 
 // Error handling
 app.use(errorHandler);

@@ -12,8 +12,20 @@ export const metadata: Metadata = {
 };
 
 export default async function BookingPage() {
-  const [rooms, settings] = await Promise.all([getRooms(), getSettings()]);
+  const [roomsResult, settings] = await Promise.all([getRooms(), getSettings()]);
+  const { rooms, ok: roomsOk } = roomsResult;
   const isT2 = settings.activeTemplate === 'template-two' || settings.activeTemplate === 'template-three';
+  const paymentAccounts = {
+    bkashNumber: settings.bkashNumber,
+    bankAccountName: settings.bankAccountName,
+    bankAccountNumber: settings.bankAccountNumber,
+    bankName: settings.bankName,
+    bankBranch: settings.bankBranch,
+  };
+
+  const emptyMessage = !roomsOk
+    ? 'We could not load rooms right now. Please refresh or call us.'
+    : 'No rooms available to book online right now. Please call us.';
 
   if (isT2) {
     return (
@@ -24,12 +36,11 @@ export default async function BookingPage() {
           subtitle="We will confirm availability and share payment options within one business day."
         />
         <div className="relative mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-          {/* Ambient glow */}
           <div className="pointer-events-none absolute -left-40 top-0 h-80 w-80 rounded-full bg-earth-400/5 blur-3xl" aria-hidden />
 
           {rooms.length === 0 ? (
             <p className="border border-forest-900/60 bg-[#0a130b] p-8 text-center text-forest-500">
-              No rooms available to book online right now. Please call us.
+              {emptyMessage}
             </p>
           ) : (
             <Suspense
@@ -37,7 +48,7 @@ export default async function BookingPage() {
                 <div className="h-64 animate-pulse border border-forest-900/40 bg-forest-950/50" aria-hidden />
               }
             >
-              <BookingForm rooms={rooms} variant="dark" />
+              <BookingForm rooms={rooms} variant="dark" paymentAccounts={paymentAccounts} />
             </Suspense>
           )}
         </div>
@@ -57,13 +68,13 @@ export default async function BookingPage() {
         />
         {rooms.length === 0 ? (
           <p className="rounded-2xl border border-white/50 bg-white/55 p-8 text-center text-stone-600 shadow-card backdrop-blur-md">
-            No rooms available to book online right now. Please call us.
+            {emptyMessage}
           </p>
         ) : (
           <Suspense
             fallback={<div className="h-64 animate-pulse rounded-2xl bg-white/30 backdrop-blur-md" aria-hidden />}
           >
-            <BookingForm rooms={rooms} />
+            <BookingForm rooms={rooms} paymentAccounts={paymentAccounts} />
           </Suspense>
         )}
       </Container>

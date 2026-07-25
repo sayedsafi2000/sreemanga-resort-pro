@@ -3,13 +3,19 @@ import { z } from 'zod';
 /** YYYY-MM-DD or full ISO datetime (admin / integrations). */
 const stayDateString = z.string().min(8, 'Invalid date');
 
+/** Soft phone check: count digits only (spaces/dashes/+ allowed). */
+function phoneLooksValid(raw: string, minDigits = 10): boolean {
+  const digits = raw.replace(/\D/g, '');
+  return digits.length >= minDigits;
+}
+
 export const bookingSchema = z
   .object({
     roomId: z.string().uuid('Invalid room ID'),
     /** Pick an existing guest, or omit and send guestName + guestPhone (website-style). */
     guestId: z.string().uuid('Invalid guest ID').optional(),
     guestName: z.string().min(2).optional(),
-    guestPhone: z.string().min(10).optional(),
+    guestPhone: z.string().optional(),
     guestEmail: z.union([z.string().email(), z.literal('')]).optional(),
     adults: z.number().int().min(1).max(20).default(1),
     children: z.number().int().min(0).max(20).default(0),
@@ -21,10 +27,13 @@ export const bookingSchema = z
     checkOutDate: stayDateString,
     status: z.enum(['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED']).optional(),
     notes: z.string().optional(),
+    voucherCode: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {
     const hasGuestId = Boolean(data.guestId?.trim());
-    const hasNewGuest = Boolean(data.guestName?.trim() && data.guestPhone?.trim());
+    const hasName = Boolean(data.guestName?.trim());
+    const hasPhone = phoneLooksValid(data.guestPhone || '');
+    const hasNewGuest = hasName && hasPhone;
     if (!hasGuestId && !hasNewGuest) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -32,7 +41,15 @@ export const bookingSchema = z
         path: ['guestName'],
       });
     }
-    if (hasGuestId && hasNewGuest) {
+    if (!hasGuestId && hasName && !hasPhone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Phone must be at least 10 digits',
+        path: ['guestPhone'],
+      });
+    }
+    // guestId alone is enough; do not require (or reject) name/phone alongside it
+    if (hasGuestId && hasName && hasPhone) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Use either an existing guest or new guest details, not both',

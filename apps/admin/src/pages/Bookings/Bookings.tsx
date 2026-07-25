@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Pencil, Trash2, X as XIcon, Download, Activity, BedDouble } from 'lucide-react';
+import { Pencil, Trash2, X as XIcon, Download, Activity, BedDouble, CalendarPlus } from 'lucide-react';
 import ManualBookingDialog from '@/pages/Bookings/ManualBookingDialog';
 import AvailabilityCalendar from '@/pages/Bookings/AvailabilityCalendar';
 import { PageHeader } from '@/components/ui/page-header';
@@ -308,8 +308,8 @@ const Bookings: React.FC = () => {
               <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
-            <Button variant="ink" onClick={openNew}>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button variant="booking" onClick={openNew}>
+              <CalendarPlus className="mr-2 h-4 w-4" />
               New Booking
             </Button>
           </>

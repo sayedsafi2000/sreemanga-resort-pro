@@ -14,15 +14,35 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { InitialsAvatar } from '@/components/ui/avatar';
 
-const allRoles = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT'];
+const staffRoles = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT'];
+
+const emptyForm = () => ({
+  name: '',
+  email: '',
+  phone: '',
+  password: '',
+  currentPassword: '',
+  role: 'RECEPTIONIST',
+});
 
 const Users: React.FC = () => {
   const { user: authUser } = useAuth();
-  const roleChoices = authUser?.role === 'SUPER_ADMIN' ? allRoles : allRoles.filter((r) => r !== 'SUPER_ADMIN');
   const [users, setUsers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', currentPassword: '', role: 'RECEPTIONIST' });
+  const [form, setForm] = useState(emptyForm());
+
+  const roleChoices = (() => {
+    let roles =
+      authUser?.role === 'SUPER_ADMIN'
+        ? [...staffRoles]
+        : staffRoles.filter((r) => r !== 'SUPER_ADMIN');
+    // Preserve portal logins created from Shareholders
+    if (editing?.role === 'SHAREHOLDER' || form.role === 'SHAREHOLDER') {
+      if (!roles.includes('SHAREHOLDER')) roles = [...roles, 'SHAREHOLDER'];
+    }
+    return roles;
+  })();
 
   const fetchUsers = async () => {
     try {
@@ -33,8 +53,23 @@ const Users: React.FC = () => {
 
   useEffect(() => { fetchUsers(); }, []);
 
-  const openNew = () => { setEditing(null); setForm({ name: '', email: '', password: '', currentPassword: '', role: 'RECEPTIONIST' }); setOpen(true); };
-  const openEdit = (u: any) => { setEditing(u); setForm({ name: u.name, email: u.email, password: '', currentPassword: '', role: u.role }); setOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setForm(emptyForm());
+    setOpen(true);
+  };
+  const openEdit = (u: any) => {
+    setEditing(u);
+    setForm({
+      name: u.name,
+      email: u.email,
+      phone: u.phone || '',
+      password: '',
+      currentPassword: '',
+      role: u.role,
+    });
+    setOpen(true);
+  };
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.email.trim()) {
@@ -49,9 +84,19 @@ const Users: React.FC = () => {
       alert('Password must be at least 6 characters.');
       return;
     }
+    if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) {
+      alert('Phone must be at least 10 digits.');
+      return;
+    }
+    const phone = form.phone.trim() || null;
     try {
       if (editing) {
-        await api.put(`/users/${editing.id}`, { name: form.name, email: form.email, role: form.role });
+        await api.put(`/users/${editing.id}`, {
+          name: form.name,
+          email: form.email,
+          phone,
+          role: form.role,
+        });
         if (form.password) {
           const isSelf = authUser?.id === editing.id;
           if (isSelf) {
@@ -67,6 +112,7 @@ const Users: React.FC = () => {
         await api.post('/users', {
           name: form.name,
           email: form.email,
+          phone,
           password: form.password,
           role: form.role,
         });
@@ -94,7 +140,7 @@ const Users: React.FC = () => {
         title="Staff Management"
         description="Manage admin accounts, roles, and access."
         actions={
-          <Button variant="ink" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add User</Button>
+          <Button variant="default" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add User</Button>
         }
       />
       <Card>
@@ -102,7 +148,11 @@ const Users: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead><TableHead className="text-right">Actions</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -117,6 +167,7 @@ const Users: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>{u.email}</TableCell>
+                    <TableCell>{u.phone || '—'}</TableCell>
                     <TableCell><Badge variant={roleColor(u.role) as any}>{u.role}</Badge></TableCell>
                     <TableCell className="text-right">
                       {!lockSa && (
@@ -129,7 +180,11 @@ const Users: React.FC = () => {
                   </TableRow>
                 );
               })}
-              {users.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No users found</TableCell></TableRow>}
+              {users.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No users found</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -141,6 +196,15 @@ const Users: React.FC = () => {
           <div className="space-y-4">
             <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="Optional"
+              />
+            </div>
             {!editing && (
               <div className="space-y-2"><Label>Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
             )}

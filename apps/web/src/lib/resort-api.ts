@@ -16,7 +16,10 @@ import type {
 } from '@/types/resort';
 
 function apiBase(): string {
-  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+  const browser = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+  // Docker SSR: localhost inside the web container is not the API host.
+  const server = (process.env.INTERNAL_API_URL || browser).replace(/\/$/, '');
+  return typeof window === 'undefined' ? server : browser;
 }
 
 // Bounded so a dead API can't stall every SSR render. 4s is well under
@@ -72,6 +75,11 @@ function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
     },
     restaurantTeaser:
       raw.restaurantTeaser || 'Seasonal dishes with local ingredients served fresh every day.',
+    bkashNumber: raw.bkashNumber || undefined,
+    bankAccountName: raw.bankAccountName || undefined,
+    bankAccountNumber: raw.bankAccountNumber || undefined,
+    bankName: raw.bankName || undefined,
+    bankBranch: raw.bankBranch || undefined,
     resortNameBn: raw.site_name_bn || '',
     taglineBn: raw.tagline_bn || '',
     aboutShortBn: raw.aboutShort_bn || '',
@@ -90,14 +98,18 @@ async function getSettingsUncached(): Promise<ResortSettings> {
 
 export const getSettings = cache(getSettingsUncached);
 
-async function getRoomsUncached(filters?: { type?: RoomType | string }): Promise<Room[]> {
+async function getRoomsUncached(filters?: { type?: RoomType | string }): Promise<{
+  rooms: Room[];
+  ok: boolean;
+}> {
   const q = new URLSearchParams();
   if (filters?.type) q.set('type', filters.type);
   const url = `${apiBase()}/rooms${q.toString() ? `?${q}` : ''}`;
   const data = await safeFetch<{ success: boolean; rooms: Room[] }>(url, {
     next: { revalidate: 15 },
   });
-  return data?.rooms || [];
+  if (!data) return { rooms: [], ok: false };
+  return { rooms: data.rooms || [], ok: true };
 }
 
 export const getRooms = cache(getRoomsUncached);
@@ -179,6 +191,153 @@ async function getRestaurantMenuUncached(category?: string): Promise<MenuItem[]>
 }
 
 export const getRestaurantMenu = cache(getRestaurantMenuUncached);
+
+// ── Day Long ────────────────────────────────────────────────────────────────
+export interface DayLongProduct {
+  id: string;
+  name: string;
+  category: 'POOL' | 'COTTAGE' | 'CONFERENCE' | 'EVENT' | 'PICNIC';
+  description?: string | null;
+  images: string[];
+  basePrice: number;
+  pricePerPerson?: number | null;
+  maxCapacity?: number | null;
+  minCapacity?: number | null;
+  facilities?: string[] | null;
+  availableSlots?: { start: string; end: string; label?: string }[] | null;
+}
+
+async function getDayLongProductsUncached(category?: string): Promise<DayLongProduct[]> {
+  const url = `${apiBase()}/day-long/products${category ? `?category=${encodeURIComponent(category)}` : ''}`;
+  const data = await safeFetch<{ success: boolean; products: DayLongProduct[] }>(url, {
+    next: { revalidate: 30 },
+  });
+  return data?.products || [];
+}
+
+export const getDayLongProducts = cache(getDayLongProductsUncached);
+
+export async function validatePublicVoucher(payload: {
+  code: string;
+  channel: 'ROOM' | 'DAY_LONG' | 'RESTAURANT';
+  grossAmount: number;
+  lineItems?: { itemType: string; itemId: string; amount: number }[];
+  guestEmail?: string;
+}): Promise<{ ok: boolean; message: string; discountAmount?: number; netAmount?: number }> {
+  try {
+    const res = await fetch(`${apiBase()}/vouchers/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({} as Record<string, unknown>));
+    if (!res.ok) {
+      const msg =
+        (typeof j.message === 'string' && j.message) ||
+        (typeof (j as any).error === 'string' && (j as any).error) ||
+        'Invalid voucher';
+      return { ok: false, message: msg };
+    }
+    return {
+      ok: true,
+      message: 'Voucher applied',
+      discountAmount: j.discountAmount as number | undefined,
+      netAmount: j.netAmount as number | undefined,
+    };
+  } catch {
+    return { ok: false, message: 'Could not validate voucher' };
+  }
+}
+
+export type PublicMineVoucher = {
+  id: string;
+  name: string;
+  description?: string | null;
+  discountType: string;
+  discountValue: number;
+  appliesRoom: boolean;
+  appliesDayLong: boolean;
+  appliesRestaurant: boolean;
+  expiresAt?: string | null;
+  codeHint: string;
+  expired?: boolean;
+  exhausted?: boolean;
+  remaining?: number | null;
+};
+
+export async function fetchVouchersForEmail(
+  email: string
+): Promise<{ ok: boolean; vouchers: PublicMineVoucher[]; message?: string }> {
+  try {
+    const res = await fetch(`${apiBase()}/vouchers/for-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        ok: false,
+        vouchers: [],
+        message: (typeof j.message === 'string' && j.message) || 'Could not load vouchers',
+      };
+    }
+    return { ok: true, vouchers: Array.isArray(j.vouchers) ? j.vouchers : [] };
+  } catch {
+    return { ok: false, vouchers: [], message: 'Could not load vouchers' };
+  }
+}
+
+export async function getDayLongProductById(id: string): Promise<DayLongProduct | null> {
+  const data = await safeFetch<{ success: boolean; product: DayLongProduct }>(
+    `${apiBase()}/day-long/products/${encodeURIComponent(id)}`,
+    { cache: 'no-store' },
+  );
+  return data?.product ?? null;
+}
+
+export interface DayLongBookingInput {
+  productId: string;
+  guestName: string;
+  guestPhone: string;
+  guestEmail?: string;
+  bookingDate: string;
+  slotStart: string;
+  slotEnd: string;
+  adults: number;
+  children: number;
+  notes?: string;
+  voucherCode?: string;
+}
+
+export async function submitDayLongBooking(
+  payload: DayLongBookingInput
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await fetch(`${apiBase()}/day-long/bookings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      let msg = 'Could not complete booking.';
+      try {
+        const j = await res.json();
+        msg = j.message || msg;
+      } catch {
+        /* ignore */
+      }
+      return { ok: false, message: msg };
+    }
+    return { ok: true, message: 'Day-long booking submitted. We will contact you shortly.' };
+  } catch {
+    return { ok: false, message: 'Network error. Please try again.' };
+  }
+}
+
+// ── Shareholder portal ──────────────────────────────────────────────────────
+// The web-facing shareholder portal was removed; the admin app's /portal is the
+// single shareholder surface. See docs/plan/12-SHAREHOLDER-POLISH-AND-NEXT.md.
 
 export async function getTestimonials(): Promise<Testimonial[]> {
   const data = await safeFetch<{ success: boolean; settings: Record<string, string> }>(
@@ -270,7 +429,7 @@ export async function getBlogBySlug(slug: string): Promise<BlogDetail | null> {
 // ── OTP helpers ───────────────────────────────────────────────────────────
 
 function publicApiBase(): string {
-  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+  return apiBase();
 }
 
 export async function sendBookingOtp(

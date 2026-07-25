@@ -6,18 +6,17 @@ import { createPaymentFromBooking } from '../utils/bookingPayment';
 import { createCheckoutSessionForBooking } from './stripeController';
 import { emailService } from '../utils/emailService';
 import crypto from 'crypto';
+import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
 
-// ── In-memory OTP store ────────────────────────────────────────────────────
-// Map key: email  →  { otp, expiresAt, verified }
-interface OtpEntry { otp: string; expiresAt: number; verified: boolean; }
-const otpStore = new Map<string, OtpEntry>();
+// ── OTP store (DB-backed, Phase 0.6) ───────────────────────────────────────
+// Persisted in the OtpCode table so it survives restarts and works across
+// multiple server instances. One active row per email (latest wins).
 
-// Clean up expired entries every 10 minutes
+// Periodically purge expired OTP rows.
 setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of otpStore.entries()) {
-    if (val.expiresAt < now) otpStore.delete(key);
-  }
+  prisma.otpCode
+    .deleteMany({ where: { expiresAt: { lt: new Date() } } })
+    .catch((err) => console.error('[OTP] cleanup failed:', err));
 }, 10 * 60 * 1000);
 
 export const getPublicRooms = async (req: Request, res: Response, next: NextFunction) => {
@@ -173,7 +172,12 @@ export const getPublicMenu = async (req: Request, res: Response, next: NextFunct
 const publicBookingSchema = z.object({
   roomId: z.string().uuid(),
   guestName: z.string().min(2),
-  guestPhone: z.string().min(10),
+  guestPhone: z
+    .string()
+    .trim()
+    .refine((v) => v.replace(/\D/g, '').length >= 10, {
+      message: 'Phone must be at least 10 digits',
+    }),
   guestEmail: z.string().email().optional(),
   adults: z.number().int().min(1).max(20).default(1),
   children: z.number().int().min(0).max(20).default(0),
@@ -186,6 +190,7 @@ const publicBookingSchema = z.object({
   checkInDate: z.string(),
   checkOutDate: z.string(),
   notes: z.string().optional(),
+  voucherCode: z.string().min(1).optional(),
 }).superRefine((data, ctx) => {
   if (data.preferredPaymentTiming === 'INSTANT' && !data.preferredPaymentMethod) {
     ctx.addIssue({
@@ -214,12 +219,16 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
 
     // ── OTP guard ────────────────────────────────────────────────────────────
     if (data.guestEmail) {
-      const entry = otpStore.get(data.guestEmail.toLowerCase());
-      if (!entry || !entry.verified || entry.expiresAt < Date.now()) {
+      const normalised = data.guestEmail.toLowerCase().trim();
+      const entry = await prisma.otpCode.findFirst({
+        where: { email: normalised, verified: true, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!entry) {
         throw new AppError('Email OTP not verified. Please verify your email before booking.', 403);
       }
-      // Invalidate OTP after use so it can't be replayed
-      otpStore.delete(data.guestEmail.toLowerCase());
+      // Invalidate all OTPs for this email after use so they can't be replayed
+      await prisma.otpCode.deleteMany({ where: { email: normalised } });
     }
     // ────────────────────────────────────────────────────────────────────────
 
@@ -243,7 +252,7 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     if (conflictingBookings.length > 0) throw new AppError('Room is not available for the selected dates', 400);
 
     const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    const totalAmount = room.price * days;
+    const grossAmount = room.price * days;
 
     const result = await prisma.$transaction(async (tx) => {
       const guest = await tx.guest.create({
@@ -255,6 +264,25 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
           address: data.guestAddress,
         },
       });
+
+      let discountAmount = 0;
+      let voucherId: string | undefined;
+      if (data.voucherCode?.trim()) {
+        const applied = await validateVoucherForCheckout(tx, {
+          code: data.voucherCode,
+          channel: 'ROOM',
+          grossAmount,
+          lineItems: [{ itemType: 'ROOM', itemId: room.id, amount: grossAmount }],
+          assignee: {
+            guestId: guest.id,
+            guestEmail: data.guestEmail || null,
+          },
+        });
+        discountAmount = applied.discountAmount;
+        voucherId = applied.voucher.id;
+      }
+
+      const totalAmount = Math.max(0, Math.round((grossAmount - discountAmount) * 100) / 100);
 
       const bookingData = {
         roomId: data.roomId,
@@ -268,6 +296,8 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         checkInDate: checkIn,
         checkOutDate: checkOut,
         totalAmount,
+        discountAmount,
+        voucherId,
         status: 'PENDING',
         notes: data.notes,
       } as any;
@@ -276,6 +306,19 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         data: bookingData,
         include: { room: true, guest: true },
       });
+
+      if (voucherId && discountAmount > 0) {
+        await recordVoucherRedemption(tx, {
+          voucherId,
+          amountDiscounted: discountAmount,
+          referenceType: 'BOOKING',
+          referenceId: booking.id,
+          guestId: guest.id,
+          guestEmail: guest.email ?? null,
+          source: 'PUBLIC_WEB',
+          channel: 'ROOM',
+        });
+      }
 
       await createPaymentFromBooking(tx, booking);
 
@@ -321,18 +364,26 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
     }
     const normalised = email.toLowerCase().trim();
 
-    // Rate-limit: don't allow resend within 60 seconds
-    const existing = otpStore.get(normalised);
-    if (existing && existing.expiresAt - 4 * 60 * 1000 > Date.now()) {
+    // Rate-limit: don't allow resend within 60 seconds of the last active OTP.
+    // (OTP lives 5 min; a fresh one has expiresAt > now + 4 min.)
+    const existing = await prisma.otpCode.findFirst({
+      where: { email: normalised },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existing && existing.expiresAt.getTime() - 4 * 60 * 1000 > Date.now()) {
       throw new AppError('Please wait before requesting a new OTP', 429);
     }
 
-    // Generate 6-digit OTP
+    // Generate 6-digit OTP. Replace any prior OTPs for this email.
     const otp = String(Math.floor(100000 + crypto.randomInt(900000)));
-    otpStore.set(normalised, {
-      otp,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
-      verified: false,
+    await prisma.otpCode.deleteMany({ where: { email: normalised } });
+    await prisma.otpCode.create({
+      data: {
+        email: normalised,
+        code: otp,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+        verified: false,
+      },
     });
 
     const isDev = process.env.NODE_ENV !== 'production';
@@ -346,7 +397,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       if (!isDev) {
         // Prod: drop the entry so the user can retry immediately and no
         // undelivered OTP lingers.
-        otpStore.delete(normalised);
+        await prisma.otpCode.deleteMany({ where: { email: normalised } });
         throw new AppError('Failed to send OTP email. Please try again.', 500);
       }
       // Dev: keep the OTP valid and hand it back so local testing works
@@ -374,19 +425,22 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
     if (!email || !otp) throw new AppError('Email and OTP are required', 400);
 
     const normalised = email.toLowerCase().trim();
-    const entry = otpStore.get(normalised);
+    const entry = await prisma.otpCode.findFirst({
+      where: { email: normalised },
+      orderBy: { createdAt: 'desc' },
+    });
 
     if (!entry) throw new AppError('OTP not found. Please request a new one.', 400);
-    if (entry.expiresAt < Date.now()) {
-      otpStore.delete(normalised);
+    if (entry.expiresAt < new Date()) {
+      await prisma.otpCode.deleteMany({ where: { email: normalised } });
       throw new AppError('OTP has expired. Please request a new one.', 400);
     }
-    if (entry.otp !== String(otp).trim()) {
+    if (entry.code !== String(otp).trim()) {
       throw new AppError('Incorrect OTP. Please try again.', 400);
     }
 
     // Mark as verified — booking submission must happen within remaining window
-    entry.verified = true;
+    await prisma.otpCode.update({ where: { id: entry.id }, data: { verified: true } });
     res.json({ success: true, message: 'Email verified successfully.' });
   } catch (error) { next(error); }
 };
