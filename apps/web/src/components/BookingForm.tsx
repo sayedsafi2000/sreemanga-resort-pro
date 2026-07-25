@@ -14,20 +14,33 @@ import { cn } from '@/lib/utils';
 type Props = {
   rooms: Room[];
   variant?: 'light' | 'dark';
+  paymentAccounts?: {
+    bkashNumber?: string;
+    bankAccountName?: string;
+    bankAccountNumber?: string;
+    bankName?: string;
+    bankBranch?: string;
+  };
 };
 
 const CALENDAR_DAYS = 90;
-const BKASH_NUMBER = process.env.NEXT_PUBLIC_BKASH_NUMBER || '017XXXXXXXX';
-const BANK_ACCOUNT_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "Nirjon Nature's Hideout";
-const BANK_ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '1234567890123';
-const BANK_NAME = process.env.NEXT_PUBLIC_BANK_NAME || 'Dutch-Bangla Bank';
-const BANK_BRANCH = process.env.NEXT_PUBLIC_BANK_BRANCH || 'Sreemangal Branch';
+const ENV_BKASH = process.env.NEXT_PUBLIC_BKASH_NUMBER || '017XXXXXXXX';
+const ENV_BANK_ACCOUNT_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "Nirjon Nature's Hideout";
+const ENV_BANK_ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '1234567890123';
+const ENV_BANK_NAME = process.env.NEXT_PUBLIC_BANK_NAME || 'Dutch-Bangla Bank';
+const ENV_BANK_BRANCH = process.env.NEXT_PUBLIC_BANK_BRANCH || 'Sreemangal Branch';
 
-export default function BookingForm({ rooms, variant = 'light' }: Props) {
+export default function BookingForm({ rooms, variant = 'light', paymentAccounts }: Props) {
   const router = useRouter();
   const sp = useSearchParams();
   const defaultRoom = sp.get('room') || '';
   const isDark = variant === 'dark';
+
+  const BKASH_NUMBER = paymentAccounts?.bkashNumber?.trim() || ENV_BKASH;
+  const BANK_ACCOUNT_NAME = paymentAccounts?.bankAccountName?.trim() || ENV_BANK_ACCOUNT_NAME;
+  const BANK_ACCOUNT_NUMBER = paymentAccounts?.bankAccountNumber?.trim() || ENV_BANK_ACCOUNT_NUMBER;
+  const BANK_NAME = paymentAccounts?.bankName?.trim() || ENV_BANK_NAME;
+  const BANK_BRANCH = paymentAccounts?.bankBranch?.trim() || ENV_BANK_BRANCH;
 
   const [roomId, setRoomId] = useState(defaultRoom || rooms[0]?.id || '');
   const [guestName, setGuestName] = useState('');

@@ -1,8 +1,14 @@
 import { z } from 'zod';
 
+const optionalPhone = z
+  .union([z.string().trim().min(6, 'Phone must be at least 6 characters'), z.literal(''), z.null()])
+  .optional()
+  .transform((v) => (v === '' || v == null ? null : v));
+
 export const createUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
+  phone: optionalPhone,
   password: z.string().min(6, 'Password must be at least 6 characters'),
   role: z.enum(['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT']),
 });
@@ -10,6 +16,7 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
+  phone: optionalPhone,
   role: z.enum(['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT']).optional(),
 }).partial();
 

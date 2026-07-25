@@ -32,6 +32,7 @@ import {
 import { Loader2, Plus, Ticket, PowerOff, Copy, Check } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import GuestPicker, { type GuestPick } from '@/components/GuestPicker';
+import EntitySearchPicker from '@/components/EntitySearchPicker';
 
 type Voucher = {
   id: string;
@@ -200,15 +201,12 @@ const Vouchers: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [revealedCodes, setRevealedCodes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
-  const [pickedGuest, setPickedGuest] = useState<GuestPick | null>(null);
   const [assignees, setAssignees] = useState<AssigneeChip[]>([]);
   const [audienceAnyone, setAudienceAnyone] = useState(true);
   const [guestsMode, setGuestsMode] = useState<GroupMode>('NONE');
   const [staffMode, setStaffMode] = useState<GroupMode>('NONE');
   const [shareholdersMode, setShareholdersMode] = useState<GroupMode>('NONE');
   const [addType, setAddType] = useState<'GUEST' | 'USER' | 'SHAREHOLDER'>('USER');
-  const [addId, setAddId] = useState('');
-  const [assigneeSearch, setAssigneeSearch] = useState('');
   const [shareholders, setShareholders] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -280,15 +278,12 @@ const Vouchers: React.FC = () => {
 
   const openCreate = () => {
     setForm(emptyForm());
-    setPickedGuest(null);
     setAssignees([]);
     setAudienceAnyone(true);
     setGuestsMode('NONE');
     setStaffMode('NONE');
     setShareholdersMode('NONE');
     setAddType('USER');
-    setAddId('');
-    setAssigneeSearch('');
     setSelectedRoomIds([]);
     setSelectedProductIds([]);
     setSelectedMenuIds([]);
@@ -305,8 +300,6 @@ const Vouchers: React.FC = () => {
       setStaffMode('NONE');
       setShareholdersMode('NONE');
       setAssignees([]);
-      setPickedGuest(null);
-      setAddId('');
     }
   };
 
@@ -331,6 +324,40 @@ const Vouchers: React.FC = () => {
       }
       return [...prev, chip];
     });
+  };
+
+  const pickGuest = (g: GuestPick | null) => {
+    if (!g) return;
+    const email = g.email || g.shareholder?.email || g.user?.email || '';
+    const isSyntheticSh = g.id.startsWith('shareholder:');
+    if (!isSyntheticSh) {
+      addAssignee({
+        assigneeType: 'GUEST',
+        assigneeId: g.id,
+        label: `${g.name}${email ? ` · ${email}` : ''}`,
+      });
+    }
+    if (g.shareholder?.id && shareholdersMode === 'SELECTED') {
+      const sh = g.shareholder;
+      const shareBit =
+        sh.shareType === 'PERCENTAGE'
+          ? ` ${sh.shareValue ?? 0}%`
+          : sh.shareType === 'FIXED'
+            ? ` ৳${sh.shareValue ?? 0}`
+            : '';
+      addAssignee({
+        assigneeType: 'SHAREHOLDER',
+        assigneeId: sh.id,
+        label: `${sh.name}${email ? ` · ${email}` : ''}${shareBit}`,
+      });
+    }
+    if (g.user?.id && staffMode === 'SELECTED') {
+      addAssignee({
+        assigneeType: 'USER',
+        assigneeId: g.user.id,
+        label: `${g.user.name} · ${g.user.email}`,
+      });
+    }
   };
 
   const removeAssignee = (type: string, id: string) => {
@@ -361,25 +388,6 @@ const Vouchers: React.FC = () => {
       setUsageLoading(false);
     }
   };
-
-  const filteredUsers = users.filter((u) => {
-    const q = assigneeSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      (u.name || '').toLowerCase().includes(q) ||
-      (u.email || '').toLowerCase().includes(q) ||
-      (u.role || '').toLowerCase().includes(q)
-    );
-  });
-
-  const filteredShareholders = shareholders.filter((s) => {
-    const q = assigneeSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      (s.name || '').toLowerCase().includes(q) ||
-      (s.email || '').toLowerCase().includes(q)
-    );
-  });
 
   const setChannel = (key: 'appliesRoom' | 'appliesDayLong' | 'appliesRestaurant', on: boolean) => {
     setForm((prev) => ({ ...prev, [key]: on }));
@@ -423,25 +431,22 @@ const Vouchers: React.FC = () => {
           });
 
       if (!audienceAnyone) {
-        const hasGroup =
-          guestsMode === 'ALL' ||
-          staffMode === 'ALL' ||
-          shareholdersMode === 'ALL' ||
-          effectiveAssignees.length > 0;
-        if (!hasGroup) {
+        const hasSelectedOrAll =
+          guestsMode !== 'NONE' || staffMode !== 'NONE' || shareholdersMode !== 'NONE';
+        if (!hasSelectedOrAll) {
           throw new Error('Pick Anyone, or set at least one group to All or Selected');
         }
         if (guestsMode === 'SELECTED' && !effectiveAssignees.some((a) => a.assigneeType === 'GUEST')) {
-          throw new Error('Add at least one guest, or set Guests to None/All');
+          throw new Error('Guests is Selected — add at least one guest below');
         }
         if (staffMode === 'SELECTED' && !effectiveAssignees.some((a) => a.assigneeType === 'USER')) {
-          throw new Error('Add at least one staff user, or set Staff to None/All');
+          throw new Error('Staff is Selected — add at least one staff user below');
         }
         if (
           shareholdersMode === 'SELECTED' &&
           !effectiveAssignees.some((a) => a.assigneeType === 'SHAREHOLDER')
         ) {
-          throw new Error('Add at least one shareholder, or set Shareholders to None/All');
+          throw new Error('Shareholders is Selected — add at least one shareholder below');
         }
       }
 
@@ -1005,6 +1010,13 @@ const Vouchers: React.FC = () => {
                         Groups combine. Anyone clears all locks. All Guests matches checkout with a guest id/email;
                         All Staff any staff user; All Shareholders any shareholder.
                       </p>
+                      {(guestsMode === 'SELECTED' ||
+                        staffMode === 'SELECTED' ||
+                        shareholdersMode === 'SELECTED') && (
+                        <p className="text-xs text-amber-800 bg-amber-50 rounded-md px-2 py-1.5">
+                          Selected requires adding at least one person for each Selected group before creating.
+                        </p>
+                      )}
                     </div>
                   )}
                   {!audienceAnyone &&
@@ -1034,156 +1046,76 @@ const Vouchers: React.FC = () => {
                           ))}
                         </div>
                       )}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>Add type</Label>
-                          <Select
-                            value={addType}
-                            onValueChange={(v) => {
-                              setAddType(v as 'GUEST' | 'USER' | 'SHAREHOLDER');
-                              setAddId('');
-                              setPickedGuest(null);
-                              setAssigneeSearch('');
-                            }}
-                          >
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {guestsMode === 'SELECTED' && (
-                                <SelectItem value="GUEST">Guest</SelectItem>
-                              )}
-                              {staffMode === 'SELECTED' && (
-                                <SelectItem value="USER">Staff user</SelectItem>
-                              )}
-                              {shareholdersMode === 'SELECTED' && (
-                                <SelectItem value="SHAREHOLDER">Shareholder</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Search</Label>
-                          <Input
-                            value={assigneeSearch}
-                            onChange={(e) => setAssigneeSearch(e.target.value)}
-                            placeholder="Name or email…"
-                            disabled={addType === 'GUEST'}
-                          />
-                        </div>
+                      <div>
+                        <Label>Add type</Label>
+                        <Select
+                          value={addType}
+                          onValueChange={(v) => {
+                            setAddType(v as 'GUEST' | 'USER' | 'SHAREHOLDER');
+                          }}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {guestsMode === 'SELECTED' && (
+                              <SelectItem value="GUEST">Guest</SelectItem>
+                            )}
+                            {staffMode === 'SELECTED' && (
+                              <SelectItem value="USER">Staff user</SelectItem>
+                            )}
+                            {shareholdersMode === 'SELECTED' && (
+                              <SelectItem value="SHAREHOLDER">Shareholder</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
                       {addType === 'GUEST' && guestsMode === 'SELECTED' && (
-                        <div className="space-y-2">
-                          <GuestPicker value={pickedGuest} onChange={setPickedGuest} label="Find guest" />
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={!pickedGuest}
-                            onClick={() => {
-                              if (!pickedGuest) return;
-                              const email =
-                                pickedGuest.email ||
-                                pickedGuest.shareholder?.email ||
-                                pickedGuest.user?.email ||
-                                '';
-                              const isSyntheticSh = pickedGuest.id.startsWith('shareholder:');
-                              if (!isSyntheticSh) {
-                                addAssignee({
-                                  assigneeType: 'GUEST',
-                                  assigneeId: pickedGuest.id,
-                                  label: `${pickedGuest.name}${email ? ` · ${email}` : ''}`,
-                                });
-                              }
-                              if (pickedGuest.shareholder?.id && shareholdersMode === 'SELECTED') {
-                                const sh = pickedGuest.shareholder;
-                                const shareBit =
-                                  sh.shareType === 'PERCENTAGE'
-                                    ? ` ${sh.shareValue ?? 0}%`
-                                    : sh.shareType === 'FIXED'
-                                      ? ` ৳${sh.shareValue ?? 0}`
-                                      : '';
-                                addAssignee({
-                                  assigneeType: 'SHAREHOLDER',
-                                  assigneeId: sh.id,
-                                  label: `${sh.name}${email ? ` · ${email}` : ''}${shareBit}`,
-                                });
-                              }
-                              if (pickedGuest.user?.id && staffMode === 'SELECTED') {
-                                addAssignee({
-                                  assigneeType: 'USER',
-                                  assigneeId: pickedGuest.user.id,
-                                  label: `${pickedGuest.user.name} · ${pickedGuest.user.email}`,
-                                });
-                              }
-                              setPickedGuest(null);
-                            }}
-                          >
-                            Add guest
-                          </Button>
-                        </div>
+                        <GuestPicker
+                          value={null}
+                          onChange={pickGuest}
+                          label="Find guest"
+                        />
                       )}
                       {addType === 'USER' && staffMode === 'SELECTED' && (
-                        <div className="space-y-2">
-                          <Select value={addId} onValueChange={setAddId}>
-                            <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                            <SelectContent>
-                              {filteredUsers.map((u) => (
-                                <SelectItem key={u.id} value={u.id}>
-                                  {u.name} · {u.email} ({u.role})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={!addId}
-                            onClick={() => {
-                              const u = users.find((x) => x.id === addId);
-                              if (!u) return;
-                              addAssignee({
-                                assigneeType: 'USER',
-                                assigneeId: u.id,
-                                label: `${u.name} · ${u.email}`,
-                              });
-                              setAddId('');
-                            }}
-                          >
-                            Add staff
-                          </Button>
-                        </div>
+                        <EntitySearchPicker
+                          label="Find staff"
+                          placeholder="Search by name or email…"
+                          emptyText="No staff found"
+                          items={users.map((u) => ({
+                            id: u.id,
+                            title: u.name,
+                            subtitle: `${u.email}${u.role ? ` · ${u.role}` : ''}${u.phone ? ` · ${u.phone}` : ''}`,
+                          }))}
+                          onPick={(it) => {
+                            const u = users.find((x) => x.id === it.id);
+                            if (!u) return;
+                            addAssignee({
+                              assigneeType: 'USER',
+                              assigneeId: u.id,
+                              label: `${u.name} · ${u.email}`,
+                            });
+                          }}
+                        />
                       )}
                       {addType === 'SHAREHOLDER' && shareholdersMode === 'SELECTED' && (
-                        <div className="space-y-2">
-                          <Select value={addId} onValueChange={setAddId}>
-                            <SelectTrigger><SelectValue placeholder="Select shareholder" /></SelectTrigger>
-                            <SelectContent>
-                              {filteredShareholders.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.name}{s.email ? ` · ${s.email}` : ''}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={!addId}
-                            onClick={() => {
-                              const s = shareholders.find((x) => x.id === addId);
-                              if (!s) return;
-                              addAssignee({
-                                assigneeType: 'SHAREHOLDER',
-                                assigneeId: s.id,
-                                label: `${s.name}${s.email ? ` · ${s.email}` : ''}`,
-                              });
-                              setAddId('');
-                            }}
-                          >
-                            Add shareholder
-                          </Button>
-                        </div>
+                        <EntitySearchPicker
+                          label="Find shareholder"
+                          placeholder="Search by name or email…"
+                          emptyText="No shareholders found"
+                          items={shareholders.map((s) => ({
+                            id: s.id,
+                            title: s.name,
+                            subtitle: [s.email, s.phone].filter(Boolean).join(' · '),
+                          }))}
+                          onPick={(it) => {
+                            const s = shareholders.find((x) => x.id === it.id);
+                            if (!s) return;
+                            addAssignee({
+                              assigneeType: 'SHAREHOLDER',
+                              assigneeId: s.id,
+                              label: `${s.name}${s.email ? ` · ${s.email}` : ''}`,
+                            });
+                          }}
+                        />
                       )}
                     </div>
                   )}

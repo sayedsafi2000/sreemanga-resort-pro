@@ -15,6 +15,13 @@ export default async function BookingPage() {
   const [roomsResult, settings] = await Promise.all([getRooms(), getSettings()]);
   const { rooms, ok: roomsOk } = roomsResult;
   const isT2 = settings.activeTemplate === 'template-two' || settings.activeTemplate === 'template-three';
+  const paymentAccounts = {
+    bkashNumber: settings.bkashNumber,
+    bankAccountName: settings.bankAccountName,
+    bankAccountNumber: settings.bankAccountNumber,
+    bankName: settings.bankName,
+    bankBranch: settings.bankBranch,
+  };
 
   const emptyMessage = !roomsOk
     ? 'We could not load rooms right now. Please refresh or call us.'
@@ -41,7 +48,7 @@ export default async function BookingPage() {
                 <div className="h-64 animate-pulse border border-forest-900/40 bg-forest-950/50" aria-hidden />
               }
             >
-              <BookingForm rooms={rooms} variant="dark" />
+              <BookingForm rooms={rooms} variant="dark" paymentAccounts={paymentAccounts} />
             </Suspense>
           )}
         </div>
@@ -67,7 +74,7 @@ export default async function BookingPage() {
           <Suspense
             fallback={<div className="h-64 animate-pulse rounded-2xl bg-white/30 backdrop-blur-md" aria-hidden />}
           >
-            <BookingForm rooms={rooms} />
+            <BookingForm rooms={rooms} paymentAccounts={paymentAccounts} />
           </Suspense>
         )}
       </Container>

@@ -86,6 +86,7 @@ model User {
   id        String   @id @default(uuid())
   name      String
   email     String   @unique
+  phone     String?
   password  String
   role      Role     @default(RECEPTIONIST)
   createdAt DateTime @default(now())

@@ -75,6 +75,11 @@ function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
     },
     restaurantTeaser:
       raw.restaurantTeaser || 'Seasonal dishes with local ingredients served fresh every day.',
+    bkashNumber: raw.bkashNumber || undefined,
+    bankAccountName: raw.bankAccountName || undefined,
+    bankAccountNumber: raw.bankAccountNumber || undefined,
+    bankName: raw.bankName || undefined,
+    bankBranch: raw.bankBranch || undefined,
     resortNameBn: raw.site_name_bn || '',
     taglineBn: raw.tagline_bn || '',
     aboutShortBn: raw.aboutShort_bn || '',

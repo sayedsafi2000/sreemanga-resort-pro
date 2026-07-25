@@ -62,6 +62,12 @@ export interface ResortSettings {
     youtube?: string;
   };
   restaurantTeaser: string;
+  /** Payment accounts (admin Settings → Payment Accounts) */
+  bkashNumber?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
   /** Bengali translations */
   resortNameBn?: string;
   taglineBn?: string;
