@@ -71,10 +71,28 @@ type Movement = {
   quantity: number;
   balanceAfter: number;
   unitCost?: number | null;
+  notes?: string | null;
   item?: { name: string; unit: string };
   createdAt: string;
+  createdBy?: { id: string; name: string } | null;
 };
 type Supplier = { id: string; name: string; phone?: string | null; email?: string | null; isActive: boolean };
+
+const MOVE_META: Record<string, { label: string; className: string; sign: 'in' | 'out' | 'adjust' }> = {
+  PURCHASE: { label: 'Purchase', className: 'bg-emerald-100 text-emerald-800 border-emerald-200', sign: 'in' },
+  RETURN: { label: 'Return', className: 'bg-teal-100 text-teal-800 border-teal-200', sign: 'in' },
+  ISSUE: { label: 'Issue', className: 'bg-amber-100 text-amber-800 border-amber-200', sign: 'out' },
+  SALE: { label: 'Sale', className: 'bg-rose-100 text-rose-800 border-rose-200', sign: 'out' },
+  CONSUMPTION: { label: 'Consumption', className: 'bg-rose-100 text-rose-800 border-rose-200', sign: 'out' },
+  ADJUSTMENT: { label: 'Adjust', className: 'bg-blue-100 text-blue-800 border-blue-200', sign: 'adjust' },
+};
+
+function formatMoveQty(type: string, quantity: number): string {
+  const meta = MOVE_META[type];
+  if (meta?.sign === 'out') return `−${quantity}`;
+  if (meta?.sign === 'in') return `+${quantity}`;
+  return String(quantity);
+}
 
 const emptyItem = {
   name: '', category: 'FOOD_ITEM', unit: 'pcs', currentStock: '', reorderLevel: '', costPrice: '', sellPrice: '', notes: '',
@@ -359,26 +377,43 @@ const Inventory: React.FC = () => {
                     <TableCell>৳{it.costPrice}</TableCell>
                     <TableCell className="text-muted-foreground">{it.supplier?.name ?? '—'}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
-                      {canIssue && it.isActive && (
-                        <Button size="sm" variant="ghost" title="Issue stock" onClick={() => openIssue(it)}>
-                          <PackageMinus className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canAdjust && it.isActive && (
-                        <Button size="sm" variant="ghost" title="Adjust stock" onClick={() => openAdjust(it)}>
-                          <SlidersHorizontal className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canManage && (
-                        <Button size="sm" variant="ghost" title="Edit" onClick={() => openEditItem(it)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canDeactivate && it.isActive && (
-                        <Button size="sm" variant="ghost" title="Deactivate" onClick={() => deactivateItem(it)}>
-                          <Ban className="h-4 w-4 text-red-600" />
-                        </Button>
-                      )}
+                      <div className="inline-flex flex-wrap items-center justify-end gap-1">
+                        {canIssue && it.isActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                            onClick={() => openIssue(it)}
+                          >
+                            <PackageMinus className="h-3.5 w-3.5 mr-1" /> Issue
+                          </Button>
+                        )}
+                        {canAdjust && it.isActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                            onClick={() => openAdjust(it)}
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5 mr-1" /> Adjust
+                          </Button>
+                        )}
+                        {canManage && (
+                          <Button size="sm" variant="outline" className="h-7" onClick={() => openEditItem(it)}>
+                            <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                          </Button>
+                        )}
+                        {canDeactivate && it.isActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                            onClick={() => deactivateItem(it)}
+                          >
+                            <Ban className="h-3.5 w-3.5 mr-1" /> Deactivate
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -397,21 +432,33 @@ const Inventory: React.FC = () => {
         <Card><CardContent className="p-4">
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Date</TableHead><TableHead>Item</TableHead><TableHead>Type</TableHead>
-              <TableHead>Qty</TableHead><TableHead>Balance After</TableHead><TableHead>Unit Cost</TableHead>
+              <TableHead>When</TableHead><TableHead>Item</TableHead><TableHead>Type</TableHead>
+              <TableHead>Qty</TableHead><TableHead>Balance after</TableHead><TableHead>Unit cost</TableHead><TableHead>By</TableHead><TableHead>Notes</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {movements.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(m.createdAt).toLocaleString()}</TableCell>
-                  <TableCell>{m.item?.name ?? '—'}</TableCell>
-                  <TableCell><Badge variant="outline">{m.type}</Badge></TableCell>
-                  <TableCell>{m.quantity} {m.item?.unit}</TableCell>
-                  <TableCell className={`font-medium ${m.balanceAfter < 0 ? 'text-red-600' : ''}`}>{m.balanceAfter}</TableCell>
-                  <TableCell>{m.unitCost != null ? `৳${m.unitCost}` : '—'}</TableCell>
-                </TableRow>
-              ))}
-              {movements.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No movements yet.</TableCell></TableRow>}
+              {movements.map((m) => {
+                const meta = MOVE_META[m.type] ?? { label: m.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()), className: 'bg-slate-100 text-slate-700', sign: 'adjust' as const };
+                const notes = m.notes?.trim() || '';
+                return (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{new Date(m.createdAt).toLocaleString()}</TableCell>
+                    <TableCell>{m.item?.name ?? '—'}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={meta.className}>{meta.label}</Badge>
+                    </TableCell>
+                    <TableCell className={meta.sign === 'out' ? 'text-amber-800 font-medium' : meta.sign === 'in' ? 'text-emerald-700 font-medium' : ''}>
+                      {formatMoveQty(m.type, m.quantity)} {m.item?.unit}
+                    </TableCell>
+                    <TableCell className={`font-medium ${m.balanceAfter < 0 ? 'text-red-600' : ''}`}>{m.balanceAfter}</TableCell>
+                    <TableCell>{m.unitCost != null ? `৳${m.unitCost}` : '—'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{m.createdBy?.name ?? '—'}</TableCell>
+                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground" title={notes || undefined}>
+                      {notes || '—'}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {movements.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No movements yet.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent></Card>
@@ -437,7 +484,7 @@ const Inventory: React.FC = () => {
       {/* Item dialog */}
       <Dialog open={itemDialog} onOpenChange={setItemDialog}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editingItem ? 'Edit Item' : 'New Inventory Item'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingItem ? `Edit item — ${editingItem.name}` : 'New inventory item'}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Name</Label><Input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></div>
@@ -507,7 +554,7 @@ const Inventory: React.FC = () => {
       {/* Adjust dialog */}
       <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Adjust Stock — {adjustItem?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Adjust stock — {adjustItem?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Current: {adjustItem?.currentStock} {adjustItem?.unit}. Use a negative number to remove (wastage), positive to add.
@@ -534,7 +581,7 @@ const Inventory: React.FC = () => {
       {/* Issue dialog */}
       <Dialog open={issueDialog} onOpenChange={setIssueDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Issue Stock — {issueItem?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Issue stock — {issueItem?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Current: {issueItem?.currentStock} {issueItem?.unit}. Enter how much to take out.

@@ -124,7 +124,11 @@ export const listMovements = async (req: Request, res: Response, next: NextFunct
     }
     const movements = await prisma.stockMovement.findMany({
       where,
-      include: { item: true, supplier: true },
+      include: {
+        item: true,
+        supplier: true,
+        createdBy: { select: { id: true, name: true } },
+      },
       orderBy: { createdAt: 'desc' },
       take: 500,
     });

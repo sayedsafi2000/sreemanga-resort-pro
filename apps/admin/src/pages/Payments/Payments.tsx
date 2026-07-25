@@ -144,7 +144,7 @@ const Payments: React.FC = () => {
         title="Payments & Revenue"
         description="Real-time financial performance and transaction monitoring."
         actions={
-          <Button variant="ink" onClick={openNew}>
+          <Button variant="default" onClick={openNew}>
             <DollarSign className="mr-2 h-4 w-4" />
             Record Payment
           </Button>

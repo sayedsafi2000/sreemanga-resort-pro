@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,6 +54,7 @@ import {
   CheckCircle2,
   AlertCircle,
   CreditCard,
+  Banknote,
 } from 'lucide-react';
 
 const STAFF_SALARY_CATEGORY_NAME = 'Staff Salary';
@@ -486,7 +487,15 @@ export default function Expenditures() {
   });
 
   const canEdit = canEditPayments(user?.role);
-  const lockedCategoryId = !editingExpense && categoryFilter !== 'all' ? categoryFilter : null;
+  const staffSalaryCategory = categories.find((c) => c.name === STAFF_SALARY_CATEGORY_NAME);
+  const isStaffSalaryFilter =
+    categoryFilter !== 'all' && staffSalaryCategory?.id === categoryFilter;
+  const selectableCategories = useMemo(
+    () => categories.filter((c) => c.isActive !== false && c.name !== STAFF_SALARY_CATEGORY_NAME),
+    [categories]
+  );
+  const lockedCategoryId =
+    !editingExpense && categoryFilter !== 'all' && !isStaffSalaryFilter ? categoryFilter : null;
   const lockedCategoryName = lockedCategoryId
     ? categories.find((c) => c.id === lockedCategoryId)?.name
     : null;
@@ -498,14 +507,15 @@ export default function Expenditures() {
   }, [expenseForm.categoryId, categories]);
 
   const openAddExpense = useCallback(() => {
+    if (isStaffSalaryFilter) return;
     setEditingExpense(null);
     setExpenseForm({
       ...DEFAULT_EXPENSE_FORM,
-      categoryId: categoryFilter !== 'all' ? categoryFilter : '',
+      categoryId: categoryFilter !== 'all' && !isStaffSalaryFilter ? categoryFilter : '',
     });
     setExpenseMetadata({});
     setOpenExpense(true);
-  }, [categoryFilter]);
+  }, [categoryFilter, isStaffSalaryFilter]);
 
   // ── URL helpers ─────────────────────────────────────────────────────────────
 
@@ -584,6 +594,17 @@ export default function Expenditures() {
   // Deep-link: /expenditures?tab=expenses&categoryId=X&new=1 opens Add Expense with category locked.
   useEffect(() => {
     if (searchParams.get('new') !== '1') return;
+    if (isStaffSalaryFilter) {
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          p.delete('new');
+          return p;
+        },
+        { replace: true }
+      );
+      return;
+    }
     openAddExpense();
     setSearchParams(
       (prev) => {
@@ -593,7 +614,7 @@ export default function Expenditures() {
       },
       { replace: true }
     );
-  }, [searchParams, openAddExpense, setSearchParams]);
+  }, [searchParams, openAddExpense, setSearchParams, isStaffSalaryFilter]);
 
   // ── Category CRUD ─────────────────────────────────────────────────────────
 
@@ -978,6 +999,17 @@ export default function Expenditures() {
       {/* ── EXPENSES TAB ─────────────────────────────────────────────────────── */}
       {tab === 'expenses' && (
         <div className="space-y-4">
+          {isStaffSalaryFilter && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+              <p>
+                Staff salaries are managed on the <strong>Staff Salaries</strong> page — not here.
+                You can still view payroll-synced history below.
+              </p>
+              <Button asChild size="sm" variant="default">
+                <Link to="/staff-salaries">Open Staff Salaries</Link>
+              </Button>
+            </div>
+          )}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-2">
               <div className="relative">
@@ -995,12 +1027,13 @@ export default function Expenditures() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                      {c.name === STAFF_SALARY_CATEGORY_NAME ? ' (system)' : ''}
-                    </SelectItem>
-                  ))}
+                  {categories
+                    .filter((c) => c.name !== STAFF_SALARY_CATEGORY_NAME)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1032,9 +1065,15 @@ export default function Expenditures() {
               >
                 Export CSV
               </Button>
-              <Button onClick={openAddExpense} variant="ink">
-                <Plus className="mr-2 h-4 w-4" /> Add Expense
-              </Button>
+              {isStaffSalaryFilter ? (
+                <Button asChild variant="default">
+                  <Link to="/staff-salaries"><Banknote className="mr-2 h-4 w-4" /> Staff Salaries</Link>
+                </Button>
+              ) : (
+                <Button onClick={openAddExpense} variant="default">
+                  <Plus className="mr-2 h-4 w-4" /> Add Expense
+                </Button>
+              )}
             </div>
           </div>
           <Card>
@@ -1373,7 +1412,7 @@ export default function Expenditures() {
                 <Select value={expenseForm.categoryId} onValueChange={(v) => { setExpenseForm({ ...expenseForm, categoryId: v }); setExpenseMetadata({}); }}>
                   <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
-                    {categories.filter((cat) => cat.isActive !== false).map((cat) => (
+                    {selectableCategories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1569,9 +1608,15 @@ function ExpenseRow({
             )}
             <span>
               {exp.title}
-              {exp.salaryId && <Badge variant="outline" className="ml-2 text-[10px]">Payroll sync</Badge>}
+              {exp.salaryId && (
+                <Link to="/staff-salaries" className="ml-2 inline-flex">
+                  <Badge variant="outline" className="text-[10px] hover:bg-indigo-50">Payroll · Staff Salaries</Badge>
+                </Link>
+              )}
               {!exp.salaryId && exp.category?.name === STAFF_SALARY_CATEGORY_NAME && (
-                <Badge variant="secondary" className="ml-2 text-[10px]">Salary category</Badge>
+                <Link to="/staff-salaries" className="ml-2 inline-flex">
+                  <Badge variant="secondary" className="text-[10px] hover:bg-indigo-50">Salary · open payroll</Badge>
+                </Link>
               )}
             </span>
           </div>
@@ -1594,8 +1639,16 @@ function ExpenseRow({
         </TableCell>
         {canEdit && (
           <TableCell className="text-right">
-            <Button variant="ghost" size="icon" onClick={() => onEdit(exp)}><Edit className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => onDelete(exp.id)}><Trash2 className="h-4 w-4" /></Button>
+            {exp.salaryId || exp.category?.name === STAFF_SALARY_CATEGORY_NAME ? (
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/staff-salaries">Payroll</Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="icon" onClick={() => onEdit(exp)}><Edit className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => onDelete(exp.id)}><Trash2 className="h-4 w-4" /></Button>
+              </>
+            )}
           </TableCell>
         )}
       </TableRow>

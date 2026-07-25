@@ -355,7 +355,7 @@ const Restaurant: React.FC = () => {
         description="Manage the menu and track room-service orders."
         actions={
           tab === 'menu' && menuWrite ? (
-            <Button variant="ink" className="w-full sm:w-auto" onClick={openNew}>
+            <Button variant="default" className="w-full sm:w-auto" onClick={openNew}>
               <Plus className="mr-2 h-4 w-4" />
               Add Item
             </Button>
@@ -525,7 +525,7 @@ const Restaurant: React.FC = () => {
                   Clear
                 </Button>
               )}
-              <Button variant="ink" className="w-full sm:w-auto" onClick={openNewOrder}>
+              <Button variant="default" className="w-full sm:w-auto" onClick={openNewOrder}>
                 <Plus className="mr-2 h-4 w-4" />
                 New order
               </Button>

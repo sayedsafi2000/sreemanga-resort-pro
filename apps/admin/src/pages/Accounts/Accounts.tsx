@@ -213,6 +213,13 @@ const Accounts: React.FC = () => {
   };
 
   const fmt = (n: number) => `৳${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const balanceClass = (n: number) => (n < 0 ? 'text-red-600' : '');
+  const outstandingClass = (r: Receivable) => {
+    const left = r.amount - r.collectedAmount;
+    if (left <= 0 || r.status === 'COLLECTED' || r.status === 'CANCELLED') return '';
+    const overdue = r.dueDate && new Date(r.dueDate) < new Date(new Date().toDateString());
+    return overdue ? 'text-red-600 font-semibold' : 'text-amber-700 font-semibold';
+  };
   const entryTarget = entryAccount || detail;
 
   return (
@@ -222,7 +229,7 @@ const Accounts: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card><CardContent className="p-4 space-y-2">
           <div className="text-sm text-muted-foreground">Cash Position</div>
-          <div className="text-2xl font-bold">{loading ? '…' : fmt(cashPosition)}</div>
+          <div className={`text-2xl font-bold ${!loading ? balanceClass(cashPosition) : ''}`}>{loading ? '…' : fmt(cashPosition)}</div>
           <div className="text-xs text-muted-foreground">Cash + Bank + Mobile</div>
           {canTxn && cashAccounts.length >= 2 && (
             <Button size="sm" variant="outline" className="mt-1" onClick={() => openTransfer()}>
@@ -233,7 +240,7 @@ const Accounts: React.FC = () => {
         {cashAccounts.slice(0, 2).map((a) => (
           <Card key={a.id}><CardContent className="p-4 space-y-2">
             <div className="text-sm text-muted-foreground">{a.name}</div>
-            <div className="text-2xl font-bold">{fmt(a.currentBalance)}</div>
+            <div className={`text-2xl font-bold ${balanceClass(a.currentBalance)}`}>{fmt(a.currentBalance)}</div>
             <div className="text-xs text-muted-foreground">{a.code}</div>
             {canTxn && (
               <div className="flex flex-wrap gap-1 pt-1">
@@ -282,7 +289,7 @@ const Accounts: React.FC = () => {
                 <Card key={group.label}><CardContent className="p-4">
                   <div className="mb-2 flex items-center justify-between">
                     <h3 className="font-semibold">{group.label}</h3>
-                    <span className="text-sm font-semibold">{fmt(total)}</span>
+                    <span className={`text-sm font-semibold ${balanceClass(total)}`}>{fmt(total)}</span>
                   </div>
                   <Table>
                     <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead className="text-right">Balance</TableHead></TableRow></TableHeader>
@@ -292,7 +299,7 @@ const Accounts: React.FC = () => {
                           <TableCell className="font-mono text-xs">{a.code}</TableCell>
                           <TableCell className={a.parentId ? 'pl-6' : 'font-medium'}>{a.name}</TableCell>
                           <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
-                          <TableCell className="text-right tabular-nums">{fmt(a.currentBalance)}</TableCell>
+                          <TableCell className={`text-right tabular-nums ${balanceClass(a.currentBalance)}`}>{fmt(a.currentBalance)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -312,8 +319,10 @@ const Accounts: React.FC = () => {
                   <TableCell className="font-medium">{r.customerName}</TableCell>
                   <TableCell>{fmt(r.amount)}</TableCell>
                   <TableCell>{fmt(r.collectedAmount)}</TableCell>
-                  <TableCell className="font-semibold">{fmt(r.amount - r.collectedAmount)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{r.dueDate ? new Date(r.dueDate).toLocaleDateString() : '—'}</TableCell>
+                  <TableCell className={outstandingClass(r)}>{fmt(r.amount - r.collectedAmount)}</TableCell>
+                  <TableCell className={`text-sm ${outstandingClass(r).includes('text-red') ? 'text-red-600' : 'text-muted-foreground'}`}>
+                    {r.dueDate ? new Date(r.dueDate).toLocaleDateString() : '—'}
+                  </TableCell>
                   <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
                   <TableCell className="text-right">
                     {canTxn && r.status !== 'COLLECTED' && r.status !== 'CANCELLED' && (
@@ -337,7 +346,7 @@ const Accounts: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2">
                 <span className="text-sm text-muted-foreground">Current balance</span>
-                <span className="text-lg font-bold">{fmt(detail.currentBalance)}</span>
+                <span className={`text-lg font-bold ${balanceClass(detail.currentBalance)}`}>{fmt(detail.currentBalance)}</span>
               </div>
               {canTxn && (
                 <div className="flex justify-end gap-2">
@@ -362,7 +371,7 @@ const Accounts: React.FC = () => {
                         <TableRow key={t.id}>
                           <TableCell className="text-xs text-muted-foreground">{new Date(t.transactionDate).toLocaleDateString()}</TableCell>
                           <TableCell><Badge className={t.direction === 'IN' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>{t.direction}</Badge></TableCell>
-                          <TableCell className="tabular-nums">{fmt(t.amount)}</TableCell>
+                          <TableCell className={`tabular-nums ${t.direction === 'OUT' ? 'text-red-600' : 'text-emerald-700'}`}>{fmt(t.amount)}</TableCell>
                           <TableCell className="text-sm">{t.description ?? '—'}</TableCell>
                         </TableRow>
                       ))}

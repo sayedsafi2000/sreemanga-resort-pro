@@ -329,7 +329,7 @@ const Rooms: React.FC = () => {
               Export Report
             </Button>
             {manage && (
-              <Button variant="ink" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add New Room</Button>
+              <Button variant="default" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add New Room</Button>
             )}
           </>
         }

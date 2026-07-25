@@ -18,6 +18,9 @@ import {
   Recycle,
   Sun,
   ChevronRight,
+  Boxes,
+  Banknote,
+  Landmark,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -559,6 +562,48 @@ const Dashboard: React.FC = () => {
   };
 
   const showOverview = role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'RECEPTIONIST';
+  const showQuickActions =
+    role === 'SUPER_ADMIN' ||
+    role === 'MANAGER' ||
+    role === 'RECEPTIONIST' ||
+    role === 'ACCOUNTANT';
+
+  type QuickAction = { label: string; href: string; icon: typeof CalendarCheck; color: string };
+  const quickActions: QuickAction[] = useMemo(() => {
+    const actions: QuickAction[] = [];
+    if (role === 'RECEPTIONIST' || role === 'SUPER_ADMIN' || role === 'MANAGER') {
+      actions.push(
+        { label: 'New Booking', href: '/bookings?new=1', icon: CalendarCheck, color: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100' },
+        { label: 'Add Guest', href: '/guests', icon: Users, color: 'text-violet-600 bg-violet-50 border-violet-100 hover:bg-violet-100' },
+      );
+    }
+    if (role === 'SUPER_ADMIN' || role === 'MANAGER') {
+      actions.push(
+        { label: 'Add Room', href: '/rooms', icon: BedDouble, color: 'text-teal-600 bg-teal-50 border-teal-100 hover:bg-teal-100' },
+        { label: 'Add Expense', href: '/expenditures?tab=expenses&new=1', icon: Wallet, color: 'text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-100' },
+        { label: 'Low stock', href: '/inventory?tab=items&low=1', icon: Boxes, color: 'text-amber-700 bg-amber-50 border-amber-100 hover:bg-amber-100' },
+      );
+    }
+    if (role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT') {
+      actions.push(
+        { label: 'Staff Salaries', href: '/staff-salaries', icon: Banknote, color: 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100' },
+        { label: 'Accounts', href: '/accounts?tab=chart', icon: Landmark, color: 'text-slate-700 bg-slate-50 border-slate-200 hover:bg-slate-100' },
+      );
+    }
+    if (role === 'ACCOUNTANT') {
+      actions.push(
+        { label: 'Add Expense', href: '/expenditures?tab=expenses&new=1', icon: Wallet, color: 'text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-100' },
+        { label: 'Low stock', href: '/inventory?tab=items&low=1', icon: Boxes, color: 'text-amber-700 bg-amber-50 border-amber-100 hover:bg-amber-100' },
+      );
+    }
+    // Dedupe by label while preserving order
+    const seen = new Set<string>();
+    return actions.filter((a) => {
+      if (seen.has(a.label)) return false;
+      seen.add(a.label);
+      return true;
+    });
+  }, [role]);
 
   return (
     <div className="space-y-6">
@@ -578,6 +623,29 @@ const Dashboard: React.FC = () => {
           </div>
         }
       />
+
+      {/* ── Quick actions (first interactive strip) ───────────────────────── */}
+      {!loading && showQuickActions && quickActions.length > 0 && (
+        <div className="card-base p-5">
+          <p className="eyebrow mb-3">Quick Actions</p>
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((a) => {
+              const Icon = a.icon;
+              return (
+                <Link
+                  key={a.label}
+                  to={a.href}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${a.color}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {a.label}
+                  <ArrowRight className="h-3.5 w-3.5 opacity-50" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Stats ──────────────────────────────────────────────────────────── */}
       {loading ? (
@@ -600,36 +668,6 @@ const Dashboard: React.FC = () => {
 
       {/* ── Recent activity ────────────────────────────────────────────────── */}
       {showOverview && !loading && <RecentActivity />}
-
-      {/* ── Quick actions ──────────────────────────────────────────────────── */}
-      {!loading && (role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'RECEPTIONIST') && (
-        <div className="card-base p-5">
-          <p className="eyebrow mb-4">Quick Actions</p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: 'New Booking', href: '/bookings?new=1', icon: CalendarCheck, color: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100' },
-              { label: 'Add Room', href: '/rooms', icon: BedDouble, color: 'text-teal-600 bg-teal-50 border-teal-100 hover:bg-teal-100' },
-              { label: 'Add Guest', href: '/guests', icon: Users, color: 'text-violet-600 bg-violet-50 border-violet-100 hover:bg-violet-100' },
-              ...(role !== 'RECEPTIONIST' ? [
-                { label: 'Add Expense', href: '/expenditures?tab=expenses', icon: Wallet, color: 'text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-100' },
-              ] : []),
-            ].map((a) => {
-              const Icon = a.icon;
-              return (
-                <Link
-                  key={a.label}
-                  to={a.href}
-                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${a.color}`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {a.label}
-                  <ArrowRight className="h-3.5 w-3.5 opacity-50" />
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

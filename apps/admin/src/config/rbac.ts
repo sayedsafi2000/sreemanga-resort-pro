@@ -124,13 +124,14 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
   const base: Record<StaffRole, SidebarItem[]> = {
     SUPER_ADMIN: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-      // Operations
-      { key: 'rooms', label: 'Rooms Management', path: '/rooms', icon: BedDouble },
+      // Operations — frequent first
       { key: 'book', label: 'Bookings', path: '/bookings', icon: CalendarCheck },
-      { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
+      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
-      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
+      { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
+      { key: 'rooms', label: 'Rooms Management', path: '/rooms', icon: BedDouble },
+     
       // Finance
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
@@ -153,13 +154,13 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     ],
     MANAGER: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-      // Operations
-      { key: 'rooms', label: 'Rooms', path: '/rooms', icon: BedDouble },
+      // Operations — frequent first
       { key: 'book', label: 'Bookings', path: '/bookings', icon: CalendarCheck },
-      { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
-      { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
-      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
+      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
+      { key: 'rooms', label: 'Rooms', path: '/rooms', icon: BedDouble },
+      { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
+      { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       // Finance
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
@@ -176,12 +177,12 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     ],
     RECEPTIONIST: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-      { key: 'rooms', label: 'Room Availability', path: '/rooms', icon: BedDouble },
       { key: 'book-new', label: 'New Booking', path: '/bookings', icon: ClipboardPlus, openNewBooking: true },
       { key: 'book-all', label: 'All Bookings', path: '/bookings', icon: ListChecks },
+      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
+      { key: 'rooms', label: 'Room Availability', path: '/rooms', icon: BedDouble },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
-      { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun },
     ],
     HOUSEKEEPING: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },

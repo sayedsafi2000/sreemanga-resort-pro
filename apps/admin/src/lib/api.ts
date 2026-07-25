@@ -34,9 +34,27 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const url = String(error.config?.url ?? '');
+      const isLoginAttempt = url.includes('/auth/login');
+      // Failed login must not clear session UI or hard-redirect — form shows the error.
+      if (!isLoginAttempt) {
+        let redirectTo = '/login';
+        try {
+          const saved = localStorage.getItem('user');
+          if (saved) {
+            const u = JSON.parse(saved) as { role?: string };
+            if (u?.role === 'SHAREHOLDER') redirectTo = '/shareholder-login';
+          }
+        } catch {
+          /* ignore */
+        }
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/shareholder')) {
+          redirectTo = '/shareholder-login';
+        }
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = redirectTo;
+      }
     }
     return Promise.reject(error);
   }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { Button } from '@/components/ui/button';
@@ -100,7 +101,19 @@ const emptyBooking = {
 const DayLong: React.FC = () => {
   const { user } = useAuth();
   const canManage = canManageRooms(user?.role);
-  const [tab, setTab] = useState<'products' | 'bookings'>('products');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: 'products' | 'bookings' = tabParam === 'products' ? 'products' : 'bookings';
+  const setTab = (next: 'products' | 'bookings') => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('tab', next);
+        return p;
+      },
+      { replace: true }
+    );
+  };
   const [products, setProducts] = useState<Product[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +143,19 @@ const DayLong: React.FC = () => {
   useEffect(() => {
     load();
   }, []);
+
+  // Ensure deep links and sidebar active state always have ?tab=
+  useEffect(() => {
+    if (searchParams.get('tab') === 'products' || searchParams.get('tab') === 'bookings') return;
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('tab', 'bookings');
+        return p;
+      },
+      { replace: true }
+    );
+  }, [searchParams, setSearchParams]);
 
   const openCreateProduct = () => {
     setEditingProduct(null);
@@ -232,14 +258,19 @@ const DayLong: React.FC = () => {
       <PageHeader
         title="Day Long"
         description="Pool, cottage, conference, event and picnic day-use bookings"
+        actions={
+          <Button onClick={openCreateBooking} disabled={products.length === 0 || loading}>
+            <Plus className="h-4 w-4 mr-1" /> New Booking
+          </Button>
+        }
       />
 
       <div className="flex gap-2">
-        <Button variant={tab === 'products' ? 'default' : 'outline'} onClick={() => setTab('products')}>
-          Products
-        </Button>
         <Button variant={tab === 'bookings' ? 'default' : 'outline'} onClick={() => setTab('bookings')}>
           Bookings
+        </Button>
+        <Button variant={tab === 'products' ? 'default' : 'outline'} onClick={() => setTab('products')}>
+          Products
         </Button>
       </div>
 
@@ -247,62 +278,7 @@ const DayLong: React.FC = () => {
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
-      ) : tab === 'products' ? (
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex justify-end">
-              {canManage && (
-                <Button onClick={openCreateProduct}>
-                  <Plus className="h-4 w-4 mr-1" /> New Product
-                </Button>
-              )}
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Base Price</TableHead>
-                  <TableHead>Per Person</TableHead>
-                  <TableHead>Capacity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
-                    <TableCell>৳{p.basePrice}</TableCell>
-                    <TableCell>{p.pricePerPerson != null ? `৳${p.pricePerPerson}` : '—'}</TableCell>
-                    <TableCell>{p.maxCapacity ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge className={p.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}>
-                        {p.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {canManage && (
-                        <Button size="sm" variant="ghost" onClick={() => openEditProduct(p)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {products.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No products yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      ) : (
+      ) : tab === 'bookings' ? (
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="flex justify-end">
@@ -355,6 +331,61 @@ const DayLong: React.FC = () => {
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       <CalendarDays className="h-6 w-6 mx-auto mb-2 opacity-50" />
                       No bookings yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex justify-end">
+              {canManage && (
+                <Button onClick={openCreateProduct}>
+                  <Plus className="h-4 w-4 mr-1" /> New Product
+                </Button>
+              )}
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Base Price</TableHead>
+                  <TableHead>Per Person</TableHead>
+                  <TableHead>Capacity</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
+                    <TableCell>৳{p.basePrice}</TableCell>
+                    <TableCell>{p.pricePerPerson != null ? `৳${p.pricePerPerson}` : '—'}</TableCell>
+                    <TableCell>{p.maxCapacity ?? '—'}</TableCell>
+                    <TableCell>
+                      <Badge className={p.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}>
+                        {p.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {canManage && (
+                        <Button size="sm" variant="ghost" onClick={() => openEditProduct(p)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {products.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      No products yet.
                     </TableCell>
                   </TableRow>
                 )}

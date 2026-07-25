@@ -308,7 +308,7 @@ const Bookings: React.FC = () => {
               <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
-            <Button variant="ink" onClick={openNew}>
+            <Button variant="default" onClick={openNew}>
               <Plus className="mr-2 h-4 w-4" />
               New Booking
             </Button>

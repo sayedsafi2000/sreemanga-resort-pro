@@ -429,7 +429,7 @@ const Settings: React.FC = () => {
               Configure your public website content, contact info, and integrations.
             </p>
           </div>
-          <Button variant="ink" onClick={handleSave} disabled={saving} className="shrink-0">
+          <Button variant="default" onClick={handleSave} disabled={saving} className="shrink-0">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {saving ? 'Saving…' : 'Save All'}
           </Button>
@@ -477,7 +477,7 @@ const Settings: React.FC = () => {
 
       {/* ── Bottom save ────────────────────────────────────────────────── */}
       <div className="flex justify-end pt-2">
-        <Button variant="ink" size="lg" onClick={handleSave} disabled={saving}>
+        <Button variant="default" size="lg" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           {saving ? 'Saving…' : 'Save All Changes'}
         </Button>

@@ -182,7 +182,11 @@ function ExpenditureNavGroup({
       .then((res) => {
         if (cancelled) return;
         const list = unwrapList<ExpNavCat>(res, ['categories']);
-        setCategories([...(list || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+        setCategories(
+          [...(list || [])]
+            .filter((c) => c.name !== 'Staff Salary')
+            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        );
       })
       .catch(() => { if (!cancelled) setCategories([]); });
     return () => { cancelled = true; };

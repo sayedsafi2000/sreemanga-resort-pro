@@ -94,7 +94,7 @@ const Users: React.FC = () => {
         title="Staff Management"
         description="Manage admin accounts, roles, and access."
         actions={
-          <Button variant="ink" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add User</Button>
+          <Button variant="default" onClick={openNew}><Plus className="h-4 w-4 mr-2" />Add User</Button>
         }
       />
       <Card>
