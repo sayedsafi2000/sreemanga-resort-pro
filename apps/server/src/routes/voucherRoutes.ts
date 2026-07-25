@@ -8,13 +8,25 @@ import {
   deactivateVoucher,
   validateVoucher,
   listRedemptions,
+  listMyVouchers,
 } from '../controllers/voucherController';
 
 const MANAGE = ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'] as const;
 const APPLY = ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST', 'RESTAURANT_STAFF'] as const;
+// Any authenticated role mounted under /api/vouchers (including SHAREHOLDER) can list mine.
+const ALL_AUTH = [
+  'SUPER_ADMIN',
+  'MANAGER',
+  'ACCOUNTANT',
+  'RECEPTIONIST',
+  'RESTAURANT_STAFF',
+  'HOUSEKEEPING',
+  'SHAREHOLDER',
+] as const;
 
 const router = Router();
 
+router.get('/mine', roleCheck([...ALL_AUTH]), listMyVouchers);
 router.get('/', roleCheck([...MANAGE]), listVouchers);
 router.post('/validate', roleCheck([...APPLY]), validateVoucher);
 router.get('/:id', roleCheck([...MANAGE]), getVoucher);

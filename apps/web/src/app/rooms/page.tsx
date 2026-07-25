@@ -25,10 +25,11 @@ export default async function RoomsPage({
   searchParams: { type?: string };
 }) {
   const filter = isRoomType(searchParams?.type) ? searchParams.type : undefined;
-  const [rooms, settings] = await Promise.all([
+  const [roomsResult, settings] = await Promise.all([
     getRooms(filter ? { type: filter } : undefined),
     getSettings(),
   ]);
+  const rooms = roomsResult.rooms;
   const isT2 = settings.activeTemplate === 'template-two' || settings.activeTemplate === 'template-three';
 
   if (isT2) {

@@ -35,6 +35,7 @@ import {
 import { StatCard } from '@/components/ui/stat-card';
 import { PageHeader } from '@/components/ui/page-header';
 import { InitialsAvatar } from '@/components/ui/avatar';
+import MyVouchersPanel, { type MineVoucher } from '@/components/MyVouchersPanel';
 
 interface DashboardStats {
   totalRooms: number;
@@ -398,6 +399,15 @@ const Dashboard: React.FC = () => {
   const role = user?.role ?? '';
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
+  const [myVouchers, setMyVouchers] = useState<MineVoucher[]>([]);
+
+  useEffect(() => {
+    if (!role) return;
+    api
+      .get('/vouchers/mine')
+      .then((res) => setMyVouchers(unwrapList<MineVoucher>(res, ['vouchers'])))
+      .catch(() => setMyVouchers([]));
+  }, [role]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -646,6 +656,19 @@ const Dashboard: React.FC = () => {
             })}
           </div>
         </div>
+      )}
+
+      {/* ── Personal vouchers ──────────────────────────────────────────────── */}
+      {!loading && (
+        <MyVouchersPanel
+          vouchers={myVouchers}
+          showWhenEmpty={
+            role === 'SUPER_ADMIN' ||
+            role === 'MANAGER' ||
+            role === 'RECEPTIONIST' ||
+            role === 'ACCOUNTANT'
+          }
+        />
       )}
 
       {/* ── Stats ──────────────────────────────────────────────────────────── */}

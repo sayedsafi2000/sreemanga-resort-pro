@@ -3,6 +3,7 @@ import {
   getMyProfile,
   getMyProfitShares,
   getMySummary,
+  getMyVouchers,
 } from '../controllers/shareholderPortalController';
 
 const router = Router();
@@ -11,5 +12,6 @@ const router = Router();
 router.get('/me', getMyProfile);
 router.get('/profit-shares', getMyProfitShares);
 router.get('/summary', getMySummary);
+router.get('/vouchers', getMyVouchers);
 
 export default router;

@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { findMineVouchers } from './voucherController';
+import { findVouchersForIdentities } from '../utils/voucher';
+import { toSafeMineVoucher } from './voucherController';
 
 // Resolve the Shareholder record for the logged-in SHAREHOLDER user.
 async function requireShareholder(req: Request) {
@@ -15,7 +18,9 @@ export const getMyProfile = async (req: Request, res: Response, next: NextFuncti
   try {
     const shareholder = await requireShareholder(req);
     res.json({ success: true, shareholder });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getMyProfitShares = async (req: Request, res: Response, next: NextFunction) => {
@@ -27,13 +32,14 @@ export const getMyProfitShares = async (req: Request, res: Response, next: NextF
       orderBy: { createdAt: 'desc' },
     });
     res.json({ success: true, shares });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getMySummary = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const shareholder = await requireShareholder(req);
-    // Only count shares from finalized (DISTRIBUTED) distributions as "received".
     const shares = await prisma.profitShare.findMany({
       where: { shareholderId: shareholder.id },
       include: { distribution: true },
@@ -57,5 +63,34 @@ export const getMySummary = async (req: Request, res: Response, next: NextFuncti
         distributionsCount: shares.length,
       },
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyVouchers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const shareholder = await requireShareholder(req);
+    const userId = (req as any).user?.id as string | undefined;
+
+    let vouchers = userId
+      ? await findMineVouchers(userId, shareholder.id)
+      : (await findVouchersForIdentities(prisma, [{ type: 'SHAREHOLDER', id: shareholder.id }])).map(
+          toSafeMineVoucher
+        );
+
+    vouchers = vouchers.filter((v: any) => {
+      const assignees = v.assignees || [];
+      if (assignees.length > 0) {
+        return assignees.some(
+          (a: any) => a.assigneeType === 'SHAREHOLDER' && a.assigneeId === shareholder.id
+        );
+      }
+      return v.assigneeType === 'SHAREHOLDER';
+    });
+
+    res.json({ success: true, vouchers });
+  } catch (error) {
+    next(error);
+  }
 };

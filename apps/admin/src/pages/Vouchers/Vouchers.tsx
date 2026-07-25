@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { Button } from '@/components/ui/button';
@@ -54,9 +54,16 @@ type Voucher = {
   isSecure: boolean;
   assigneeType: string;
   assigneeId?: string | null;
+  assignees?: { assigneeType: string; assigneeId: string }[];
   redemptionCount?: number;
   _count?: { redemptions: number };
   items?: { itemType: string; itemId: string }[];
+};
+
+type AssigneeChip = {
+  assigneeType: 'GUEST' | 'USER' | 'SHAREHOLDER';
+  assigneeId: string;
+  label: string;
 };
 
 const emptyForm = () => ({
@@ -77,14 +84,42 @@ const emptyForm = () => ({
   maxRedemptions: '',
   maxPerAssignee: '',
   isSecure: true,
-  assigneeType: 'NONE',
-  assigneeId: '',
-  itemIds: '' as string, // comma-separated UUIDs for SELECTED_ITEMS (manual)
-  itemType: 'ROOM',
 });
 
 const sectionLabel = (t: string) => (
   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">{t}</p>
+);
+
+const ItemChecklist = ({
+  title,
+  options,
+  selected,
+  onToggle,
+}: {
+  title: string;
+  options: { id: string; label: string }[];
+  selected: string[];
+  onToggle: (id: string, on: boolean) => void;
+}) => (
+  <div className="space-y-2 rounded-md border p-3">
+    <Label>{title}</Label>
+    <div className="max-h-36 overflow-auto space-y-1">
+      {options.map((opt) => (
+        <label key={opt.id} className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={selected.includes(opt.id)}
+            onChange={(e) => onToggle(opt.id, e.target.checked)}
+          />
+          {opt.label}
+        </label>
+      ))}
+      {options.length === 0 && (
+        <p className="text-xs text-muted-foreground">No items loaded.</p>
+      )}
+    </div>
+  </div>
 );
 
 const Vouchers: React.FC = () => {
@@ -97,12 +132,18 @@ const Vouchers: React.FC = () => {
   const [revealedCodes, setRevealedCodes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [pickedGuest, setPickedGuest] = useState<GuestPick | null>(null);
+  const [assignees, setAssignees] = useState<AssigneeChip[]>([]);
+  const [addType, setAddType] = useState<'GUEST' | 'USER' | 'SHAREHOLDER'>('USER');
+  const [addId, setAddId] = useState('');
+  const [assigneeSearch, setAssigneeSearch] = useState('');
   const [shareholders, setShareholders] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [menu, setMenu] = useState<any[]>([]);
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [selectedMenuIds, setSelectedMenuIds] = useState<string[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -140,23 +181,81 @@ const Vouchers: React.FC = () => {
   const openCreate = () => {
     setForm(emptyForm());
     setPickedGuest(null);
-    setSelectedItemIds([]);
+    setAssignees([]);
+    setAddType('USER');
+    setAddId('');
+    setAssigneeSearch('');
+    setSelectedRoomIds([]);
+    setSelectedProductIds([]);
+    setSelectedMenuIds([]);
     setError(null);
     setRevealedCodes([]);
     setOpen(true);
     loadAudienceOptions();
   };
 
-  const itemOptions = useMemo(() => {
-    if (form.itemType === 'ROOM') return rooms.map((x) => ({ id: x.id, label: x.name }));
-    if (form.itemType === 'DAY_LONG_PRODUCT') return products.map((x) => ({ id: x.id, label: x.name }));
-    return menu.map((x) => ({ id: x.id, label: `${x.name} (৳${x.price})` }));
-  }, [form.itemType, rooms, products, menu]);
+  const addAssignee = (chip: AssigneeChip) => {
+    setAssignees((prev) => {
+      if (prev.some((a) => a.assigneeType === chip.assigneeType && a.assigneeId === chip.assigneeId)) {
+        return prev;
+      }
+      return [...prev, chip];
+    });
+  };
+
+  const removeAssignee = (type: string, id: string) => {
+    setAssignees((prev) => prev.filter((a) => !(a.assigneeType === type && a.assigneeId === id)));
+  };
+
+  const filteredUsers = users.filter((u) => {
+    const q = assigneeSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.role || '').toLowerCase().includes(q)
+    );
+  });
+
+  const filteredShareholders = shareholders.filter((s) => {
+    const q = assigneeSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.email || '').toLowerCase().includes(q)
+    );
+  });
+
+  const setChannel = (key: 'appliesRoom' | 'appliesDayLong' | 'appliesRestaurant', on: boolean) => {
+    setForm((prev) => ({ ...prev, [key]: on }));
+    if (!on) {
+      if (key === 'appliesRoom') setSelectedRoomIds([]);
+      if (key === 'appliesDayLong') setSelectedProductIds([]);
+      if (key === 'appliesRestaurant') setSelectedMenuIds([]);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
     setError(null);
     try {
+      if (!form.appliesRoom && !form.appliesDayLong && !form.appliesRestaurant) {
+        throw new Error('Select at least one channel');
+      }
+      const items: { itemType: string; itemId: string }[] = [];
+      if (form.scope === 'SELECTED_ITEMS') {
+        if (form.appliesRoom) {
+          selectedRoomIds.forEach((id) => items.push({ itemType: 'ROOM', itemId: id }));
+        }
+        if (form.appliesDayLong) {
+          selectedProductIds.forEach((id) => items.push({ itemType: 'DAY_LONG_PRODUCT', itemId: id }));
+        }
+        if (form.appliesRestaurant) {
+          selectedMenuIds.forEach((id) => items.push({ itemType: 'MENU_ITEM', itemId: id }));
+        }
+        if (items.length === 0) throw new Error('Select at least one item for the enabled channels');
+      }
+
       const bulkCount = Math.max(1, Number(form.bulkCount) || 1);
       const payload: any = {
         name: form.name.trim(),
@@ -174,27 +273,15 @@ const Vouchers: React.FC = () => {
         maxRedemptions: form.maxRedemptions === '' ? null : Number(form.maxRedemptions),
         maxPerAssignee: form.maxPerAssignee === '' ? null : Number(form.maxPerAssignee),
         isSecure: form.isSecure,
-        assigneeType: form.assigneeType,
-        assigneeId:
-          form.assigneeType === 'NONE'
-            ? null
-            : form.assigneeType === 'GUEST'
-              ? pickedGuest?.id
-              : form.assigneeId || null,
+        assignees: assignees.map((a) => ({
+          assigneeType: a.assigneeType,
+          assigneeId: a.assigneeId,
+        })),
         bulkCount: bulkCount > 1 ? bulkCount : undefined,
         code: bulkCount === 1 && form.code.trim() ? form.code.trim() : undefined,
-        items:
-          form.scope === 'SELECTED_ITEMS'
-            ? selectedItemIds.map((id) => ({ itemType: form.itemType, itemId: id }))
-            : [],
+        items,
       };
       if (!payload.name) throw new Error('Name is required');
-      if (payload.assigneeType !== 'NONE' && !payload.assigneeId) {
-        throw new Error('Select an assignee for personal vouchers');
-      }
-      if (payload.scope === 'SELECTED_ITEMS' && payload.items.length === 0) {
-        throw new Error('Select at least one item');
-      }
 
       const res = await api.post('/vouchers', payload);
       const codes: string[] =
@@ -261,8 +348,15 @@ const Vouchers: React.FC = () => {
                     <TableRow key={v.id}>
                       <TableCell className="font-medium">
                         <div>{v.name}</div>
-                        {v.assigneeType !== 'NONE' && (
+                        {(v.assignees?.length ?? 0) > 0 ? (
+                          <div className="text-xs text-muted-foreground">
+                            {v.assignees!.length} recipient{v.assignees!.length === 1 ? '' : 's'} (
+                            {[...new Set(v.assignees!.map((a) => a.assigneeType))].join(', ')})
+                          </div>
+                        ) : v.assigneeType !== 'NONE' ? (
                           <div className="text-xs text-muted-foreground">Locked: {v.assigneeType}</div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">Public</div>
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-sm">••••{v.codeHint}</TableCell>
@@ -389,76 +483,78 @@ const Vouchers: React.FC = () => {
                       <Input type="number" value={form.discountValue} onChange={(e) => setForm({ ...form, discountValue: e.target.value })} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Scope</Label>
-                      <Select value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="OVERALL">Overall total</SelectItem>
-                          <SelectItem value="SELECTED_ITEMS">Selected items</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Max discount ৳</Label>
-                      <Input type="number" value={form.maxDiscountAmount} onChange={(e) => setForm({ ...form, maxDiscountAmount: e.target.value })} placeholder="optional cap" />
-                    </div>
+                  <div>
+                    <Label>Max discount ৳</Label>
+                    <Input type="number" value={form.maxDiscountAmount} onChange={(e) => setForm({ ...form, maxDiscountAmount: e.target.value })} placeholder="optional cap" />
                   </div>
-                  {form.scope === 'SELECTED_ITEMS' && (
-                    <div className="space-y-2 rounded-md border p-3">
-                      <Label>Item type</Label>
-                      <Select value={form.itemType} onValueChange={(v) => { setForm({ ...form, itemType: v }); setSelectedItemIds([]); }}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ROOM">Rooms</SelectItem>
-                          <SelectItem value="DAY_LONG_PRODUCT">Day Long products</SelectItem>
-                          <SelectItem value="MENU_ITEM">Menu items</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <div className="max-h-40 overflow-auto space-y-1 mt-2">
-                        {itemOptions.map((opt) => (
-                          <label key={opt.id} className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4"
-                              checked={selectedItemIds.includes(opt.id)}
-                              onChange={(e) => {
-                                setSelectedItemIds((prev) =>
-                                  e.target.checked ? [...prev, opt.id] : prev.filter((x) => x !== opt.id)
-                                );
-                              }}
-                            />
-                            {opt.label}
-                          </label>
-                        ))}
-                        {itemOptions.length === 0 && (
-                          <p className="text-xs text-muted-foreground">No items loaded.</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </section>
 
                 <section className="space-y-3">
                   {sectionLabel('Applies to')}
                   <div className="flex flex-wrap gap-4 text-sm">
-                    {([
-                      ['appliesRoom', 'Room bookings'],
-                      ['appliesDayLong', 'Day Long'],
-                      ['appliesRestaurant', 'Restaurant'],
-                    ] as const).map(([key, label]) => (
-                      <label key={key} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={(form as any)[key]}
-                          onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
-                        />
-                        {label}
-                      </label>
-                    ))}
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="h-4 w-4" checked={form.appliesRoom} onChange={(e) => setChannel('appliesRoom', e.target.checked)} />
+                      Room bookings
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="h-4 w-4" checked={form.appliesDayLong} onChange={(e) => setChannel('appliesDayLong', e.target.checked)} />
+                      Day Long
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="h-4 w-4" checked={form.appliesRestaurant} onChange={(e) => setChannel('appliesRestaurant', e.target.checked)} />
+                      Restaurant
+                    </label>
                   </div>
+                  <div>
+                    <Label>Scope</Label>
+                    <Select value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OVERALL">Overall total on selected channels</SelectItem>
+                        <SelectItem value="SELECTED_ITEMS">Selected items only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Overall applies to any booking/order on the checked channels. Selected items shows pickers only for those channels.
+                    </p>
+                  </div>
+                  {form.scope === 'SELECTED_ITEMS' && (
+                    <div className="space-y-3">
+                      {form.appliesRoom && (
+                        <ItemChecklist
+                          title="Rooms"
+                          options={rooms.map((x) => ({ id: x.id, label: x.name }))}
+                          selected={selectedRoomIds}
+                          onToggle={(id, on) =>
+                            setSelectedRoomIds((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)))
+                          }
+                        />
+                      )}
+                      {form.appliesDayLong && (
+                        <ItemChecklist
+                          title="Day Long products"
+                          options={products.map((x) => ({ id: x.id, label: x.name }))}
+                          selected={selectedProductIds}
+                          onToggle={(id, on) =>
+                            setSelectedProductIds((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)))
+                          }
+                        />
+                      )}
+                      {form.appliesRestaurant && (
+                        <ItemChecklist
+                          title="Menu items"
+                          options={menu.map((x) => ({ id: x.id, label: `${x.name} (৳${x.price})` }))}
+                          selected={selectedMenuIds}
+                          onToggle={(id, on) =>
+                            setSelectedMenuIds((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)))
+                          }
+                        />
+                      )}
+                      {!form.appliesRoom && !form.appliesDayLong && !form.appliesRestaurant && (
+                        <p className="text-sm text-amber-700">Enable at least one channel to pick items.</p>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <Label>Minimum spend ৳</Label>
                     <Input type="number" value={form.minSpend} onChange={(e) => setForm({ ...form, minSpend: e.target.value })} placeholder="optional" />
@@ -491,43 +587,179 @@ const Vouchers: React.FC = () => {
 
                 <section className="space-y-3">
                   {sectionLabel('Audience')}
-                  <Select
-                    value={form.assigneeType}
-                    onValueChange={(v) => {
-                      setForm({ ...form, assigneeType: v, assigneeId: '' });
-                      setPickedGuest(null);
-                    }}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NONE">Anyone with the code</SelectItem>
-                      <SelectItem value="GUEST">Specific guest</SelectItem>
-                      <SelectItem value="USER">Staff user</SelectItem>
-                      <SelectItem value="SHAREHOLDER">Shareholder</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {form.assigneeType === 'GUEST' && (
-                    <GuestPicker value={pickedGuest} onChange={setPickedGuest} label="Assign to guest" />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty for anyone with the code. Add one or more guests, staff, or shareholders
+                    (same email can exist as multiple types).
+                  </p>
+                  {assignees.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {assignees.map((a) => (
+                        <Badge
+                          key={`${a.assigneeType}:${a.assigneeId}`}
+                          variant="outline"
+                          className="gap-1 pr-1"
+                        >
+                          <span className="text-[10px] uppercase text-muted-foreground">{a.assigneeType}</span>
+                          {a.label}
+                          <button
+                            type="button"
+                            className="ml-1 rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            onClick={() => removeAssignee(a.assigneeType, a.assigneeId)}
+                            aria-label="Remove"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
                   )}
-                  {form.assigneeType === 'USER' && (
-                    <Select value={form.assigneeId} onValueChange={(v) => setForm({ ...form, assigneeId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                      <SelectContent>
-                        {users.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>{u.name} ({u.role})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Type</Label>
+                      <Select
+                        value={addType}
+                        onValueChange={(v) => {
+                          setAddType(v as 'GUEST' | 'USER' | 'SHAREHOLDER');
+                          setAddId('');
+                          setPickedGuest(null);
+                          setAssigneeSearch('');
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="GUEST">Guest</SelectItem>
+                          <SelectItem value="USER">Staff user</SelectItem>
+                          <SelectItem value="SHAREHOLDER">Shareholder</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Search</Label>
+                      <Input
+                        value={assigneeSearch}
+                        onChange={(e) => setAssigneeSearch(e.target.value)}
+                        placeholder="Name or email…"
+                        disabled={addType === 'GUEST'}
+                      />
+                    </div>
+                  </div>
+                  {addType === 'GUEST' && (
+                    <div className="space-y-2">
+                      <GuestPicker value={pickedGuest} onChange={setPickedGuest} label="Find guest" />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={!pickedGuest}
+                        onClick={() => {
+                          if (!pickedGuest) return;
+                          const email =
+                            pickedGuest.email ||
+                            pickedGuest.shareholder?.email ||
+                            pickedGuest.user?.email ||
+                            '';
+                          const isSyntheticSh = pickedGuest.id.startsWith('shareholder:');
+                          // Real guest row
+                          if (!isSyntheticSh) {
+                            addAssignee({
+                              assigneeType: 'GUEST',
+                              assigneeId: pickedGuest.id,
+                              label: `${pickedGuest.name}${email ? ` · ${email}` : ''}`,
+                            });
+                          }
+                          // Linked shareholder (same email or shareholder-only hit)
+                          if (pickedGuest.shareholder?.id) {
+                            const sh = pickedGuest.shareholder;
+                            const shareBit =
+                              sh.shareType === 'PERCENTAGE'
+                                ? ` ${sh.shareValue ?? 0}%`
+                                : sh.shareType === 'FIXED'
+                                  ? ` ৳${sh.shareValue ?? 0}`
+                                  : '';
+                            addAssignee({
+                              assigneeType: 'SHAREHOLDER',
+                              assigneeId: sh.id,
+                              label: `${sh.name}${email ? ` · ${email}` : ''}${shareBit}`,
+                            });
+                          }
+                          // Linked staff user
+                          if (pickedGuest.user?.id) {
+                            addAssignee({
+                              assigneeType: 'USER',
+                              assigneeId: pickedGuest.user.id,
+                              label: `${pickedGuest.user.name} · ${pickedGuest.user.email}`,
+                            });
+                          }
+                          setPickedGuest(null);
+                        }}
+                      >
+                        Add guest
+                      </Button>
+                    </div>
                   )}
-                  {form.assigneeType === 'SHAREHOLDER' && (
-                    <Select value={form.assigneeId} onValueChange={(v) => setForm({ ...form, assigneeId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select shareholder" /></SelectTrigger>
-                      <SelectContent>
-                        {shareholders.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {addType === 'USER' && (
+                    <div className="space-y-2">
+                      <Select value={addId} onValueChange={setAddId}>
+                        <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
+                        <SelectContent>
+                          {filteredUsers.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name} · {u.email} ({u.role})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={!addId}
+                        onClick={() => {
+                          const u = users.find((x) => x.id === addId);
+                          if (!u) return;
+                          addAssignee({
+                            assigneeType: 'USER',
+                            assigneeId: u.id,
+                            label: `${u.name} · ${u.email}`,
+                          });
+                          setAddId('');
+                        }}
+                      >
+                        Add staff
+                      </Button>
+                    </div>
+                  )}
+                  {addType === 'SHAREHOLDER' && (
+                    <div className="space-y-2">
+                      <Select value={addId} onValueChange={setAddId}>
+                        <SelectTrigger><SelectValue placeholder="Select shareholder" /></SelectTrigger>
+                        <SelectContent>
+                          {filteredShareholders.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}{s.email ? ` · ${s.email}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={!addId}
+                        onClick={() => {
+                          const s = shareholders.find((x) => x.id === addId);
+                          if (!s) return;
+                          addAssignee({
+                            assigneeType: 'SHAREHOLDER',
+                            assigneeId: s.id,
+                            label: `${s.name}${s.email ? ` · ${s.email}` : ''}`,
+                          });
+                          setAddId('');
+                        }}
+                      >
+                        Add shareholder
+                      </Button>
+                    </div>
                   )}
                   <label className="flex items-center gap-2 text-sm">
                     <input

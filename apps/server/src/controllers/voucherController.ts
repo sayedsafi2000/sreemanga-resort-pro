@@ -5,6 +5,7 @@ import {
   voucherCreateSchema,
   voucherUpdateSchema,
   voucherValidateSchema,
+  voucherForEmailSchema,
 } from '../validators/voucherValidator';
 import {
   codeHintFrom,
@@ -12,15 +13,41 @@ import {
   hashVoucherCode,
   normalizeCode,
   validateVoucherForCheckout,
+  resolveAssigneeIdentities,
+  findVouchersForIdentities,
 } from '../utils/voucher';
+
+const voucherInclude = {
+  items: true,
+  assignees: true,
+  _count: { select: { redemptions: true } },
+} as const;
 
 function serializeVoucher(v: any, plaintextCode?: string) {
   const { codeHash: _h, ...rest } = v;
   return {
     ...rest,
+    assignees: v.assignees || [],
     ...(plaintextCode ? { code: plaintextCode } : {}),
     redemptionCount: v._count?.redemptions ?? v.redemptions?.length ?? undefined,
   };
+}
+
+async function syncAssignees(
+  tx: any,
+  voucherId: string,
+  assignees: { assigneeType: string; assigneeId: string }[]
+) {
+  await tx.voucherAssignee.deleteMany({ where: { voucherId } });
+  if (assignees.length > 0) {
+    await tx.voucherAssignee.createMany({
+      data: assignees.map((a) => ({
+        voucherId,
+        assigneeType: a.assigneeType,
+        assigneeId: a.assigneeId,
+      })),
+    });
+  }
 }
 
 async function createOneVoucher(
@@ -34,9 +61,6 @@ async function createOneVoucher(
   const existing = await tx.voucher.findUnique({ where: { codeHash } });
   if (existing) throw new AppError(`Code ${normalized} already exists`, 409);
 
-  if (data.assigneeType !== 'NONE' && !data.assigneeId) {
-    throw new AppError('assigneeId is required when assigneeType is set', 400);
-  }
   if (data.scope === 'SELECTED_ITEMS' && (!data.items || data.items.length === 0)) {
     throw new AppError('Select at least one item for SELECTED_ITEMS scope', 400);
   }
@@ -44,7 +68,9 @@ async function createOneVoucher(
     throw new AppError('Percentage cannot exceed 100', 400);
   }
 
-  return tx.voucher.create({
+  const assignees = data.assignees || [];
+
+  const voucher = await tx.voucher.create({
     data: {
       codeHash,
       codeHint: codeHintFrom(normalized),
@@ -63,8 +89,8 @@ async function createOneVoucher(
       maxRedemptions: data.maxRedemptions ?? null,
       maxPerAssignee: data.maxPerAssignee ?? null,
       isSecure: data.isSecure,
-      assigneeType: data.assigneeType,
-      assigneeId: data.assigneeType === 'NONE' ? null : data.assigneeId ?? null,
+      assigneeType: assignees.length === 0 ? 'NONE' : assignees[0]!.assigneeType,
+      assigneeId: assignees.length === 0 ? null : assignees[0]!.assigneeId,
       createdById: createdById ?? null,
       items:
         data.scope === 'SELECTED_ITEMS' && data.items?.length
@@ -75,13 +101,48 @@ async function createOneVoucher(
               })),
             }
           : undefined,
+      assignees:
+        assignees.length > 0
+          ? {
+              create: assignees.map((a) => ({
+                assigneeType: a.assigneeType,
+                assigneeId: a.assigneeId,
+              })),
+            }
+          : undefined,
     },
-    include: { items: true, _count: { select: { redemptions: true } } },
+    include: voucherInclude,
   });
+
+  return voucher;
+}
+
+/** One-shot: copy legacy assigneeType/assigneeId into VoucherAssignee rows. */
+export async function backfillVoucherAssignees() {
+  const legacy = await prisma.voucher.findMany({
+    where: {
+      assigneeType: { not: 'NONE' },
+      assigneeId: { not: null },
+      assignees: { none: {} },
+    },
+    select: { id: true, assigneeType: true, assigneeId: true },
+  });
+  for (const v of legacy) {
+    if (!v.assigneeId || v.assigneeType === 'NONE') continue;
+    await prisma.voucherAssignee.create({
+      data: {
+        voucherId: v.id,
+        assigneeType: v.assigneeType,
+        assigneeId: v.assigneeId,
+      },
+    }).catch(() => undefined);
+  }
+  return legacy.length;
 }
 
 export const listVouchers = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    await backfillVoucherAssignees();
     const { active, q } = req.query;
     const where: any = {};
     if (active === 'true') where.isActive = true;
@@ -94,7 +155,7 @@ export const listVouchers = async (req: Request, res: Response, next: NextFuncti
     }
     const vouchers = await prisma.voucher.findMany({
       where,
-      include: { items: true, _count: { select: { redemptions: true } } },
+      include: voucherInclude,
       orderBy: { createdAt: 'desc' },
     });
     res.json({
@@ -112,6 +173,7 @@ export const getVoucher = async (req: Request, res: Response, next: NextFunction
       where: { id: req.params.id },
       include: {
         items: true,
+        assignees: true,
         redemptions: { orderBy: { createdAt: 'desc' }, take: 50 },
         _count: { select: { redemptions: true } },
       },
@@ -164,15 +226,12 @@ export const updateVoucher = async (req: Request, res: Response, next: NextFunct
     const data = voucherUpdateSchema.parse(req.body);
     const existing = await prisma.voucher.findUnique({
       where: { id: req.params.id },
-      include: { items: true },
+      include: { items: true, assignees: true },
     });
     if (!existing) throw new AppError('Voucher not found', 404);
 
     if (data.discountType === 'PERCENT' && data.discountValue != null && data.discountValue > 100) {
       throw new AppError('Percentage cannot exceed 100', 400);
-    }
-    if (data.assigneeType && data.assigneeType !== 'NONE' && data.assigneeId === null) {
-      throw new AppError('assigneeId is required when assigneeType is set', 400);
     }
 
     const voucher = await prisma.$transaction(async (tx) => {
@@ -190,6 +249,10 @@ export const updateVoucher = async (req: Request, res: Response, next: NextFunct
         });
       } else if (data.scope === 'OVERALL') {
         await tx.voucherItem.deleteMany({ where: { voucherId: existing.id } });
+      }
+
+      if (data.assignees !== undefined) {
+        await syncAssignees(tx, existing.id, data.assignees);
       }
 
       return tx.voucher.update({
@@ -215,12 +278,15 @@ export const updateVoucher = async (req: Request, res: Response, next: NextFunct
           ...(data.maxPerAssignee !== undefined ? { maxPerAssignee: data.maxPerAssignee } : {}),
           ...(data.isSecure !== undefined ? { isSecure: data.isSecure } : {}),
           ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
-          ...(data.assigneeType !== undefined ? { assigneeType: data.assigneeType } : {}),
-          ...(data.assigneeId !== undefined
-            ? { assigneeId: data.assigneeType === 'NONE' ? null : data.assigneeId }
+          ...(data.assignees !== undefined
+            ? {
+                assigneeType:
+                  data.assignees.length === 0 ? 'NONE' : data.assignees[0]!.assigneeType,
+                assigneeId: data.assignees.length === 0 ? null : data.assignees[0]!.assigneeId,
+              }
             : {}),
         },
-        include: { items: true, _count: { select: { redemptions: true } } },
+        include: voucherInclude,
       });
     });
 
@@ -237,7 +303,7 @@ export const deactivateVoucher = async (req: Request, res: Response, next: NextF
     const voucher = await prisma.voucher.update({
       where: { id: req.params.id },
       data: { isActive: false },
-      include: { items: true, _count: { select: { redemptions: true } } },
+      include: voucherInclude,
     });
     res.json({ success: true, voucher: serializeVoucher(voucher) });
   } catch (error) {
@@ -278,6 +344,81 @@ export const listRedemptions = async (req: Request, res: Response, next: NextFun
       take: 100,
     });
     res.json({ success: true, redemptions });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export function toSafeMineVoucher(v: any) {
+  const now = new Date();
+  const expired = !!(v.expiresAt && v.expiresAt < now);
+  const uses = v._count?.redemptions ?? 0;
+  const assignees = v.assignees || [];
+  return {
+    id: v.id,
+    name: v.name,
+    description: v.description,
+    discountType: v.discountType,
+    discountValue: v.discountValue,
+    scope: v.scope,
+    appliesRoom: v.appliesRoom,
+    appliesDayLong: v.appliesDayLong,
+    appliesRestaurant: v.appliesRestaurant,
+    startsAt: v.startsAt,
+    expiresAt: v.expiresAt,
+    maxRedemptions: v.maxRedemptions,
+    maxPerAssignee: v.maxPerAssignee,
+    codeHint: v.codeHint,
+    assigneeType: v.assigneeType,
+    assignees,
+    isActive: v.isActive,
+    expired,
+    redemptionCount: uses,
+    remaining:
+      v.maxRedemptions != null ? Math.max(0, v.maxRedemptions - uses) : null,
+  };
+}
+
+/** Vouchers assigned to the current user (USER) and/or their shareholder profile. */
+export async function findMineVouchers(userId: string, shareholderId?: string | null) {
+  await backfillVoucherAssignees();
+  const identities = [
+    { type: 'USER' as const, id: userId },
+    ...(shareholderId ? [{ type: 'SHAREHOLDER' as const, id: shareholderId }] : []),
+  ];
+  const vouchers = await findVouchersForIdentities(prisma, identities);
+  return vouchers.map(toSafeMineVoucher);
+}
+
+export const listMyVouchers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw new AppError('Unauthorized', 401);
+
+    const shareholder = await prisma.shareholder.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    const vouchers = await findMineVouchers(userId, shareholder?.id ?? null);
+    res.json({ success: true, vouchers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Public: list vouchers assigned to any identity matching this email. */
+export const listVouchersForEmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = voucherForEmailSchema.parse(req.body);
+    await backfillVoucherAssignees();
+    const identities = await resolveAssigneeIdentities(prisma, { guestEmail: email });
+    const vouchers = await findVouchersForIdentities(prisma, identities);
+    res.json({
+      success: true,
+      vouchers: vouchers.map(toSafeMineVoucher),
+      identities: identities.map((i) => i.type),
+    });
   } catch (error) {
     next(error);
   }

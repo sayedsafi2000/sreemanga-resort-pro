@@ -4,6 +4,7 @@ import { unwrapList } from '@/lib/apiResponse';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, UserRound, X } from 'lucide-react';
 
 export type GuestPick = {
@@ -11,6 +12,19 @@ export type GuestPick = {
   name: string;
   phone: string;
   email?: string | null;
+  shareholder?: {
+    id: string;
+    name: string;
+    email?: string | null;
+    shareType?: string;
+    shareValue?: number;
+  } | null;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
 };
 
 type Props = {
@@ -20,8 +34,29 @@ type Props = {
   disabled?: boolean;
 };
 
+function shareLabel(g: GuestPick): string | null {
+  const sh = g.shareholder;
+  if (!sh) return null;
+  if (sh.shareType === 'PERCENTAGE') return `Share ${sh.shareValue ?? 0}%`;
+  if (sh.shareType === 'FIXED') return `Share ৳${sh.shareValue ?? 0}`;
+  return 'Shareholder';
+}
+
+function secondaryLine(g: GuestPick): string {
+  const parts: string[] = [];
+  if (g.email) parts.push(g.email);
+  else if (g.shareholder?.email) parts.push(g.shareholder.email);
+  else if (g.user?.email) parts.push(g.user.email);
+  if (g.phone) parts.push(g.phone);
+  const share = shareLabel(g);
+  if (share) parts.push(share);
+  if (g.user?.role) parts.push(g.user.role);
+  return parts.join(' · ') || 'No email on file';
+}
+
 /**
  * Typeahead guest search against GET /guests?q=
+ * Results include email and linked shareholder/staff when emails match.
  */
 const GuestPicker: React.FC<Props> = ({
   value,
@@ -76,11 +111,20 @@ const GuestPicker: React.FC<Props> = ({
         <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
           <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{value.name}</div>
-            <div className="truncate text-xs text-muted-foreground">
-              {value.phone}
-              {value.email ? ` · ${value.email}` : ''}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="truncate text-sm font-medium">{value.name}</span>
+              {value.shareholder && (
+                <Badge variant="outline" className="text-[10px]">
+                  {shareLabel(value) || 'Shareholder'}
+                </Badge>
+              )}
+              {value.user && (
+                <Badge variant="outline" className="text-[10px]">
+                  {value.user.role}
+                </Badge>
+              )}
             </div>
+            <div className="truncate text-xs text-muted-foreground">{secondaryLine(value)}</div>
           </div>
           {!disabled && (
             <Button
@@ -136,11 +180,20 @@ const GuestPicker: React.FC<Props> = ({
                     setOpen(false);
                   }}
                 >
-                  <span className="font-medium">{g.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {g.phone}
-                    {g.email ? ` · ${g.email}` : ''}
+                  <span className="flex flex-wrap items-center gap-1.5 font-medium">
+                    {g.name}
+                    {g.shareholder && (
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {shareLabel(g) || 'Shareholder'}
+                      </Badge>
+                    )}
+                    {g.user && !g.shareholder && (
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {g.user.role}
+                      </Badge>
+                    )}
                   </span>
+                  <span className="text-xs text-muted-foreground">{secondaryLine(g)}</span>
                 </button>
               ))
             )}

@@ -16,7 +16,10 @@ import type {
 } from '@/types/resort';
 
 function apiBase(): string {
-  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+  const browser = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+  // Docker SSR: localhost inside the web container is not the API host.
+  const server = (process.env.INTERNAL_API_URL || browser).replace(/\/$/, '');
+  return typeof window === 'undefined' ? server : browser;
 }
 
 // Bounded so a dead API can't stall every SSR render. 4s is well under
@@ -90,14 +93,18 @@ async function getSettingsUncached(): Promise<ResortSettings> {
 
 export const getSettings = cache(getSettingsUncached);
 
-async function getRoomsUncached(filters?: { type?: RoomType | string }): Promise<Room[]> {
+async function getRoomsUncached(filters?: { type?: RoomType | string }): Promise<{
+  rooms: Room[];
+  ok: boolean;
+}> {
   const q = new URLSearchParams();
   if (filters?.type) q.set('type', filters.type);
   const url = `${apiBase()}/rooms${q.toString() ? `?${q}` : ''}`;
   const data = await safeFetch<{ success: boolean; rooms: Room[] }>(url, {
     next: { revalidate: 15 },
   });
-  return data?.rooms || [];
+  if (!data) return { rooms: [], ok: false };
+  return { rooms: data.rooms || [], ok: true };
 }
 
 export const getRooms = cache(getRoomsUncached);
@@ -218,18 +225,60 @@ export async function validatePublicVoucher(payload: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const j = await res.json().catch(() => ({}));
+    const j = await res.json().catch(() => ({} as Record<string, unknown>));
     if (!res.ok) {
-      return { ok: false, message: j.message || 'Invalid voucher' };
+      const msg =
+        (typeof j.message === 'string' && j.message) ||
+        (typeof (j as any).error === 'string' && (j as any).error) ||
+        'Invalid voucher';
+      return { ok: false, message: msg };
     }
     return {
       ok: true,
       message: 'Voucher applied',
-      discountAmount: j.discountAmount,
-      netAmount: j.netAmount,
+      discountAmount: j.discountAmount as number | undefined,
+      netAmount: j.netAmount as number | undefined,
     };
   } catch {
     return { ok: false, message: 'Could not validate voucher' };
+  }
+}
+
+export type PublicMineVoucher = {
+  id: string;
+  name: string;
+  description?: string | null;
+  discountType: string;
+  discountValue: number;
+  appliesRoom: boolean;
+  appliesDayLong: boolean;
+  appliesRestaurant: boolean;
+  expiresAt?: string | null;
+  codeHint: string;
+  expired?: boolean;
+  remaining?: number | null;
+};
+
+export async function fetchVouchersForEmail(
+  email: string
+): Promise<{ ok: boolean; vouchers: PublicMineVoucher[]; message?: string }> {
+  try {
+    const res = await fetch(`${apiBase()}/vouchers/for-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        ok: false,
+        vouchers: [],
+        message: (typeof j.message === 'string' && j.message) || 'Could not load vouchers',
+      };
+    }
+    return { ok: true, vouchers: Array.isArray(j.vouchers) ? j.vouchers : [] };
+  } catch {
+    return { ok: false, vouchers: [], message: 'Could not load vouchers' };
   }
 }
 
@@ -374,7 +423,7 @@ export async function getBlogBySlug(slug: string): Promise<BlogDetail | null> {
 // ── OTP helpers ───────────────────────────────────────────────────────────
 
 function publicApiBase(): string {
-  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+  return apiBase();
 }
 
 export async function sendBookingOtp(

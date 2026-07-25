@@ -1167,6 +1167,158 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
     });
   }
 
+  // ── Sample vouchers ────────────────────────────────────────────────────────
+  const crypto = await import('crypto');
+  const hashCode = (code: string) =>
+    crypto.createHash('sha256').update(code.trim().toUpperCase()).digest('hex');
+  const hint = (code: string) => code.trim().toUpperCase().slice(-4);
+
+  if ((await prisma.voucher.count()) === 0) {
+    const receptionist = await prisma.user.findUnique({ where: { email: demoReceptionistEmail } });
+    const shareholder = await prisma.shareholder.findFirst({
+      where: { email: 'shareholder@resortnirjon.com' },
+    });
+    const poolProduct = await prisma.dayLongProduct.findFirst({
+      where: { name: 'Swimming Pool Day Pass' },
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+    const publicCode = 'SUMMER10';
+    await prisma.voucher.create({
+      data: {
+        codeHash: hashCode(publicCode),
+        codeHint: hint(publicCode),
+        name: 'Summer 10% Off',
+        description: 'Public overall discount for room, day-long, and restaurant',
+        discountType: 'PERCENT',
+        discountValue: 10,
+        scope: 'OVERALL',
+        appliesRoom: true,
+        appliesDayLong: true,
+        appliesRestaurant: true,
+        maxDiscountAmount: 2000,
+        expiresAt,
+        isActive: true,
+        isSecure: true,
+        assigneeType: 'NONE',
+        createdById: admin.id,
+      },
+    });
+
+    if (poolProduct) {
+      const dayCode = 'POOL500';
+      await prisma.voucher.create({
+        data: {
+          codeHash: hashCode(dayCode),
+          codeHint: hint(dayCode),
+          name: 'Pool Day ৳500 Off',
+          description: 'Fixed discount on Swimming Pool Day Pass only',
+          discountType: 'FIXED',
+          discountValue: 500,
+          scope: 'SELECTED_ITEMS',
+          appliesRoom: false,
+          appliesDayLong: true,
+          appliesRestaurant: false,
+          expiresAt,
+          isActive: true,
+          isSecure: true,
+          assigneeType: 'NONE',
+          createdById: admin.id,
+          items: {
+            create: [{ itemType: 'DAY_LONG_PRODUCT', itemId: poolProduct.id }],
+          },
+        },
+      });
+    }
+
+    if (receptionist) {
+      const staffCode = 'STAFF15';
+      await prisma.voucher.create({
+        data: {
+          codeHash: hashCode(staffCode),
+          codeHint: hint(staffCode),
+          name: 'Staff Perk 15%',
+          description: 'Personal voucher for demo receptionist',
+          discountType: 'PERCENT',
+          discountValue: 15,
+          scope: 'OVERALL',
+          appliesRoom: true,
+          appliesDayLong: true,
+          appliesRestaurant: true,
+          expiresAt,
+          maxPerAssignee: 5,
+          isActive: true,
+          isSecure: true,
+          assigneeType: 'USER',
+          assigneeId: receptionist.id,
+          createdById: admin.id,
+          assignees: {
+            create: [{ assigneeType: 'USER', assigneeId: receptionist.id }],
+          },
+        },
+      });
+    }
+
+    if (shareholder) {
+      const shCode = 'SHARE20';
+      await prisma.voucher.create({
+        data: {
+          codeHash: hashCode(shCode),
+          codeHint: hint(shCode),
+          name: 'Shareholder 20%',
+          description: 'Personal voucher for demo shareholder',
+          discountType: 'PERCENT',
+          discountValue: 20,
+          scope: 'OVERALL',
+          appliesRoom: true,
+          appliesDayLong: true,
+          appliesRestaurant: false,
+          expiresAt,
+          maxPerAssignee: 10,
+          isActive: true,
+          isSecure: true,
+          assigneeType: 'SHAREHOLDER',
+          assigneeId: shareholder.id,
+          createdById: admin.id,
+          assignees: {
+            create: [{ assigneeType: 'SHAREHOLDER', assigneeId: shareholder.id }],
+          },
+        },
+      });
+    }
+
+    console.log(
+      'Sample voucher codes (plaintext, local only): SUMMER10 | POOL500 | STAFF15 | SHARE20'
+    );
+  }
+
+  // Backfill legacy single-assignee vouchers into VoucherAssignee
+  const legacy = await prisma.voucher.findMany({
+    where: {
+      assigneeType: { not: 'NONE' },
+      assigneeId: { not: null },
+      assignees: { none: {} },
+    },
+    select: { id: true, assigneeType: true, assigneeId: true },
+  });
+  for (const v of legacy) {
+    if (!v.assigneeId || v.assigneeType === 'NONE') continue;
+    await prisma.voucherAssignee
+      .create({
+        data: {
+          voucherId: v.id,
+          assigneeType: v.assigneeType,
+          assigneeId: v.assigneeId,
+        },
+      })
+      .catch(() => undefined);
+  }
+  if (legacy.length > 0) {
+    console.log(`Backfilled ${legacy.length} voucher assignee row(s)`);
+  }
+
   console.log('Seed complete. Admin:', adminEmail, '| Restaurant staff:', demoStaffEmail);
 }
 

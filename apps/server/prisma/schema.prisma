@@ -619,6 +619,7 @@ model Voucher {
   maxPerAssignee     Int?
   isActive           Boolean              @default(true)
   isSecure           Boolean              @default(true)
+  // Legacy single-assignee fields (kept for backfill; prefer assignees[])
   assigneeType       VoucherAssigneeType  @default(NONE)
   assigneeId         String?
   createdById        String?
@@ -627,6 +628,7 @@ model Voucher {
   updatedAt          DateTime             @updatedAt
 
   items              VoucherItem[]
+  assignees          VoucherAssignee[]
   redemptions        VoucherRedemption[]
   bookings           Booking[]
   dayLongBookings    DayLongBooking[]
@@ -636,6 +638,17 @@ model Voucher {
   @@unique([codeHash])
   @@index([isActive])
   @@index([expiresAt])
+  @@index([assigneeType, assigneeId])
+}
+
+model VoucherAssignee {
+  id           String              @id @default(uuid())
+  voucherId    String
+  voucher      Voucher             @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  assigneeType VoucherAssigneeType // GUEST | USER | SHAREHOLDER (not NONE)
+  assigneeId   String
+
+  @@unique([voucherId, assigneeType, assigneeId])
   @@index([assigneeType, assigneeId])
 }
 

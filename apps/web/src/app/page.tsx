@@ -24,7 +24,7 @@ const templateMap = {
 } as const;
 
 export default async function HomePage() {
-  const [settings, rooms, gallery, menu, testimonials, nearbyExplore, blogs] = await Promise.all([
+  const [settings, roomsResult, gallery, menu, testimonials, nearbyExplore, blogs] = await Promise.all([
     getSettings(),
     getRooms(),
     getGallery(),
@@ -33,6 +33,7 @@ export default async function HomePage() {
     getNearbyExplore(),
     getBlogs(),
   ]);
+  const rooms = roomsResult.rooms;
 
   const orgLd = {
     '@context': 'https://schema.org',

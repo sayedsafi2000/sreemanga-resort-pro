@@ -7,7 +7,7 @@ import { format, startOfDay } from 'date-fns';
 import { BedDouble, CalendarDays, Mail, Phone, UserRound, Users } from 'lucide-react';
 import 'react-day-picker/style.css';
 
-import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp, validatePublicVoucher } from '@/lib/resort-api';
+import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp, validatePublicVoucher, fetchVouchersForEmail, type PublicMineVoucher } from '@/lib/resort-api';
 import type { Room, RoomAvailabilityCalendar } from '@/types/resort';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +40,7 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<'BKASH' | 'BANK_TRANSFER' | 'STRIPE'>('BKASH');
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
+  const [emailVouchers, setEmailVouchers] = useState<PublicMineVoucher[]>([]);
   const [paymentTransactionId, setPaymentTransactionId] = useState('');
   const [paymentProofImage, setPaymentProofImage] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle');
@@ -94,6 +95,21 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
     const t = setTimeout(() => setOtpResendTimer((v) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [otpResendTimer]);
+
+  // Load personal vouchers for guest email (Guest / User / Shareholder identities)
+  useEffect(() => {
+    const email = guestEmail.trim();
+    if (!email || !email.includes('@')) {
+      setEmailVouchers([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetchVouchersForEmail(email).then((res) => {
+        setEmailVouchers(res.ok ? res.vouchers.filter((v) => !v.expired) : []);
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [guestEmail, otpStep]);
 
   async function handleSendOtp() {
     if (!guestEmail.trim()) {
@@ -661,6 +677,48 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
       </div>
 
       <div className="mt-4 space-y-2">
+        {emailVouchers.length > 0 && (
+          <div
+            className={cn(
+              'rounded-lg border p-3 space-y-2',
+              isDark ? 'border-forest-800 bg-forest-950/40' : 'border-forest-200 bg-white/60'
+            )}
+          >
+            <p className={cn('text-xs font-semibold uppercase tracking-wide', isDark ? 'text-forest-400' : 'text-forest-700')}>
+              Vouchers for you
+            </p>
+            <ul className="space-y-1.5">
+              {emailVouchers.map((v) => (
+                <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className={isDark ? 'text-forest-100' : 'text-stone-800'}>
+                    {v.name}{' '}
+                    <span className="text-xs opacity-70">
+                      ({v.discountType === 'PERCENT' ? `${v.discountValue}%` : `৳${v.discountValue}`})
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className={cn(
+                      'font-mono text-xs underline-offset-2 hover:underline',
+                      isDark ? 'text-forest-300' : 'text-forest-700'
+                    )}
+                    onClick={() => {
+                      setMessage(`Your code ends with ${v.codeHint} — enter the full code to apply.`);
+                      setStatus('idle');
+                      setVoucherPreview(null);
+                    }}
+                    title="Code ends with this hint — enter the full code to apply"
+                  >
+                    ••••{v.codeHint}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className={cn('text-[11px]', isDark ? 'text-forest-500' : 'text-stone-500')}>
+              Enter the full code below to apply (hint shown for reference).
+            </p>
+          </div>
+        )}
         <label>
           <span className={labelClass}>Voucher code (optional)</span>
           <div className="flex gap-2">
@@ -684,6 +742,11 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
               onClick={async () => {
                 const room = rooms.find((r) => r.id === roomId);
                 if (!room || !range?.from || !range?.to || !voucherCode.trim()) return;
+                if (!guestEmail.trim()) {
+                  setMessage('Enter your email so we can check personal vouchers.');
+                  setStatus('err');
+                  return;
+                }
                 const nights = Math.max(
                   1,
                   Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
@@ -698,6 +761,8 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
                 });
                 if (res.ok) {
                   setVoucherPreview(`Save ৳${res.discountAmount} — pay ৳${res.netAmount}`);
+                  setStatus('idle');
+                  setMessage('');
                 } else {
                   setVoucherPreview(null);
                   setMessage(res.message);

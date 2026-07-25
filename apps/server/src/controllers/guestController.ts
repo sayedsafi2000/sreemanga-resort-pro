@@ -29,7 +29,179 @@ export const getAllGuests = async (
       ...(limit ? { take: limit } : {}),
     });
 
-    res.json({ success: true, guests });
+    // Enrich with matching User / Shareholder by email so admin pickers show identity.
+    const emails = [
+      ...new Set(
+        guests
+          .map((g) => g.email?.trim().toLowerCase())
+          .filter((e): e is string => !!e)
+      ),
+    ];
+
+    let extraShareholders: {
+      id: string;
+      name: string;
+      email: string | null;
+      shareType: string;
+      shareValue: number;
+      userId: string | null;
+    }[] = [];
+    let extraUsers: { id: string; name: string; email: string; role: string }[] = [];
+
+    if (q) {
+      const [shMatches, userMatches] = await Promise.all([
+        prisma.shareholder.findMany({
+          where: {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { email: { contains: q, mode: 'insensitive' } },
+            ],
+          },
+          take: 20,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            shareType: true,
+            shareValue: true,
+            userId: true,
+          },
+        }),
+        prisma.user.findMany({
+          where: {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { email: { contains: q, mode: 'insensitive' } },
+            ],
+          },
+          take: 20,
+          select: { id: true, name: true, email: true, role: true },
+        }),
+      ]);
+      extraShareholders = shMatches;
+      extraUsers = userMatches;
+    }
+
+    if (emails.length > 0) {
+      const [byEmailSh, byEmailUser] = await Promise.all([
+        prisma.shareholder.findMany({
+          where: {
+            OR: emails.map((e) => ({ email: { equals: e, mode: 'insensitive' as const } })),
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            shareType: true,
+            shareValue: true,
+            userId: true,
+          },
+        }),
+        prisma.user.findMany({
+          where: {
+            OR: emails.map((e) => ({ email: { equals: e, mode: 'insensitive' as const } })),
+          },
+          select: { id: true, name: true, email: true, role: true },
+        }),
+      ]);
+      for (const s of byEmailSh) {
+        if (!extraShareholders.some((x) => x.id === s.id)) extraShareholders.push(s);
+      }
+      for (const u of byEmailUser) {
+        if (!extraUsers.some((x) => x.id === u.id)) extraUsers.push(u);
+      }
+    }
+
+    const shByEmail = new Map(
+      extraShareholders
+        .filter((s) => s.email)
+        .map((s) => [s.email!.toLowerCase(), s] as const)
+    );
+    const userByEmail = new Map(extraUsers.map((u) => [u.email.toLowerCase(), u] as const));
+
+    type Enriched = (typeof guests)[number] & {
+      shareholder: {
+        id: string;
+        name: string;
+        email: string | null;
+        shareType: string;
+        shareValue: number;
+      } | null;
+      user: { id: string; name: string; email: string; role: string } | null;
+    };
+
+    const enriched: Enriched[] = guests.map((g) => {
+      const em = g.email?.trim().toLowerCase();
+      const shareholder = em ? shByEmail.get(em) ?? null : null;
+      const user = em ? userByEmail.get(em) ?? null : null;
+      return {
+        ...g,
+        email: g.email ?? null,
+        shareholder: shareholder
+          ? {
+              id: shareholder.id,
+              name: shareholder.name,
+              email: shareholder.email,
+              shareType: shareholder.shareType,
+              shareValue: shareholder.shareValue,
+            }
+          : null,
+        user: user
+          ? { id: user.id, name: user.name, email: user.email, role: user.role }
+          : null,
+      };
+    });
+
+    // Shareholders matched by search but with no Guest row — still show in Find guest.
+    const linked: Enriched[] = [];
+    if (q) {
+      const guestEmails = new Set(
+        enriched.map((g) => g.email?.trim().toLowerCase()).filter(Boolean) as string[]
+      );
+      for (const s of extraShareholders) {
+        const em = s.email?.trim().toLowerCase();
+        if (em && guestEmails.has(em)) continue;
+        if (enriched.some((g) => g.shareholder?.id === s.id)) continue;
+
+        const linkedUser =
+          (s.userId && extraUsers.find((u) => u.id === s.userId)) ||
+          (em ? userByEmail.get(em) : undefined) ||
+          null;
+
+        linked.push({
+          id: `shareholder:${s.id}`,
+          name: s.name,
+          phone: '',
+          nid: null,
+          passport: null,
+          address: null,
+          email: s.email,
+          createdAt: new Date(0),
+          updatedAt: new Date(0),
+          shareholder: {
+            id: s.id,
+            name: s.name,
+            email: s.email,
+            shareType: s.shareType,
+            shareValue: s.shareValue,
+          },
+          user: linkedUser
+            ? {
+                id: linkedUser.id,
+                name: linkedUser.name,
+                email: linkedUser.email,
+                role: linkedUser.role,
+              }
+            : null,
+        });
+      }
+    }
+
+    const combined = [...enriched, ...linked];
+    res.json({
+      success: true,
+      guests: limit ? combined.slice(0, limit) : combined,
+    });
   } catch (error) {
     next(error);
   }
@@ -105,7 +277,6 @@ export const deleteGuest = async (
     const existing = await prisma.guest.findUnique({ where: { id } });
     if (!existing) throw new AppError('Guest not found', 404);
 
-    // Check for active bookings
     const activeBookings = await prisma.booking.count({
       where: { guestId: id, status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] } },
     });
