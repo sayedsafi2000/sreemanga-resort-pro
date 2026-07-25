@@ -4,6 +4,7 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { distributionSchema, customSharesSchema } from '../validators/shareholderValidator';
 import { recordManualEntry } from '../utils/accountLedger';
+import { emailService } from '../utils/emailService';
 
 type ShareholderLite = {
   id: string;
@@ -167,9 +168,41 @@ export const distributeDistribution = async (req: Request, res: Response, next: 
       }
       return updated;
     });
+
+    // Best-effort: email each shareholder their payout. Never blocks the response.
+    void notifyShareholders(result.id);
+
     res.json({ success: true, distribution: result });
   } catch (error) { next(error); }
 };
+
+// Fire-and-forget distribution emails to shareholders with an email on file.
+async function notifyShareholders(distributionId: string) {
+  try {
+    const dist = await prisma.profitDistribution.findUnique({
+      where: { id: distributionId },
+      include: { shares: { include: { shareholder: true } } },
+    });
+    if (!dist) return;
+    const paidDate = dist.distributionDate
+      ? dist.distributionDate.toISOString().slice(0, 10)
+      : undefined;
+    await Promise.all(
+      dist.shares
+        .filter((s) => s.amount > 0 && s.shareholder.email)
+        .map((s) =>
+          emailService.sendProfitDistributionEmail(s.shareholder.email as string, {
+            shareholderName: s.shareholder.name,
+            periodLabel: dist.periodLabel,
+            amount: s.amount,
+            paidDate,
+          })
+        )
+    );
+  } catch {
+    // Email is best-effort; swallow failures so payouts are never blocked.
+  }
+}
 
 export const cancelDistribution = async (req: Request, res: Response, next: NextFunction) => {
   try {

@@ -638,7 +638,7 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
                   </div>
                 </div>
               )}
-              {otpMessage && otpStep !== 'verified' && (
+              {otpMessage && (
                 <p className={cn('text-xs text-center',
                   otpMessage.startsWith('✓')
                     ? isDark ? 'text-forest-300' : 'text-forest-700'
