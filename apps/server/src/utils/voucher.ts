@@ -210,6 +210,61 @@ export async function findVoucherByCode(
   });
 }
 
+/** True when maxRedemptions is set and already fully used. */
+export function isRedemptionLimitReached(voucher: {
+  maxRedemptions?: number | null;
+  _count?: { redemptions?: number };
+  redemptionCount?: number;
+}): boolean {
+  if (voucher.maxRedemptions == null) return false;
+  const uses = voucher._count?.redemptions ?? voucher.redemptionCount ?? 0;
+  return uses >= voucher.maxRedemptions;
+}
+
+/** Deactivate voucher when redemption count has hit maxRedemptions. */
+export async function deactivateIfRedemptionLimitReached(
+  tx: Prisma.TransactionClient | typeof import('./prisma').default,
+  voucher: {
+    id: string;
+    isActive?: boolean;
+    maxRedemptions?: number | null;
+    _count?: { redemptions?: number };
+  }
+): Promise<boolean> {
+  if (voucher.isActive === false) return false;
+  if (voucher.maxRedemptions == null) return false;
+
+  const uses =
+    voucher._count?.redemptions ??
+    (await (tx as any).voucherRedemption.count({ where: { voucherId: voucher.id } }));
+
+  if (uses < voucher.maxRedemptions) return false;
+
+  await (tx as any).voucher.update({
+    where: { id: voucher.id },
+    data: { isActive: false },
+  });
+  return true;
+}
+
+/** Keep only vouchers that still have remaining redemptions (unlimited OK). */
+export function filterAvailableVouchers<T extends {
+  maxRedemptions?: number | null;
+  _count?: { redemptions?: number };
+  redemptionCount?: number;
+  isActive?: boolean;
+  expiresAt?: Date | string | null;
+}>(vouchers: T[], opts?: { now?: Date; requireActive?: boolean }): T[] {
+  const now = opts?.now ?? new Date();
+  const requireActive = opts?.requireActive !== false;
+  return vouchers.filter((v) => {
+    if (requireActive && v.isActive === false) return false;
+    if (v.expiresAt && new Date(v.expiresAt) < now) return false;
+    if (isRedemptionLimitReached(v)) return false;
+    return true;
+  });
+}
+
 export async function validateVoucherForCheckout(
   tx: Prisma.TransactionClient | typeof import('./prisma').default,
   opts: {
@@ -243,8 +298,12 @@ export async function validateVoucherForCheckout(
     throw new AppError('Voucher does not apply to restaurant orders', 400);
   }
 
-  if (voucher.maxRedemptions != null && voucher._count.redemptions >= voucher.maxRedemptions) {
-    throw new AppError('Voucher has reached its redemption limit', 400);
+  if (isRedemptionLimitReached(voucher)) {
+    await deactivateIfRedemptionLimitReached(tx, voucher);
+    throw new AppError(
+      'This voucher has reached its redemption limit and is no longer available',
+      400
+    );
   }
 
   const assignees = effectiveAssignees(voucher);
@@ -364,7 +423,7 @@ export async function recordVoucherRedemption(
   });
   if (existing) return existing;
 
-  return tx.voucherRedemption.create({
+  const redemption = await tx.voucherRedemption.create({
     data: {
       voucherId: opts.voucherId,
       amountDiscounted: opts.amountDiscounted,
@@ -377,6 +436,22 @@ export async function recordVoucherRedemption(
       channel: opts.channel || undefined,
     },
   });
+
+  // Auto-off when this redemption hits the max.
+  const voucher = await (tx as any).voucher.findUnique({
+    where: { id: opts.voucherId },
+    select: {
+      id: true,
+      isActive: true,
+      maxRedemptions: true,
+      _count: { select: { redemptions: true } },
+    },
+  });
+  if (voucher) {
+    await deactivateIfRedemptionLimitReached(tx, voucher);
+  }
+
+  return redemption;
 }
 
 /** Find active vouchers assigned to any of the given identities (safe fields). */
@@ -417,9 +492,21 @@ export async function findVouchersForIdentities(
   });
 
   const seen = new Set<string>();
-  return vouchers.filter((v: any) => {
+  const unique = vouchers.filter((v: any) => {
     if (seen.has(v.id)) return false;
     seen.add(v.id);
     return true;
   });
+
+  // Lazy auto-off + hide exhausted/expired from apply/mine lists
+  const available: typeof unique = [];
+  for (const v of unique) {
+    if (isRedemptionLimitReached(v)) {
+      await deactivateIfRedemptionLimitReached(tx, v);
+      continue;
+    }
+    if (v.expiresAt && v.expiresAt < new Date()) continue;
+    available.push(v);
+  }
+  return available;
 }

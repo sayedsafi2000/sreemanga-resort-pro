@@ -26,6 +26,8 @@ export type LookupVoucher = {
   codeHint: string;
   code?: string;
   expired?: boolean;
+  exhausted?: boolean;
+  remaining?: number | null;
 };
 
 type Preview = { discountAmount: number; netAmount: number } | null;
@@ -87,7 +89,11 @@ const VoucherApplyField: React.FC<Props> = ({
       try {
         const res = await api.get(`/vouchers/lookup?email=${encodeURIComponent(email)}`);
         const list = unwrapList<LookupVoucher>(res, ['vouchers']).filter(
-          (v) => !v.expired && appliesToChannel(v, channel)
+          (v) =>
+            !v.expired &&
+            !v.exhausted &&
+            (v.remaining == null || v.remaining > 0) &&
+            appliesToChannel(v, channel)
         );
         setMatches(list);
       } catch {
@@ -118,9 +124,20 @@ const VoucherApplyField: React.FC<Props> = ({
         netAmount: Number(res.data.netAmount),
       });
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string } } };
+      const ax = err as { response?: { data?: { message?: string; error?: string } } };
       onPreview(null);
-      onError?.(ax.response?.data?.message || 'Invalid voucher');
+      const msg =
+        ax.response?.data?.message ||
+        ax.response?.data?.error ||
+        'Invalid voucher';
+      onError?.(msg);
+      // Clear selected code when the voucher is exhausted / inactive so staff don't retry it
+      if (/redemption limit|no longer available|inactive/i.test(msg)) {
+        onChange('');
+        setMatches((prev) =>
+          prev.filter((m) => m.code?.toUpperCase() !== trimmed.toUpperCase())
+        );
+      }
     } finally {
       setChecking(false);
     }

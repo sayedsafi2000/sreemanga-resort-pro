@@ -261,6 +261,7 @@ export type PublicMineVoucher = {
   expiresAt?: string | null;
   codeHint: string;
   expired?: boolean;
+  exhausted?: boolean;
   remaining?: number | null;
 };
 

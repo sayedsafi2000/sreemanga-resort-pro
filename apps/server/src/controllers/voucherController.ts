@@ -15,6 +15,9 @@ import {
   validateVoucherForCheckout,
   resolveAssigneeIdentities,
   findVouchersForIdentities,
+  filterAvailableVouchers,
+  isRedemptionLimitReached,
+  deactivateIfRedemptionLimitReached,
 } from '../utils/voucher';
 
 const voucherInclude = {
@@ -180,9 +183,17 @@ export const listVouchers = async (req: Request, res: Response, next: NextFuncti
         orderBy: [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
       });
 
+      // Auto-off any exhausted public vouchers, then hide them from apply lists
+      for (const v of publicOnes) {
+        if (isRedemptionLimitReached(v)) {
+          await deactivateIfRedemptionLimitReached(prisma, v);
+        }
+      }
+
       const byId = new Map<string, any>();
-      for (const v of [...vouchers, ...publicOnes]) byId.set(v.id, v);
+      for (const v of [...vouchers, ...filterAvailableVouchers(publicOnes)]) byId.set(v.id, v);
       let merged: any[] = Array.from(byId.values());
+      merged = filterAvailableVouchers(merged);
 
       if (typeof q === 'string' && q.trim()) {
         const needle = q.trim().toLowerCase();
@@ -221,6 +232,15 @@ export const listVouchers = async (req: Request, res: Response, next: NextFuncti
       include: voucherInclude,
       orderBy: { createdAt: 'desc' },
     });
+
+    // Lazy auto-off: any active voucher that already hit max redemptions
+    for (const v of vouchers) {
+      if (v.isActive && isRedemptionLimitReached(v)) {
+        await deactivateIfRedemptionLimitReached(prisma, v);
+        (v as any).isActive = false;
+      }
+    }
+
     res.json({
       success: true,
       vouchers: vouchers.map((v) => serializeVoucher(v)),
@@ -474,6 +494,7 @@ export function toSafeMineVoucher(v: any) {
   const now = new Date();
   const expired = !!(v.expiresAt && v.expiresAt < now);
   const uses = v._count?.redemptions ?? 0;
+  const exhausted = isRedemptionLimitReached(v);
   const assignees = v.assignees || [];
   return {
     id: v.id,
@@ -495,8 +516,9 @@ export function toSafeMineVoucher(v: any) {
     audienceAllGuests: !!v.audienceAllGuests,
     audienceAllStaff: !!v.audienceAllStaff,
     audienceAllShareholders: !!v.audienceAllShareholders,
-    isActive: v.isActive,
+    isActive: v.isActive && !exhausted,
     expired,
+    exhausted,
     redemptionCount: uses,
     remaining:
       v.maxRedemptions != null ? Math.max(0, v.maxRedemptions - uses) : null,
@@ -581,9 +603,15 @@ export const lookupVouchersByEmail = async (req: Request, res: Response, next: N
       orderBy: [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
     });
 
+    for (const v of publicOnes) {
+      if (isRedemptionLimitReached(v)) {
+        await deactivateIfRedemptionLimitReached(prisma, v);
+      }
+    }
+
     const byId = new Map<string, any>();
-    for (const v of [...vouchers, ...publicOnes]) byId.set(v.id, v);
-    vouchers = Array.from(byId.values()).filter((v: any) => v.isActive !== false);
+    for (const v of [...vouchers, ...filterAvailableVouchers(publicOnes)]) byId.set(v.id, v);
+    vouchers = filterAvailableVouchers(Array.from(byId.values()));
 
     res.json({
       success: true,

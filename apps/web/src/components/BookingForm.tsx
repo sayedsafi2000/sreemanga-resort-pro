@@ -118,7 +118,16 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     }
     const t = setTimeout(() => {
       fetchVouchersForEmail(email).then((res) => {
-        setEmailVouchers(res.ok ? res.vouchers.filter((v) => !v.expired) : []);
+        setEmailVouchers(
+          res.ok
+            ? res.vouchers.filter(
+                (v) =>
+                  !v.expired &&
+                  !v.exhausted &&
+                  (v.remaining == null || v.remaining > 0)
+              )
+            : []
+        );
       });
     }, 500);
     return () => clearTimeout(t);
