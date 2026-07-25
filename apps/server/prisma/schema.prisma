@@ -620,6 +620,10 @@ model Voucher {
   maxPerAssignee     Int?
   isActive           Boolean              @default(true)
   isSecure           Boolean              @default(true)
+  // Audience "All" flags (Selected people live in assignees[])
+  audienceAllGuests       Boolean @default(false)
+  audienceAllStaff        Boolean @default(false)
+  audienceAllShareholders Boolean @default(false)
   // Legacy single-assignee fields (kept for backfill; prefer assignees[])
   assigneeType       VoucherAssigneeType  @default(NONE)
   assigneeId         String?
@@ -673,12 +677,16 @@ model VoucherRedemption {
   referenceId      String
   redeemedById     String?
   guestId          String?
+  guestEmail       String?
+  source           String?  // PUBLIC_WEB | ADMIN
+  channel          String?  // ROOM | DAY_LONG | RESTAURANT
   createdAt        DateTime @default(now())
 
   @@unique([voucherId, referenceType, referenceId])
   @@index([voucherId])
   @@index([referenceType, referenceId])
   @@index([guestId])
+  @@index([source])
 }
 
 enum Role {

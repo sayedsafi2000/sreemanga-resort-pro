@@ -236,6 +236,9 @@ async function createBookingCore(input: unknown, createdById?: string) {
         referenceType: 'DAY_LONG_BOOKING',
         referenceId: booking.id,
         redeemedById: createdById,
+        guestEmail: data.guestEmail ?? null,
+        source: createdById ? 'ADMIN' : 'PUBLIC_WEB',
+        channel: 'DAY_LONG',
       });
     }
 

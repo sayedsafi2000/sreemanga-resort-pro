@@ -80,6 +80,7 @@ export const getMyVouchers = async (req: Request, res: Response, next: NextFunct
         );
 
     vouchers = vouchers.filter((v: any) => {
+      if (v.audienceAllShareholders) return true;
       const assignees = v.assignees || [];
       if (assignees.length > 0) {
         return assignees.some(

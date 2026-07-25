@@ -224,6 +224,9 @@ export const createOrder = async (
           referenceType: 'RESTAURANT_ORDER',
           referenceId: created.id,
           redeemedById: req.user?.id,
+          guestEmail: data.guestEmail ?? null,
+          source: 'ADMIN',
+          channel: 'RESTAURANT',
         });
       }
 
@@ -320,6 +323,9 @@ export const updateOrder = async (
             referenceType: 'RESTAURANT_ORDER',
             referenceId: id,
             redeemedById: req.user?.id,
+            guestEmail: data.guestEmail ?? null,
+            source: 'ADMIN',
+            channel: 'RESTAURANT',
           });
         }
       }

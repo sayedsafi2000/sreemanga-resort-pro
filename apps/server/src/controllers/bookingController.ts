@@ -225,6 +225,9 @@ export const createBooking = async (
           referenceId: created.id,
           redeemedById: req.user?.id,
           guestId,
+          guestEmail: (created as any).guest?.email ?? null,
+          source: 'ADMIN',
+          channel: 'ROOM',
         });
       }
 

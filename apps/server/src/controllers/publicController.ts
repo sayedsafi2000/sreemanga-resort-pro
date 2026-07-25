@@ -309,6 +309,9 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
           referenceType: 'BOOKING',
           referenceId: booking.id,
           guestId: guest.id,
+          guestEmail: guest.email ?? null,
+          source: 'PUBLIC_WEB',
+          channel: 'ROOM',
         });
       }
 

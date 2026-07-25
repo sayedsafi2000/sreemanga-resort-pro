@@ -157,6 +157,44 @@ export function identityMatchesAssignees(
   return assignees.some((a) => idSet.has(`${a.assigneeType}:${a.assigneeId}`));
 }
 
+/** Whether voucher audience locks allow this checkout context. */
+export function audienceAllowsCheckout(
+  voucher: {
+    audienceAllGuests?: boolean | null;
+    audienceAllStaff?: boolean | null;
+    audienceAllShareholders?: boolean | null;
+    assignees?: AssigneeRow[] | null;
+    assigneeType?: string | null;
+    assigneeId?: string | null;
+  },
+  identities: ResolvedIdentity[],
+  ctx: VoucherAssigneeContext = {}
+): boolean {
+  const assignees = effectiveAssignees(voucher);
+  const allGuests = !!voucher.audienceAllGuests;
+  const allStaff = !!voucher.audienceAllStaff;
+  const allSh = !!voucher.audienceAllShareholders;
+
+  if (!allGuests && !allStaff && !allSh && assignees.length === 0) {
+    return true; // Anyone
+  }
+
+  if (assignees.length > 0 && identityMatchesAssignees(identities, assignees)) {
+    return true;
+  }
+
+  const hasGuestId = identities.some((i) => i.type === 'GUEST');
+  const hasUser = identities.some((i) => i.type === 'USER');
+  const hasSh = identities.some((i) => i.type === 'SHAREHOLDER');
+  const hasGuestContext = !!(ctx.guestId || (ctx.guestEmail && ctx.guestEmail.trim()));
+
+  if (allGuests && (hasGuestId || hasGuestContext)) return true;
+  if (allStaff && hasUser) return true;
+  if (allSh && hasSh) return true;
+
+  return false;
+}
+
 export async function findVoucherByCode(
   tx: Prisma.TransactionClient | typeof import('./prisma').default,
   code: string
@@ -210,14 +248,19 @@ export async function validateVoucherForCheckout(
   }
 
   const assignees = effectiveAssignees(voucher);
-  if (assignees.length > 0) {
+  const hasAudienceLock =
+    assignees.length > 0 ||
+    !!(voucher as any).audienceAllGuests ||
+    !!(voucher as any).audienceAllStaff ||
+    !!(voucher as any).audienceAllShareholders;
+
+  if (hasAudienceLock) {
     const identities = await resolveAssigneeIdentities(tx, opts.assignee || {});
-    if (!identityMatchesAssignees(identities, assignees)) {
+    if (!audienceAllowsCheckout(voucher as any, identities, opts.assignee || {})) {
       throw new AppError('This voucher is not assigned to this guest/email', 403);
     }
 
     if (voucher.maxPerAssignee != null) {
-      // Count redemptions tied to any matching guest identity, else by redeemedById for USER/SHAREHOLDER
       const guestIds = identities.filter((i) => i.type === 'GUEST').map((i) => i.id);
       const otherIds = identities
         .filter((i) => i.type === 'USER' || i.type === 'SHAREHOLDER')
@@ -305,6 +348,9 @@ export async function recordVoucherRedemption(
     referenceId: string;
     redeemedById?: string | null;
     guestId?: string | null;
+    guestEmail?: string | null;
+    source?: 'PUBLIC_WEB' | 'ADMIN' | null;
+    channel?: VoucherChannel | null;
   }
 ) {
   const existing = await tx.voucherRedemption.findUnique({
@@ -326,6 +372,9 @@ export async function recordVoucherRedemption(
       referenceId: opts.referenceId,
       redeemedById: opts.redeemedById || undefined,
       guestId: opts.guestId || undefined,
+      guestEmail: opts.guestEmail?.trim() || undefined,
+      source: opts.source || undefined,
+      channel: opts.channel || undefined,
     },
   });
 }
@@ -333,14 +382,27 @@ export async function recordVoucherRedemption(
 /** Find active vouchers assigned to any of the given identities (safe fields). */
 export async function findVouchersForIdentities(
   tx: Prisma.TransactionClient | typeof import('./prisma').default,
-  identities: ResolvedIdentity[]
+  identities: ResolvedIdentity[],
+  opts?: { includeAllGuests?: boolean; guestContext?: boolean }
 ) {
-  if (identities.length === 0) return [];
+  const hasGuest = identities.some((i) => i.type === 'GUEST') || !!opts?.guestContext;
+  const hasUser = identities.some((i) => i.type === 'USER');
+  const hasSh = identities.some((i) => i.type === 'SHAREHOLDER');
 
-  const or: any[] = identities.flatMap((i) => [
-    { assignees: { some: { assigneeType: i.type, assigneeId: i.id } } },
-    { assigneeType: i.type, assigneeId: i.id },
-  ]);
+  const or: any[] = [];
+
+  if (identities.length > 0) {
+    for (const i of identities) {
+      or.push({ assignees: { some: { assigneeType: i.type, assigneeId: i.id } } });
+      or.push({ assigneeType: i.type, assigneeId: i.id });
+    }
+  }
+
+  if (hasGuest || opts?.includeAllGuests) or.push({ audienceAllGuests: true });
+  if (hasUser) or.push({ audienceAllStaff: true });
+  if (hasSh) or.push({ audienceAllShareholders: true });
+
+  if (or.length === 0) return [];
 
   const vouchers = await (tx as any).voucher.findMany({
     where: {
@@ -354,7 +416,6 @@ export async function findVouchersForIdentities(
     orderBy: [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
   });
 
-  // Deduplicate by id
   const seen = new Set<string>();
   return vouchers.filter((v: any) => {
     if (seen.has(v.id)) return false;

@@ -136,7 +136,10 @@ export const voucherCreateSchema = z
     maxRedemptions: optionalPositiveInt(),
     maxPerAssignee: optionalPositiveInt(),
     isSecure: z.boolean().default(true),
-    /** Multi-assignee (preferred). Empty = public. */
+    audienceAllGuests: z.boolean().default(false),
+    audienceAllStaff: z.boolean().default(false),
+    audienceAllShareholders: z.boolean().default(false),
+    /** Multi-assignee (preferred). Empty = public unless All flags set. */
     assignees: z.array(assigneeEntrySchema).max(50).optional().default([]),
     /** Legacy single assignee — still accepted */
     assigneeType: z.enum(['NONE', 'GUEST', 'USER', 'SHAREHOLDER']).optional(),
@@ -177,6 +180,9 @@ export const voucherUpdateSchema = z
     maxPerAssignee: optionalPositiveInt(),
     isSecure: z.boolean().optional(),
     isActive: z.boolean().optional(),
+    audienceAllGuests: z.boolean().optional(),
+    audienceAllStaff: z.boolean().optional(),
+    audienceAllShareholders: z.boolean().optional(),
     assignees: z.array(assigneeEntrySchema).max(50).optional(),
     assigneeType: z.enum(['NONE', 'GUEST', 'USER', 'SHAREHOLDER']).optional(),
     assigneeId: z.string().uuid().optional().nullable(),

@@ -91,6 +91,9 @@ async function createOneVoucher(
       maxRedemptions: data.maxRedemptions ?? null,
       maxPerAssignee: data.maxPerAssignee ?? null,
       isSecure: data.isSecure,
+      audienceAllGuests: data.audienceAllGuests ?? false,
+      audienceAllStaff: data.audienceAllStaff ?? false,
+      audienceAllShareholders: data.audienceAllShareholders ?? false,
       assigneeType: assignees.length === 0 ? 'NONE' : assignees[0]!.assigneeType,
       assigneeId: assignees.length === 0 ? null : assignees[0]!.assigneeId,
       createdById: createdById ?? null,
@@ -160,12 +163,17 @@ export const listVouchers = async (req: Request, res: Response, next: NextFuncti
     // Lookup vouchers available to a person (Guest / User / Shareholder by email)
     if (emailStr) {
       const identities = await resolveAssigneeIdentities(prisma, { guestEmail: emailStr });
-      let vouchers = await findVouchersForIdentities(prisma, identities);
+      let vouchers = await findVouchersForIdentities(prisma, identities, {
+        includeAllGuests: true,
+      });
 
       const publicOnes = await prisma.voucher.findMany({
         where: {
           isActive: true,
           assignees: { none: {} },
+          audienceAllGuests: false,
+          audienceAllStaff: false,
+          audienceAllShareholders: false,
           OR: [{ assigneeType: 'NONE' }, { assigneeId: null }],
         },
         include: voucherInclude,
@@ -333,6 +341,15 @@ export const updateVoucher = async (req: Request, res: Response, next: NextFunct
           ...(data.maxPerAssignee !== undefined ? { maxPerAssignee: data.maxPerAssignee } : {}),
           ...(data.isSecure !== undefined ? { isSecure: data.isSecure } : {}),
           ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+          ...(data.audienceAllGuests !== undefined
+            ? { audienceAllGuests: data.audienceAllGuests }
+            : {}),
+          ...(data.audienceAllStaff !== undefined
+            ? { audienceAllStaff: data.audienceAllStaff }
+            : {}),
+          ...(data.audienceAllShareholders !== undefined
+            ? { audienceAllShareholders: data.audienceAllShareholders }
+            : {}),
           ...(data.assignees !== undefined
             ? {
                 assigneeType:
@@ -393,11 +410,60 @@ export const validateVoucher = async (req: Request, res: Response, next: NextFun
 
 export const listRedemptions = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const redemptions = await prisma.voucherRedemption.findMany({
+    const rows = await prisma.voucherRedemption.findMany({
       where: { voucherId: req.params.id },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+
+    const userIds = [...new Set(rows.map((r) => r.redeemedById).filter(Boolean))] as string[];
+    const guestIds = [...new Set(rows.map((r) => r.guestId).filter(Boolean))] as string[];
+
+    const [users, guests] = await Promise.all([
+      userIds.length
+        ? prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : Promise.resolve([]),
+      guestIds.length
+        ? prisma.guest.findMany({
+            where: { id: { in: guestIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const guestById = new Map(guests.map((g) => [g.id, g]));
+
+    const redemptions = rows.map((r) => {
+      const staff = r.redeemedById ? userById.get(r.redeemedById) : undefined;
+      const guestRow = r.guestId ? guestById.get(r.guestId) : undefined;
+      return {
+        id: r.id,
+        createdAt: r.createdAt,
+        amountDiscounted: r.amountDiscounted,
+        source: r.source,
+        channel: r.channel,
+        referenceType: r.referenceType,
+        referenceId: r.referenceId,
+        guestEmail: r.guestEmail,
+        redeemedBy: staff
+          ? { id: staff.id, name: staff.name, email: staff.email }
+          : null,
+        guest: guestRow
+          ? {
+              id: guestRow.id,
+              name: guestRow.name,
+              email: guestRow.email || r.guestEmail || null,
+            }
+          : r.guestEmail
+            ? { id: null, name: null, email: r.guestEmail }
+            : null,
+      };
+    });
+
     res.json({ success: true, redemptions });
   } catch (error) {
     next(error);
@@ -426,6 +492,9 @@ export function toSafeMineVoucher(v: any) {
     codeHint: v.codeHint,
     assigneeType: v.assigneeType,
     assignees,
+    audienceAllGuests: !!v.audienceAllGuests,
+    audienceAllStaff: !!v.audienceAllStaff,
+    audienceAllShareholders: !!v.audienceAllShareholders,
     isActive: v.isActive,
     expired,
     redemptionCount: uses,
@@ -468,7 +537,9 @@ export const listVouchersForEmail = async (req: Request, res: Response, next: Ne
     const { email } = voucherForEmailSchema.parse(req.body);
     await backfillVoucherAssignees();
     const identities = await resolveAssigneeIdentities(prisma, { guestEmail: email });
-    const vouchers = await findVouchersForIdentities(prisma, identities);
+    const vouchers = await findVouchersForIdentities(prisma, identities, {
+      includeAllGuests: true,
+    });
     res.json({
       success: true,
       vouchers: vouchers.map(toSafeMineVoucher),
@@ -490,12 +561,17 @@ export const lookupVouchersByEmail = async (req: Request, res: Response, next: N
     await backfillVoucherAssignees();
 
     const identities = await resolveAssigneeIdentities(prisma, { guestEmail: email });
-    let vouchers = await findVouchersForIdentities(prisma, identities);
+    let vouchers = await findVouchersForIdentities(prisma, identities, {
+      includeAllGuests: true,
+    });
 
     const publicOnes = await prisma.voucher.findMany({
       where: {
         isActive: true,
         assignees: { none: {} },
+        audienceAllGuests: false,
+        audienceAllStaff: false,
+        audienceAllShareholders: false,
         OR: [{ assigneeType: 'NONE' }, { assigneeId: null }],
       },
       include: {

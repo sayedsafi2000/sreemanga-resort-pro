@@ -55,6 +55,9 @@ type Voucher = {
   assigneeType: string;
   assigneeId?: string | null;
   assignees?: { assigneeType: string; assigneeId: string }[];
+  audienceAllGuests?: boolean;
+  audienceAllStaff?: boolean;
+  audienceAllShareholders?: boolean;
   redemptionCount?: number;
   _count?: { redemptions: number };
   items?: { itemType: string; itemId: string }[];
@@ -64,6 +67,66 @@ type AssigneeChip = {
   assigneeType: 'GUEST' | 'USER' | 'SHAREHOLDER';
   assigneeId: string;
   label: string;
+};
+
+type GroupMode = 'NONE' | 'SELECTED' | 'ALL';
+
+type RedemptionRow = {
+  id: string;
+  createdAt: string;
+  amountDiscounted: number;
+  source?: string | null;
+  channel?: string | null;
+  referenceType: string;
+  referenceId: string;
+  guestEmail?: string | null;
+  redeemedBy?: { id: string; name: string; email?: string } | null;
+  guest?: { id: string | null; name: string | null; email?: string | null } | null;
+};
+
+const audienceSummary = (v: Voucher): string => {
+  const bits: string[] = [];
+  const assignees = v.assignees || [];
+  if (v.audienceAllGuests) bits.push('All guests');
+  else {
+    const n = assignees.filter((a) => a.assigneeType === 'GUEST').length;
+    if (n) bits.push(`${n} guest${n === 1 ? '' : 's'}`);
+  }
+  if (v.audienceAllStaff) bits.push('All staff');
+  else {
+    const n = assignees.filter((a) => a.assigneeType === 'USER').length;
+    if (n) bits.push(`${n} staff`);
+  }
+  if (v.audienceAllShareholders) bits.push('All shareholders');
+  else {
+    const n = assignees.filter((a) => a.assigneeType === 'SHAREHOLDER').length;
+    if (n) bits.push(`${n} shareholder${n === 1 ? '' : 's'}`);
+  }
+  if (bits.length) return bits.join(' · ');
+  if (v.assigneeType && v.assigneeType !== 'NONE') return `Locked: ${v.assigneeType}`;
+  return 'Anyone';
+};
+
+const sourceLabel = (s?: string | null) => {
+  if (s === 'PUBLIC_WEB') return 'Public web';
+  if (s === 'ADMIN') return 'Admin';
+  return '—';
+};
+
+const channelLabel = (c?: string | null) => {
+  if (c === 'ROOM') return 'Room';
+  if (c === 'DAY_LONG') return 'Day long';
+  if (c === 'RESTAURANT') return 'Restaurant';
+  return '—';
+};
+
+const whoLabel = (r: RedemptionRow): string => {
+  if (r.guest?.name || r.guest?.email) {
+    return [r.guest.name, r.guest.email].filter(Boolean).join(' · ');
+  }
+  if (r.guestEmail) return r.guestEmail;
+  if (r.redeemedBy?.name) return `${r.redeemedBy.name} (staff)`;
+  return '—';
 };
 
 const emptyForm = () => ({
@@ -139,6 +202,10 @@ const Vouchers: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [pickedGuest, setPickedGuest] = useState<GuestPick | null>(null);
   const [assignees, setAssignees] = useState<AssigneeChip[]>([]);
+  const [audienceAnyone, setAudienceAnyone] = useState(true);
+  const [guestsMode, setGuestsMode] = useState<GroupMode>('NONE');
+  const [staffMode, setStaffMode] = useState<GroupMode>('NONE');
+  const [shareholdersMode, setShareholdersMode] = useState<GroupMode>('NONE');
   const [addType, setAddType] = useState<'GUEST' | 'USER' | 'SHAREHOLDER'>('USER');
   const [addId, setAddId] = useState('');
   const [assigneeSearch, setAssigneeSearch] = useState('');
@@ -150,6 +217,10 @@ const Vouchers: React.FC = () => {
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [selectedMenuIds, setSelectedMenuIds] = useState<string[]>([]);
+  const [usageOpen, setUsageOpen] = useState(false);
+  const [usageVoucher, setUsageVoucher] = useState<Voucher | null>(null);
+  const [redemptions, setRedemptions] = useState<RedemptionRow[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
 
   const load = async (opts?: { q?: string; email?: string }) => {
     setLoading(true);
@@ -211,6 +282,10 @@ const Vouchers: React.FC = () => {
     setForm(emptyForm());
     setPickedGuest(null);
     setAssignees([]);
+    setAudienceAnyone(true);
+    setGuestsMode('NONE');
+    setStaffMode('NONE');
+    setShareholdersMode('NONE');
     setAddType('USER');
     setAddId('');
     setAssigneeSearch('');
@@ -223,7 +298,33 @@ const Vouchers: React.FC = () => {
     loadAudienceOptions();
   };
 
+  const setAudienceMode = (anyone: boolean) => {
+    setAudienceAnyone(anyone);
+    if (anyone) {
+      setGuestsMode('NONE');
+      setStaffMode('NONE');
+      setShareholdersMode('NONE');
+      setAssignees([]);
+      setPickedGuest(null);
+      setAddId('');
+    }
+  };
+
+  const setGroupMode = (group: 'GUEST' | 'USER' | 'SHAREHOLDER', mode: GroupMode) => {
+    setAudienceAnyone(false);
+    if (group === 'GUEST') setGuestsMode(mode);
+    if (group === 'USER') setStaffMode(mode);
+    if (group === 'SHAREHOLDER') setShareholdersMode(mode);
+    if (mode !== 'SELECTED') {
+      setAssignees((prev) => prev.filter((a) => a.assigneeType !== group));
+    }
+  };
+
   const addAssignee = (chip: AssigneeChip) => {
+    setAudienceAnyone(false);
+    if (chip.assigneeType === 'GUEST') setGuestsMode('SELECTED');
+    if (chip.assigneeType === 'USER') setStaffMode('SELECTED');
+    if (chip.assigneeType === 'SHAREHOLDER') setShareholdersMode('SELECTED');
     setAssignees((prev) => {
       if (prev.some((a) => a.assigneeType === chip.assigneeType && a.assigneeId === chip.assigneeId)) {
         return prev;
@@ -234,6 +335,31 @@ const Vouchers: React.FC = () => {
 
   const removeAssignee = (type: string, id: string) => {
     setAssignees((prev) => prev.filter((a) => !(a.assigneeType === type && a.assigneeId === id)));
+  };
+
+  useEffect(() => {
+    const allowed: Array<'GUEST' | 'USER' | 'SHAREHOLDER'> = [];
+    if (guestsMode === 'SELECTED') allowed.push('GUEST');
+    if (staffMode === 'SELECTED') allowed.push('USER');
+    if (shareholdersMode === 'SELECTED') allowed.push('SHAREHOLDER');
+    if (allowed.length > 0 && !allowed.includes(addType)) {
+      setAddType(allowed[0]!);
+    }
+  }, [guestsMode, staffMode, shareholdersMode, addType]);
+
+  const openUsage = async (v: Voucher) => {
+    setUsageVoucher(v);
+    setUsageOpen(true);
+    setUsageLoading(true);
+    setRedemptions([]);
+    try {
+      const res = await api.get(`/vouchers/${v.id}/redemptions`);
+      setRedemptions(Array.isArray(res.data?.redemptions) ? res.data.redemptions : []);
+    } catch {
+      setRedemptions([]);
+    } finally {
+      setUsageLoading(false);
+    }
   };
 
   const filteredUsers = users.filter((u) => {
@@ -286,6 +412,39 @@ const Vouchers: React.FC = () => {
       }
 
       const bulkCount = Math.max(1, Number(form.bulkCount) || 1);
+
+      const effectiveAssignees = audienceAnyone
+        ? []
+        : assignees.filter((a) => {
+            if (a.assigneeType === 'GUEST') return guestsMode === 'SELECTED';
+            if (a.assigneeType === 'USER') return staffMode === 'SELECTED';
+            if (a.assigneeType === 'SHAREHOLDER') return shareholdersMode === 'SELECTED';
+            return false;
+          });
+
+      if (!audienceAnyone) {
+        const hasGroup =
+          guestsMode === 'ALL' ||
+          staffMode === 'ALL' ||
+          shareholdersMode === 'ALL' ||
+          effectiveAssignees.length > 0;
+        if (!hasGroup) {
+          throw new Error('Pick Anyone, or set at least one group to All or Selected');
+        }
+        if (guestsMode === 'SELECTED' && !effectiveAssignees.some((a) => a.assigneeType === 'GUEST')) {
+          throw new Error('Add at least one guest, or set Guests to None/All');
+        }
+        if (staffMode === 'SELECTED' && !effectiveAssignees.some((a) => a.assigneeType === 'USER')) {
+          throw new Error('Add at least one staff user, or set Staff to None/All');
+        }
+        if (
+          shareholdersMode === 'SELECTED' &&
+          !effectiveAssignees.some((a) => a.assigneeType === 'SHAREHOLDER')
+        ) {
+          throw new Error('Add at least one shareholder, or set Shareholders to None/All');
+        }
+      }
+
       const payload: any = {
         name: form.name.trim(),
         description: form.description.trim() || null,
@@ -311,7 +470,10 @@ const Vouchers: React.FC = () => {
             ? null
             : Number(form.maxPerAssignee),
         isSecure: form.isSecure,
-        assignees: assignees.map((a) => ({
+        audienceAllGuests: !audienceAnyone && guestsMode === 'ALL',
+        audienceAllStaff: !audienceAnyone && staffMode === 'ALL',
+        audienceAllShareholders: !audienceAnyone && shareholdersMode === 'ALL',
+        assignees: effectiveAssignees.map((a) => ({
           assigneeType: a.assigneeType,
           assigneeId: a.assigneeId,
         })),
@@ -505,16 +667,7 @@ const Vouchers: React.FC = () => {
                     <TableRow key={v.id}>
                       <TableCell className="font-medium">
                         <div>{v.name}</div>
-                        {(v.assignees?.length ?? 0) > 0 ? (
-                          <div className="text-xs text-muted-foreground">
-                            {v.assignees!.length} recipient{v.assignees!.length === 1 ? '' : 's'} (
-                            {[...new Set(v.assignees!.map((a) => a.assigneeType))].join(', ')})
-                          </div>
-                        ) : v.assigneeType !== 'NONE' ? (
-                          <div className="text-xs text-muted-foreground">Locked: {v.assigneeType}</div>
-                        ) : (
-                          <div className="text-xs text-muted-foreground">Public</div>
-                        )}
+                        <div className="text-xs text-muted-foreground">{audienceSummary(v)}</div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -556,15 +709,25 @@ const Vouchers: React.FC = () => {
                         {v.expiresAt ? new Date(v.expiresAt).toLocaleDateString() : '—'}
                       </TableCell>
                       <TableCell>
-                        {uses}
-                        {v.maxRedemptions != null ? ` / ${v.maxRedemptions}` : ''}
+                        <button
+                          type="button"
+                          className="text-sm underline-offset-2 hover:underline"
+                          onClick={() => openUsage(v)}
+                          title="View usage history"
+                        >
+                          {uses}
+                          {v.maxRedemptions != null ? ` / ${v.maxRedemptions}` : ''}
+                        </button>
                       </TableCell>
                       <TableCell>
                         <Badge className={v.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}>
                           {v.isActive ? 'Active' : 'Off'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="space-x-1">
+                        <Button size="sm" variant="outline" onClick={() => openUsage(v)}>
+                          Uses
+                        </Button>
                         {v.isActive && (
                           <Button size="sm" variant="ghost" onClick={() => deactivate(v.id)} title="Deactivate">
                             <PowerOff className="h-4 w-4 text-red-600" />
@@ -792,178 +955,236 @@ const Vouchers: React.FC = () => {
 
                 <section className="space-y-3">
                   {sectionLabel('Audience')}
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty for anyone with the code. Add one or more guests, staff, or shareholders
-                    (same email can exist as multiple types).
-                  </p>
-                  {assignees.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {assignees.map((a) => (
-                        <Badge
-                          key={`${a.assigneeType}:${a.assigneeId}`}
-                          variant="outline"
-                          className="gap-1 pr-1"
-                        >
-                          <span className="text-[10px] uppercase text-muted-foreground">{a.assigneeType}</span>
-                          {a.label}
-                          <button
-                            type="button"
-                            className="ml-1 rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            onClick={() => removeAssignee(a.assigneeType, a.assigneeId)}
-                            aria-label="Remove"
-                          >
-                            ×
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Type</Label>
-                      <Select
-                        value={addType}
-                        onValueChange={(v) => {
-                          setAddType(v as 'GUEST' | 'USER' | 'SHAREHOLDER');
-                          setAddId('');
-                          setPickedGuest(null);
-                          setAssigneeSearch('');
-                        }}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="GUEST">Guest</SelectItem>
-                          <SelectItem value="USER">Staff user</SelectItem>
-                          <SelectItem value="SHAREHOLDER">Shareholder</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Search</Label>
-                      <Input
-                        value={assigneeSearch}
-                        onChange={(e) => setAssigneeSearch(e.target.value)}
-                        placeholder="Name or email…"
-                        disabled={addType === 'GUEST'}
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="audience"
+                        className="h-4 w-4"
+                        checked={audienceAnyone}
+                        onChange={() => setAudienceMode(true)}
                       />
-                    </div>
+                      Anyone (public code)
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="audience"
+                        className="h-4 w-4"
+                        checked={!audienceAnyone}
+                        onChange={() => setAudienceMode(false)}
+                      />
+                      Restricted
+                    </label>
                   </div>
-                  {addType === 'GUEST' && (
-                    <div className="space-y-2">
-                      <GuestPicker value={pickedGuest} onChange={setPickedGuest} label="Find guest" />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        disabled={!pickedGuest}
-                        onClick={() => {
-                          if (!pickedGuest) return;
-                          const email =
-                            pickedGuest.email ||
-                            pickedGuest.shareholder?.email ||
-                            pickedGuest.user?.email ||
-                            '';
-                          const isSyntheticSh = pickedGuest.id.startsWith('shareholder:');
-                          // Real guest row
-                          if (!isSyntheticSh) {
-                            addAssignee({
-                              assigneeType: 'GUEST',
-                              assigneeId: pickedGuest.id,
-                              label: `${pickedGuest.name}${email ? ` · ${email}` : ''}`,
-                            });
-                          }
-                          // Linked shareholder (same email or shareholder-only hit)
-                          if (pickedGuest.shareholder?.id) {
-                            const sh = pickedGuest.shareholder;
-                            const shareBit =
-                              sh.shareType === 'PERCENTAGE'
-                                ? ` ${sh.shareValue ?? 0}%`
-                                : sh.shareType === 'FIXED'
-                                  ? ` ৳${sh.shareValue ?? 0}`
-                                  : '';
-                            addAssignee({
-                              assigneeType: 'SHAREHOLDER',
-                              assigneeId: sh.id,
-                              label: `${sh.name}${email ? ` · ${email}` : ''}${shareBit}`,
-                            });
-                          }
-                          // Linked staff user
-                          if (pickedGuest.user?.id) {
-                            addAssignee({
-                              assigneeType: 'USER',
-                              assigneeId: pickedGuest.user.id,
-                              label: `${pickedGuest.user.name} · ${pickedGuest.user.email}`,
-                            });
-                          }
-                          setPickedGuest(null);
-                        }}
-                      >
-                        Add guest
-                      </Button>
+                  {!audienceAnyone && (
+                    <div className="space-y-3 rounded-md border p-3">
+                      {(
+                        [
+                          { key: 'GUEST' as const, label: 'Guests', mode: guestsMode },
+                          { key: 'USER' as const, label: 'Staff', mode: staffMode },
+                          { key: 'SHAREHOLDER' as const, label: 'Shareholders', mode: shareholdersMode },
+                        ] as const
+                      ).map((row) => (
+                        <div key={row.key} className="grid gap-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+                          <Label className="text-sm">{row.label}</Label>
+                          <Select
+                            value={row.mode}
+                            onValueChange={(v) => setGroupMode(row.key, v as GroupMode)}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="NONE">None</SelectItem>
+                              <SelectItem value="SELECTED">Selected</SelectItem>
+                              <SelectItem value="ALL">All</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground">
+                        Groups combine. Anyone clears all locks. All Guests matches checkout with a guest id/email;
+                        All Staff any staff user; All Shareholders any shareholder.
+                      </p>
                     </div>
                   )}
-                  {addType === 'USER' && (
-                    <div className="space-y-2">
-                      <Select value={addId} onValueChange={setAddId}>
-                        <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                        <SelectContent>
-                          {filteredUsers.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name} · {u.email} ({u.role})
-                            </SelectItem>
+                  {!audienceAnyone &&
+                    (guestsMode === 'SELECTED' ||
+                      staffMode === 'SELECTED' ||
+                      shareholdersMode === 'SELECTED') && (
+                    <div className="space-y-3">
+                      {assignees.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {assignees.map((a) => (
+                            <Badge
+                              key={`${a.assigneeType}:${a.assigneeId}`}
+                              variant="outline"
+                              className="gap-1 pr-1"
+                            >
+                              <span className="text-[10px] uppercase text-muted-foreground">{a.assigneeType}</span>
+                              {a.label}
+                              <button
+                                type="button"
+                                className="ml-1 rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                onClick={() => removeAssignee(a.assigneeType, a.assigneeId)}
+                                aria-label="Remove"
+                              >
+                                ×
+                              </button>
+                            </Badge>
                           ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        disabled={!addId}
-                        onClick={() => {
-                          const u = users.find((x) => x.id === addId);
-                          if (!u) return;
-                          addAssignee({
-                            assigneeType: 'USER',
-                            assigneeId: u.id,
-                            label: `${u.name} · ${u.email}`,
-                          });
-                          setAddId('');
-                        }}
-                      >
-                        Add staff
-                      </Button>
-                    </div>
-                  )}
-                  {addType === 'SHAREHOLDER' && (
-                    <div className="space-y-2">
-                      <Select value={addId} onValueChange={setAddId}>
-                        <SelectTrigger><SelectValue placeholder="Select shareholder" /></SelectTrigger>
-                        <SelectContent>
-                          {filteredShareholders.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}{s.email ? ` · ${s.email}` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        disabled={!addId}
-                        onClick={() => {
-                          const s = shareholders.find((x) => x.id === addId);
-                          if (!s) return;
-                          addAssignee({
-                            assigneeType: 'SHAREHOLDER',
-                            assigneeId: s.id,
-                            label: `${s.name}${s.email ? ` · ${s.email}` : ''}`,
-                          });
-                          setAddId('');
-                        }}
-                      >
-                        Add shareholder
-                      </Button>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label>Add type</Label>
+                          <Select
+                            value={addType}
+                            onValueChange={(v) => {
+                              setAddType(v as 'GUEST' | 'USER' | 'SHAREHOLDER');
+                              setAddId('');
+                              setPickedGuest(null);
+                              setAssigneeSearch('');
+                            }}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {guestsMode === 'SELECTED' && (
+                                <SelectItem value="GUEST">Guest</SelectItem>
+                              )}
+                              {staffMode === 'SELECTED' && (
+                                <SelectItem value="USER">Staff user</SelectItem>
+                              )}
+                              {shareholdersMode === 'SELECTED' && (
+                                <SelectItem value="SHAREHOLDER">Shareholder</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Search</Label>
+                          <Input
+                            value={assigneeSearch}
+                            onChange={(e) => setAssigneeSearch(e.target.value)}
+                            placeholder="Name or email…"
+                            disabled={addType === 'GUEST'}
+                          />
+                        </div>
+                      </div>
+                      {addType === 'GUEST' && guestsMode === 'SELECTED' && (
+                        <div className="space-y-2">
+                          <GuestPicker value={pickedGuest} onChange={setPickedGuest} label="Find guest" />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={!pickedGuest}
+                            onClick={() => {
+                              if (!pickedGuest) return;
+                              const email =
+                                pickedGuest.email ||
+                                pickedGuest.shareholder?.email ||
+                                pickedGuest.user?.email ||
+                                '';
+                              const isSyntheticSh = pickedGuest.id.startsWith('shareholder:');
+                              if (!isSyntheticSh) {
+                                addAssignee({
+                                  assigneeType: 'GUEST',
+                                  assigneeId: pickedGuest.id,
+                                  label: `${pickedGuest.name}${email ? ` · ${email}` : ''}`,
+                                });
+                              }
+                              if (pickedGuest.shareholder?.id && shareholdersMode === 'SELECTED') {
+                                const sh = pickedGuest.shareholder;
+                                const shareBit =
+                                  sh.shareType === 'PERCENTAGE'
+                                    ? ` ${sh.shareValue ?? 0}%`
+                                    : sh.shareType === 'FIXED'
+                                      ? ` ৳${sh.shareValue ?? 0}`
+                                      : '';
+                                addAssignee({
+                                  assigneeType: 'SHAREHOLDER',
+                                  assigneeId: sh.id,
+                                  label: `${sh.name}${email ? ` · ${email}` : ''}${shareBit}`,
+                                });
+                              }
+                              if (pickedGuest.user?.id && staffMode === 'SELECTED') {
+                                addAssignee({
+                                  assigneeType: 'USER',
+                                  assigneeId: pickedGuest.user.id,
+                                  label: `${pickedGuest.user.name} · ${pickedGuest.user.email}`,
+                                });
+                              }
+                              setPickedGuest(null);
+                            }}
+                          >
+                            Add guest
+                          </Button>
+                        </div>
+                      )}
+                      {addType === 'USER' && staffMode === 'SELECTED' && (
+                        <div className="space-y-2">
+                          <Select value={addId} onValueChange={setAddId}>
+                            <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
+                            <SelectContent>
+                              {filteredUsers.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name} · {u.email} ({u.role})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={!addId}
+                            onClick={() => {
+                              const u = users.find((x) => x.id === addId);
+                              if (!u) return;
+                              addAssignee({
+                                assigneeType: 'USER',
+                                assigneeId: u.id,
+                                label: `${u.name} · ${u.email}`,
+                              });
+                              setAddId('');
+                            }}
+                          >
+                            Add staff
+                          </Button>
+                        </div>
+                      )}
+                      {addType === 'SHAREHOLDER' && shareholdersMode === 'SELECTED' && (
+                        <div className="space-y-2">
+                          <Select value={addId} onValueChange={setAddId}>
+                            <SelectTrigger><SelectValue placeholder="Select shareholder" /></SelectTrigger>
+                            <SelectContent>
+                              {filteredShareholders.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.name}{s.email ? ` · ${s.email}` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={!addId}
+                            onClick={() => {
+                              const s = shareholders.find((x) => x.id === addId);
+                              if (!s) return;
+                              addAssignee({
+                                assigneeType: 'SHAREHOLDER',
+                                assigneeId: s.id,
+                                label: `${s.name}${s.email ? ` · ${s.email}` : ''}`,
+                              });
+                              setAddId('');
+                            }}
+                          >
+                            Add shareholder
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                   <label className="flex items-center gap-2 text-sm">
@@ -987,6 +1208,72 @@ const Vouchers: React.FC = () => {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={usageOpen} onOpenChange={setUsageOpen}>
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {usageVoucher ? `Usage · ${usageVoucher.name}` : 'Usage history'}
+            </DialogTitle>
+          </DialogHeader>
+          {usageVoucher && (
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>
+                Code hint <span className="font-mono text-foreground">••••{usageVoucher.codeHint}</span>
+                {' · '}
+                {usageVoucher.discountType === 'PERCENT'
+                  ? `${usageVoucher.discountValue}%`
+                  : `৳${usageVoucher.discountValue}`}
+                {' · '}
+                {audienceSummary(usageVoucher)}
+              </p>
+            </div>
+          )}
+          {usageLoading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : redemptions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No redemptions yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Channel</TableHead>
+                  <TableHead>Who</TableHead>
+                  <TableHead>Discount</TableHead>
+                  <TableHead>Reference</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {redemptions.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {new Date(r.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-sm">{sourceLabel(r.source)}</TableCell>
+                    <TableCell className="text-sm">{channelLabel(r.channel)}</TableCell>
+                    <TableCell className="text-sm max-w-[12rem] truncate" title={whoLabel(r)}>
+                      {whoLabel(r)}
+                    </TableCell>
+                    <TableCell className="text-sm">৳{Number(r.amountDiscounted).toLocaleString()}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {r.referenceType.replace(/_/g, ' ')}
+                      <br />
+                      {r.referenceId.slice(0, 8)}…
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUsageOpen(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
