@@ -181,8 +181,9 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests:
         return;
       }
     } else {
-      if (guestName.trim().length < 2 || guestPhone.trim().length < 10) {
-        setError('Guest name (2+ chars) and phone (10+ chars) are required.');
+      const phoneDigits = guestPhone.replace(/\D/g, '');
+      if (guestName.trim().length < 2 || phoneDigits.length < 10) {
+        setError('Guest name (2+ chars) and phone (at least 10 digits) are required.');
         return;
       }
     }
@@ -218,8 +219,21 @@ export default function ManualBookingDialog({ open, onOpenChange, rooms, guests:
         body.guestId = pickedGuest.id;
       } else {
         // GuestPicker may return shareholder:/linked rows — create booking guest from details
+        const phone = (
+          pickedGuest.phone ||
+          pickedGuest.user?.phone ||
+          pickedGuest.shareholder?.phone ||
+          ''
+        ).trim();
+        const phoneDigits = phone.replace(/\D/g, '');
+        if (phoneDigits.length < 10) {
+          setError(
+            'This contact has no usable phone (need 10+ digits). Switch to “New guest” and enter name + phone.'
+          );
+          return;
+        }
         body.guestName = pickedGuest.name;
-        body.guestPhone = (pickedGuest.phone || '').trim() || 'N/A';
+        body.guestPhone = phone;
         const em = pickedGuest.email || pickedGuest.shareholder?.email || pickedGuest.user?.email;
         if (em) body.guestEmail = em;
       }

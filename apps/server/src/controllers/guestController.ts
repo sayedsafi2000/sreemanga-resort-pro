@@ -41,12 +41,19 @@ export const getAllGuests = async (
     let extraShareholders: {
       id: string;
       name: string;
+      phone: string;
       email: string | null;
       shareType: string;
       shareValue: number;
       userId: string | null;
     }[] = [];
-    let extraUsers: { id: string; name: string; email: string; role: string }[] = [];
+    let extraUsers: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      role: string;
+    }[] = [];
 
     if (q) {
       const [shMatches, userMatches] = await Promise.all([
@@ -55,12 +62,14 @@ export const getAllGuests = async (
             OR: [
               { name: { contains: q, mode: 'insensitive' } },
               { email: { contains: q, mode: 'insensitive' } },
+              { phone: { contains: q, mode: 'insensitive' } },
             ],
           },
           take: 20,
           select: {
             id: true,
             name: true,
+            phone: true,
             email: true,
             shareType: true,
             shareValue: true,
@@ -72,10 +81,11 @@ export const getAllGuests = async (
             OR: [
               { name: { contains: q, mode: 'insensitive' } },
               { email: { contains: q, mode: 'insensitive' } },
+              { phone: { contains: q, mode: 'insensitive' } },
             ],
           },
           take: 20,
-          select: { id: true, name: true, email: true, role: true },
+          select: { id: true, name: true, email: true, phone: true, role: true },
         }),
       ]);
       extraShareholders = shMatches;
@@ -91,6 +101,7 @@ export const getAllGuests = async (
           select: {
             id: true,
             name: true,
+            phone: true,
             email: true,
             shareType: true,
             shareValue: true,
@@ -101,7 +112,7 @@ export const getAllGuests = async (
           where: {
             OR: emails.map((e) => ({ email: { equals: e, mode: 'insensitive' as const } })),
           },
-          select: { id: true, name: true, email: true, role: true },
+          select: { id: true, name: true, email: true, phone: true, role: true },
         }),
       ]);
       for (const s of byEmailSh) {
@@ -123,11 +134,18 @@ export const getAllGuests = async (
       shareholder: {
         id: string;
         name: string;
+        phone?: string | null;
         email: string | null;
         shareType: string;
         shareValue: number;
       } | null;
-      user: { id: string; name: string; email: string; role: string } | null;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        phone?: string | null;
+        role: string;
+      } | null;
     };
 
     const enriched: Enriched[] = guests.map((g) => {
@@ -136,23 +154,32 @@ export const getAllGuests = async (
       const user = em ? userByEmail.get(em) ?? null : null;
       return {
         ...g,
+        // Prefer guest phone; then staff user / shareholder phone
+        phone: g.phone || user?.phone || shareholder?.phone || '',
         email: g.email ?? null,
         shareholder: shareholder
           ? {
               id: shareholder.id,
               name: shareholder.name,
+              phone: shareholder.phone,
               email: shareholder.email,
               shareType: shareholder.shareType,
               shareValue: shareholder.shareValue,
             }
           : null,
         user: user
-          ? { id: user.id, name: user.name, email: user.email, role: user.role }
+          ? {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              role: user.role,
+            }
           : null,
       };
     });
 
-    // Shareholders matched by search but with no Guest row — still show in Find guest.
+    // Shareholders / staff matched by search but with no Guest row — still show in Find guest.
     const linked: Enriched[] = [];
     if (q) {
       const guestEmails = new Set(
@@ -171,7 +198,7 @@ export const getAllGuests = async (
         linked.push({
           id: `shareholder:${s.id}`,
           name: s.name,
-          phone: '',
+          phone: s.phone || linkedUser?.phone || '',
           nid: null,
           passport: null,
           address: null,
@@ -181,6 +208,7 @@ export const getAllGuests = async (
           shareholder: {
             id: s.id,
             name: s.name,
+            phone: s.phone,
             email: s.email,
             shareType: s.shareType,
             shareValue: s.shareValue,
@@ -190,10 +218,40 @@ export const getAllGuests = async (
                 id: linkedUser.id,
                 name: linkedUser.name,
                 email: linkedUser.email,
+                phone: linkedUser.phone,
                 role: linkedUser.role,
               }
             : null,
         });
+        if (em) guestEmails.add(em);
+      }
+
+      for (const u of extraUsers) {
+        const em = u.email.trim().toLowerCase();
+        if (guestEmails.has(em)) continue;
+        if (enriched.some((g) => g.user?.id === u.id)) continue;
+        if (linked.some((g) => g.user?.id === u.id)) continue;
+
+        linked.push({
+          id: `user:${u.id}`,
+          name: u.name,
+          phone: u.phone || '',
+          nid: null,
+          passport: null,
+          address: null,
+          email: u.email,
+          createdAt: new Date(0),
+          updatedAt: new Date(0),
+          shareholder: null,
+          user: {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone,
+            role: u.role,
+          },
+        });
+        guestEmails.add(em);
       }
     }
 

@@ -15,6 +15,7 @@ export type GuestPick = {
   shareholder?: {
     id: string;
     name: string;
+    phone?: string | null;
     email?: string | null;
     shareType?: string;
     shareValue?: number;
@@ -23,6 +24,7 @@ export type GuestPick = {
     id: string;
     name: string;
     email: string;
+    phone?: string | null;
     role: string;
   } | null;
 };
@@ -47,7 +49,8 @@ function secondaryLine(g: GuestPick): string {
   if (g.email) parts.push(g.email);
   else if (g.shareholder?.email) parts.push(g.shareholder.email);
   else if (g.user?.email) parts.push(g.user.email);
-  if (g.phone) parts.push(g.phone);
+  const phone = g.phone || g.user?.phone || g.shareholder?.phone;
+  if (phone) parts.push(phone);
   const share = shareLabel(g);
   if (share) parts.push(share);
   if (g.user?.role) parts.push(g.user.role);

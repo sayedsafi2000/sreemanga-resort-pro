@@ -2,7 +2,12 @@ import { z } from 'zod';
 
 export const shareholderSchema = z.object({
   name: z.string().min(2, 'Name is required'),
-  phone: z.string().min(6, 'Phone is required'),
+  phone: z
+    .string()
+    .trim()
+    .refine((v) => v.replace(/\D/g, '').length >= 10, {
+      message: 'Phone must be at least 10 digits',
+    }),
   email: z.string().email().optional().nullable().or(z.literal('')),
   address: z.string().optional().nullable(),
   nid: z.string().optional().nullable(),

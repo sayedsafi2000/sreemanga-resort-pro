@@ -206,6 +206,11 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
       setMessage('Please enter a valid transaction ID.');
       return;
     }
+    if (guestPhone.replace(/\D/g, '').length < 10) {
+      setStatus('err');
+      setMessage('Phone must be at least 10 digits.');
+      return;
+    }
 
     setStatus('loading');
     setMessage('');

@@ -27,7 +27,12 @@ export const dayLongBookingSchema = z
   .object({
     productId: z.string().uuid(),
     guestName: z.string().min(2, 'Guest name is required'),
-    guestPhone: z.string().min(6, 'Phone is required'),
+    guestPhone: z
+      .string()
+      .trim()
+      .refine((v) => v.replace(/\D/g, '').length >= 10, {
+        message: 'Phone must be at least 10 digits',
+      }),
     guestEmail: z.string().email().optional().nullable(),
     guestNid: z.string().optional().nullable(),
     guestAddress: z.string().optional().nullable(),

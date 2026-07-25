@@ -257,13 +257,15 @@ const DayLong: React.FC = () => {
     setError(null);
     try {
       const guestName = useExistingGuest && pickedGuest ? pickedGuest.name : bookingForm.guestName;
-      const guestPhone = useExistingGuest && pickedGuest ? pickedGuest.phone : bookingForm.guestPhone;
+      const guestPhone = useExistingGuest && pickedGuest
+        ? (pickedGuest.phone || pickedGuest.user?.phone || pickedGuest.shareholder?.phone || '')
+        : bookingForm.guestPhone;
       const guestEmail =
         useExistingGuest && pickedGuest
           ? pickedGuest.email || null
           : bookingForm.guestEmail || null;
-      if (!guestName?.trim() || !guestPhone?.trim()) {
-        setError('Guest name and phone are required');
+      if (!guestName?.trim() || guestPhone.replace(/\D/g, '').length < 10) {
+        setError('Guest name and phone (at least 10 digits) are required');
         setSaving(false);
         return;
       }

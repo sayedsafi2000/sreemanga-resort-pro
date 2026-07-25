@@ -1,7 +1,15 @@
 import { z } from 'zod';
 
 const optionalPhone = z
-  .union([z.string().trim().min(6, 'Phone must be at least 6 characters'), z.literal(''), z.null()])
+  .union([
+    z
+      .string()
+      .trim()
+      .refine((v) => v === '' || v.replace(/\D/g, '').length >= 10, {
+        message: 'Phone must be at least 10 digits',
+      }),
+    z.null(),
+  ])
   .optional()
   .transform((v) => (v === '' || v == null ? null : v));
 

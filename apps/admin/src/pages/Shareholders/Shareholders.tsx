@@ -144,7 +144,9 @@ const Shareholders: React.FC = () => {
 
   const validateShForm = (): string | null => {
     if (!shForm.name?.trim() || shForm.name.trim().length < 2) return 'Name is required (min 2 characters)';
-    if (!shForm.phone?.trim() || shForm.phone.trim().length < 6) return 'Phone is required';
+    if (!shForm.phone?.trim() || shForm.phone.replace(/\D/g, '').length < 10) {
+      return 'Phone must be at least 10 digits';
+    }
     if (shForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shForm.email)) return 'Enter a valid email';
     if (shForm.shareType === 'PERCENTAGE') {
       const v = Number(shForm.shareValue);

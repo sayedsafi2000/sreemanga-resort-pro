@@ -172,7 +172,12 @@ export const getPublicMenu = async (req: Request, res: Response, next: NextFunct
 const publicBookingSchema = z.object({
   roomId: z.string().uuid(),
   guestName: z.string().min(2),
-  guestPhone: z.string().min(10),
+  guestPhone: z
+    .string()
+    .trim()
+    .refine((v) => v.replace(/\D/g, '').length >= 10, {
+      message: 'Phone must be at least 10 digits',
+    }),
   guestEmail: z.string().email().optional(),
   adults: z.number().int().min(1).max(20).default(1),
   children: z.number().int().min(0).max(20).default(0),

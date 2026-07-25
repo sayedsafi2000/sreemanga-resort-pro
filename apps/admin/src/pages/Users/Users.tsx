@@ -84,8 +84,8 @@ const Users: React.FC = () => {
       alert('Password must be at least 6 characters.');
       return;
     }
-    if (form.phone.trim() && form.phone.trim().length < 6) {
-      alert('Phone must be at least 6 characters.');
+    if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) {
+      alert('Phone must be at least 10 digits.');
       return;
     }
     const phone = form.phone.trim() || null;
