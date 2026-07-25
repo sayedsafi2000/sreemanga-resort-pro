@@ -34,6 +34,7 @@ import { Plus, Pencil, Loader2, CalendarDays, CalendarPlus, Wallet } from 'lucid
 import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageRooms } from '@/config/rbac';
+import GuestPicker, { type GuestPick } from '@/components/GuestPicker';
 
 const CATEGORIES = ['POOL', 'COTTAGE', 'CONFERENCE', 'EVENT', 'PICNIC'] as const;
 const BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'] as const;
@@ -132,6 +133,10 @@ const DayLong: React.FC = () => {
   const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', transactionId: '' });
   const [paySaving, setPaySaving] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [useExistingGuest, setUseExistingGuest] = useState(false);
+  const [pickedGuest, setPickedGuest] = useState<GuestPick | null>(null);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -219,27 +224,64 @@ const DayLong: React.FC = () => {
 
   const openCreateBooking = () => {
     setBookingForm({ ...emptyBooking, productId: products[0]?.id ?? '' });
+    setUseExistingGuest(false);
+    setPickedGuest(null);
+    setVoucherCode('');
+    setVoucherPreview(null);
     setError(null);
     setBookingDialog(true);
   };
+
+  // Dashboard Quick Action: /day-long?tab=bookings&new=1
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return;
+    if (loading) return;
+    setBookingForm({ ...emptyBooking, productId: products[0]?.id ?? '' });
+    setError(null);
+    setBookingDialog(true);
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete('new');
+        if (!p.get('tab')) p.set('tab', 'bookings');
+        return p;
+      },
+      { replace: true }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, products, loading]);
 
   const saveBooking = async () => {
     setSaving(true);
     setError(null);
     try {
+      const guestName = useExistingGuest && pickedGuest ? pickedGuest.name : bookingForm.guestName;
+      const guestPhone = useExistingGuest && pickedGuest ? pickedGuest.phone : bookingForm.guestPhone;
+      const guestEmail =
+        useExistingGuest && pickedGuest
+          ? pickedGuest.email || null
+          : bookingForm.guestEmail || null;
+      if (!guestName?.trim() || !guestPhone?.trim()) {
+        setError('Guest name and phone are required');
+        setSaving(false);
+        return;
+      }
       await api.post('/day-long/bookings', {
         productId: bookingForm.productId,
-        guestName: bookingForm.guestName,
-        guestPhone: bookingForm.guestPhone,
-        guestEmail: bookingForm.guestEmail || null,
+        guestName: guestName.trim(),
+        guestPhone: guestPhone.trim(),
+        guestEmail: guestEmail || null,
         bookingDate: bookingForm.bookingDate,
         slotStart: bookingForm.slotStart,
         slotEnd: bookingForm.slotEnd,
         adults: Number(bookingForm.adults),
         children: Number(bookingForm.children),
         notes: bookingForm.notes || null,
+        ...(voucherCode.trim() ? { voucherCode: voucherCode.trim() } : {}),
       });
       setBookingDialog(false);
+      setVoucherCode('');
+      setVoucherPreview(null);
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to create booking');
@@ -525,16 +567,67 @@ const DayLong: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Guest Name</Label>
-                <Input value={bookingForm.guestName} onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })} />
-              </div>
-              <div>
-                <Label>Phone</Label>
-                <Input value={bookingForm.guestPhone} onChange={(e) => setBookingForm({ ...bookingForm, guestPhone: e.target.value })} />
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={useExistingGuest ? 'default' : 'outline'}
+                onClick={() => {
+                  setUseExistingGuest(true);
+                  setError(null);
+                }}
+              >
+                Search existing guest
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={!useExistingGuest ? 'default' : 'outline'}
+                onClick={() => {
+                  setUseExistingGuest(false);
+                  setPickedGuest(null);
+                  setError(null);
+                }}
+              >
+                New guest
+              </Button>
             </div>
+            {useExistingGuest ? (
+              <GuestPicker
+                value={pickedGuest}
+                onChange={(g) => {
+                  setPickedGuest(g);
+                  if (g) {
+                    setBookingForm({
+                      ...bookingForm,
+                      guestName: g.name,
+                      guestPhone: g.phone,
+                      guestEmail: g.email || '',
+                    });
+                  }
+                }}
+                label="Find guest"
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Guest Name *</Label>
+                  <Input value={bookingForm.guestName} onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Phone *</Label>
+                  <Input value={bookingForm.guestPhone} onChange={(e) => setBookingForm({ ...bookingForm, guestPhone: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <Label>Email (optional)</Label>
+                  <Input
+                    type="email"
+                    value={bookingForm.guestEmail}
+                    onChange={(e) => setBookingForm({ ...bookingForm, guestEmail: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Date</Label>
@@ -559,7 +652,55 @@ const DayLong: React.FC = () => {
                 <Input type="number" min={0} value={bookingForm.children} onChange={(e) => setBookingForm({ ...bookingForm, children: e.target.value })} />
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">Estimated total: <span className="font-semibold text-foreground">৳{previewTotal}</span></div>
+            <div className="text-sm text-muted-foreground">
+              Estimated total:{' '}
+              <span className="font-semibold text-foreground">৳{previewTotal}</span>
+            </div>
+            <div className="space-y-2">
+              <Label>Voucher code (optional)</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={voucherCode}
+                  onChange={(e) => {
+                    setVoucherCode(e.target.value.toUpperCase());
+                    setVoucherPreview(null);
+                  }}
+                  placeholder="Code"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!voucherCode.trim() || !bookingForm.productId || previewTotal <= 0}
+                  onClick={async () => {
+                    try {
+                      const res = await api.post('/vouchers/validate', {
+                        code: voucherCode.trim(),
+                        channel: 'DAY_LONG',
+                        grossAmount: previewTotal,
+                        lineItems: [
+                          {
+                            itemType: 'DAY_LONG_PRODUCT',
+                            itemId: bookingForm.productId,
+                            amount: previewTotal,
+                          },
+                        ],
+                        guestEmail: bookingForm.guestEmail || pickedGuest?.email || undefined,
+                      });
+                      setVoucherPreview(
+                        `Save ৳${res.data.discountAmount} — net ৳${res.data.netAmount}`
+                      );
+                      setError(null);
+                    } catch (e: any) {
+                      setVoucherPreview(null);
+                      setError(e?.response?.data?.message || 'Invalid voucher');
+                    }
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
+              {voucherPreview && <p className="text-sm text-green-700">{voucherPreview}</p>}
+            </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
           <DialogFooter>

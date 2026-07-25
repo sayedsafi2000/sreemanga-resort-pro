@@ -8,6 +8,7 @@ import {
   dayLongBookingUpdateSchema,
 } from '../validators/dayLongValidator';
 import { recordRevenue } from '../utils/accountLedger';
+import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
 
 // ── Pricing ────────────────────────────────────────────────────────────────
 // total = basePrice + pricePerPerson * (adults + children)
@@ -179,31 +180,66 @@ async function createBookingCore(input: unknown, createdById?: string) {
       throw new AppError('Selected slot does not have enough capacity', 409);
     }
   }
-  const totalAmount = calculateDayLongTotal(product, data.adults, data.children);
+  const grossAmount = calculateDayLongTotal(product, data.adults, data.children);
 
-  return prisma.dayLongBooking.create({
-    data: {
-      productId: product.id,
-      guestName: data.guestName,
-      guestPhone: data.guestPhone,
-      guestEmail: data.guestEmail ?? null,
-      guestNid: data.guestNid ?? null,
-      guestAddress: data.guestAddress ?? null,
-      bookingDate: date,
-      slotStart: data.slotStart,
-      slotEnd: data.slotEnd,
-      adults: data.adults,
-      children: data.children,
-      totalAmount,
-      status: 'PENDING',
-      notes: data.notes ?? null,
-      preferredPaymentTiming: data.preferredPaymentTiming ?? null,
-      preferredPaymentMethod: data.preferredPaymentMethod ?? null,
-      paymentTransactionId: data.paymentTransactionId ?? null,
-      paymentProofImage: data.paymentProofImage ?? null,
-      createdById: createdById ?? null,
-    },
-    include: { product: true },
+  return prisma.$transaction(async (tx) => {
+    let discountAmount = 0;
+    let voucherId: string | undefined;
+    if (data.voucherCode?.trim()) {
+      const applied = await validateVoucherForCheckout(tx, {
+        code: data.voucherCode,
+        channel: 'DAY_LONG',
+        grossAmount,
+        lineItems: [{ itemType: 'DAY_LONG_PRODUCT', itemId: product.id, amount: grossAmount }],
+        assignee: {
+          guestEmail: data.guestEmail ?? null,
+          userId: createdById,
+        },
+      });
+      discountAmount = applied.discountAmount;
+      voucherId = applied.voucher.id;
+    }
+
+    const totalAmount = Math.max(0, Math.round((grossAmount - discountAmount) * 100) / 100);
+
+    const booking = await tx.dayLongBooking.create({
+      data: {
+        productId: product.id,
+        guestName: data.guestName,
+        guestPhone: data.guestPhone,
+        guestEmail: data.guestEmail ?? null,
+        guestNid: data.guestNid ?? null,
+        guestAddress: data.guestAddress ?? null,
+        bookingDate: date,
+        slotStart: data.slotStart,
+        slotEnd: data.slotEnd,
+        adults: data.adults,
+        children: data.children,
+        totalAmount,
+        discountAmount,
+        voucherId,
+        status: 'PENDING',
+        notes: data.notes ?? null,
+        preferredPaymentTiming: data.preferredPaymentTiming ?? null,
+        preferredPaymentMethod: data.preferredPaymentMethod ?? null,
+        paymentTransactionId: data.paymentTransactionId ?? null,
+        paymentProofImage: data.paymentProofImage ?? null,
+        createdById: createdById ?? null,
+      },
+      include: { product: true },
+    });
+
+    if (voucherId && discountAmount > 0) {
+      await recordVoucherRedemption(tx, {
+        voucherId,
+        amountDiscounted: discountAmount,
+        referenceType: 'DAY_LONG_BOOKING',
+        referenceId: booking.id,
+        redeemedById: createdById,
+      });
+    }
+
+    return booking;
   });
 }
 

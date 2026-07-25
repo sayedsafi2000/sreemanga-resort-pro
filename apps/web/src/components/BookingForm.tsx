@@ -7,7 +7,7 @@ import { format, startOfDay } from 'date-fns';
 import { BedDouble, CalendarDays, Mail, Phone, UserRound, Users } from 'lucide-react';
 import 'react-day-picker/style.css';
 
-import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp } from '@/lib/resort-api';
+import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp, validatePublicVoucher } from '@/lib/resort-api';
 import type { Room, RoomAvailabilityCalendar } from '@/types/resort';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +38,8 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
   const [children, setChildren] = useState(0);
   const [preferredPaymentTiming, setPreferredPaymentTiming] = useState<'INSTANT' | 'LATER'>('LATER');
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<'BKASH' | 'BANK_TRANSFER' | 'STRIPE'>('BKASH');
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
   const [paymentTransactionId, setPaymentTransactionId] = useState('');
   const [paymentProofImage, setPaymentProofImage] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle');
@@ -197,6 +199,7 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
           : undefined,
       checkInDate,
       checkOutDate,
+      ...(voucherCode.trim() ? { voucherCode: voucherCode.trim() } : {}),
     });
     if (res.ok) {
       // Card payment → redirect to Stripe Checkout.
@@ -655,6 +658,60 @@ export default function BookingForm({ rooms, variant = 'light' }: Props) {
             </p>
           )}
         </label>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <label>
+          <span className={labelClass}>Voucher code (optional)</span>
+          <div className="flex gap-2">
+            <input
+              value={voucherCode}
+              onChange={(e) => {
+                setVoucherCode(e.target.value.toUpperCase());
+                setVoucherPreview(null);
+              }}
+              className={cn('w-full px-4 py-3', glassField)}
+              placeholder="Have a code?"
+            />
+            <button
+              type="button"
+              className={cn(
+                'shrink-0 rounded-lg px-4 text-sm font-semibold',
+                isDark
+                  ? 'border border-forest-700 bg-forest-900/60 text-forest-200'
+                  : 'border border-forest-400 bg-forest-50 text-forest-800'
+              )}
+              onClick={async () => {
+                const room = rooms.find((r) => r.id === roomId);
+                if (!room || !range?.from || !range?.to || !voucherCode.trim()) return;
+                const nights = Math.max(
+                  1,
+                  Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
+                );
+                const gross = room.price * nights;
+                const res = await validatePublicVoucher({
+                  code: voucherCode.trim(),
+                  channel: 'ROOM',
+                  grossAmount: gross,
+                  lineItems: [{ itemType: 'ROOM', itemId: room.id, amount: gross }],
+                  guestEmail: guestEmail.trim() || undefined,
+                });
+                if (res.ok) {
+                  setVoucherPreview(`Save ৳${res.discountAmount} — pay ৳${res.netAmount}`);
+                } else {
+                  setVoucherPreview(null);
+                  setMessage(res.message);
+                  setStatus('err');
+                }
+              }}
+            >
+              Apply
+            </button>
+          </div>
+        </label>
+        {voucherPreview && (
+          <p className={cn('text-sm', isDark ? 'text-forest-300' : 'text-forest-700')}>{voucherPreview}</p>
+        )}
       </div>
 
       <button

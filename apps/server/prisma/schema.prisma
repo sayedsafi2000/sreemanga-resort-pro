@@ -106,6 +106,7 @@ model User {
   staffProfile      StaffProfile?
   markedAttendance  Attendance[]         @relation("AttendanceMarkedBy")
   approvedLeaves    Leave[]              @relation("LeaveApprovedBy")
+  createdVouchers   Voucher[]            @relation("VoucherCreatedBy")
 
   @@index([email])
   @@index([role])
@@ -197,6 +198,9 @@ model Booking {
   paymentTransactionId String?
   paymentProofImage String?
   totalAmount   Float
+  discountAmount Float  @default(0)
+  voucherId     String?
+  voucher       Voucher? @relation(fields: [voucherId], references: [id])
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -291,6 +295,8 @@ model RestaurantOrder {
   paidAmount    Float   @default(0)
   paymentStatus RestaurantOrderPaymentStatus @default(UNPAID)
   businessLine  BusinessLine @default(RESTAURANT)
+  voucherId     String?
+  voucher       Voucher? @relation(fields: [voucherId], references: [id])
   status      OrderStatus @default(PENDING)
   notes       String?
   createdAt   DateTime @default(now())
@@ -303,6 +309,7 @@ model RestaurantOrder {
   @@index([roomId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([voucherId])
 }
 
 model Setting {
@@ -546,6 +553,7 @@ model DayLongBooking {
   adults                 Int                  @default(1)
   children               Int                  @default(0)
   totalAmount            Float
+  discountAmount         Float                @default(0)
   paidAmount             Float                @default(0)
   status                 DayLongBookingStatus @default(PENDING)
   notes                  String?
@@ -553,6 +561,8 @@ model DayLongBooking {
   preferredPaymentMethod String?
   paymentTransactionId   String?
   paymentProofImage      String?
+  voucherId              String?
+  voucher                Voucher?             @relation(fields: [voucherId], references: [id])
   createdById            String?
   createdBy              User?                @relation(fields: [createdById], references: [id])
   createdAt              DateTime             @default(now())
@@ -562,6 +572,99 @@ model DayLongBooking {
   @@index([bookingDate])
   @@index([status])
   @@index([bookingDate, status])
+  @@index([voucherId])
+}
+
+// ── Vouchers ───────────────────────────────────────────────────────────────
+enum VoucherDiscountType {
+  PERCENT
+  FIXED
+}
+
+enum VoucherScope {
+  OVERALL
+  SELECTED_ITEMS
+}
+
+enum VoucherAssigneeType {
+  NONE
+  GUEST
+  USER
+  SHAREHOLDER
+}
+
+enum VoucherItemType {
+  ROOM
+  DAY_LONG_PRODUCT
+  MENU_ITEM
+}
+
+model Voucher {
+  id                 String               @id @default(uuid())
+  codeHash           String
+  codeHint           String               // last 4 chars for display
+  name               String
+  description        String?
+  discountType       VoucherDiscountType
+  discountValue      Float
+  scope              VoucherScope         @default(OVERALL)
+  appliesRoom        Boolean              @default(true)
+  appliesDayLong     Boolean              @default(true)
+  appliesRestaurant  Boolean              @default(true)
+  minSpend           Float?
+  maxDiscountAmount  Float?
+  startsAt           DateTime?
+  expiresAt          DateTime?
+  maxRedemptions     Int?
+  maxPerAssignee     Int?
+  isActive           Boolean              @default(true)
+  isSecure           Boolean              @default(true)
+  assigneeType       VoucherAssigneeType  @default(NONE)
+  assigneeId         String?
+  createdById        String?
+  createdBy          User?                @relation("VoucherCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  items              VoucherItem[]
+  redemptions        VoucherRedemption[]
+  bookings           Booking[]
+  dayLongBookings    DayLongBooking[]
+  restaurantOrders   RestaurantOrder[]
+
+  @@index([codeHint])
+  @@unique([codeHash])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([assigneeType, assigneeId])
+}
+
+model VoucherItem {
+  id        String          @id @default(uuid())
+  voucherId String
+  voucher   Voucher         @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  itemType  VoucherItemType
+  itemId    String
+
+  @@unique([voucherId, itemType, itemId])
+  @@index([itemType, itemId])
+}
+
+model VoucherRedemption {
+  id               String   @id @default(uuid())
+  voucherId        String
+  voucher          Voucher  @relation(fields: [voucherId], references: [id])
+  amountDiscounted Float
+  referenceType    String   // BOOKING | DAY_LONG_BOOKING | RESTAURANT_ORDER
+  referenceId      String
+  redeemedById     String?
+  guestId          String?
+  createdAt        DateTime @default(now())
+
+  @@unique([voucherId, referenceType, referenceId])
+  @@index([voucherId])
+  @@index([referenceType, referenceId])
+  @@index([guestId])
 }
 
 enum Role {

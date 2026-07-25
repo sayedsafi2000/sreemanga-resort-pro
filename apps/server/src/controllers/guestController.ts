@@ -4,13 +4,29 @@ import { guestSchema } from '../validators/guestValidator';
 import { AppError } from '../middleware/errorHandler';
 
 export const getAllGuests = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const limitRaw = typeof req.query.limit === 'string' ? Number(req.query.limit) : undefined;
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw!, 1), 50) : q ? 20 : undefined;
+
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' as const } },
+            { phone: { contains: q, mode: 'insensitive' as const } },
+            { email: { contains: q, mode: 'insensitive' as const } },
+          ],
+        }
+      : undefined;
+
     const guests = await prisma.guest.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
+      ...(limit ? { take: limit } : {}),
     });
 
     res.json({ success: true, guests });

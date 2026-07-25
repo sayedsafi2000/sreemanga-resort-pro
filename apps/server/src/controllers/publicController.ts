@@ -6,6 +6,7 @@ import { createPaymentFromBooking } from '../utils/bookingPayment';
 import { createCheckoutSessionForBooking } from './stripeController';
 import { emailService } from '../utils/emailService';
 import crypto from 'crypto';
+import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
 
 // ── OTP store (DB-backed, Phase 0.6) ───────────────────────────────────────
 // Persisted in the OtpCode table so it survives restarts and works across
@@ -184,6 +185,7 @@ const publicBookingSchema = z.object({
   checkInDate: z.string(),
   checkOutDate: z.string(),
   notes: z.string().optional(),
+  voucherCode: z.string().min(1).optional(),
 }).superRefine((data, ctx) => {
   if (data.preferredPaymentTiming === 'INSTANT' && !data.preferredPaymentMethod) {
     ctx.addIssue({
@@ -245,7 +247,7 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     if (conflictingBookings.length > 0) throw new AppError('Room is not available for the selected dates', 400);
 
     const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    const totalAmount = room.price * days;
+    const grossAmount = room.price * days;
 
     const result = await prisma.$transaction(async (tx) => {
       const guest = await tx.guest.create({
@@ -257,6 +259,25 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
           address: data.guestAddress,
         },
       });
+
+      let discountAmount = 0;
+      let voucherId: string | undefined;
+      if (data.voucherCode?.trim()) {
+        const applied = await validateVoucherForCheckout(tx, {
+          code: data.voucherCode,
+          channel: 'ROOM',
+          grossAmount,
+          lineItems: [{ itemType: 'ROOM', itemId: room.id, amount: grossAmount }],
+          assignee: {
+            guestId: guest.id,
+            guestEmail: data.guestEmail || null,
+          },
+        });
+        discountAmount = applied.discountAmount;
+        voucherId = applied.voucher.id;
+      }
+
+      const totalAmount = Math.max(0, Math.round((grossAmount - discountAmount) * 100) / 100);
 
       const bookingData = {
         roomId: data.roomId,
@@ -270,6 +291,8 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         checkInDate: checkIn,
         checkOutDate: checkOut,
         totalAmount,
+        discountAmount,
+        voucherId,
         status: 'PENDING',
         notes: data.notes,
       } as any;
@@ -278,6 +301,16 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         data: bookingData,
         include: { room: true, guest: true },
       });
+
+      if (voucherId && discountAmount > 0) {
+        await recordVoucherRedemption(tx, {
+          voucherId,
+          amountDiscounted: discountAmount,
+          referenceType: 'BOOKING',
+          referenceId: booking.id,
+          guestId: guest.id,
+        });
+      }
 
       await createPaymentFromBooking(tx, booking);
 

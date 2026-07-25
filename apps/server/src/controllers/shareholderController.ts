@@ -35,7 +35,10 @@ export const getShareholder = async (req: Request, res: Response, next: NextFunc
 
 export const createShareholder = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = shareholderSchema.parse(req.body);
+    const data = shareholderSchema.parse({
+      ...req.body,
+      email: req.body.email === '' ? null : req.body.email,
+    });
     const shareholder = await prisma.$transaction(async (tx) => {
       let userId: string | undefined;
       if (data.createLogin) {
@@ -62,9 +65,10 @@ export const createShareholder = async (req: Request, res: Response, next: NextF
           address: data.address ?? null,
           nid: data.nid ?? null,
           shareType: data.shareType,
-          shareValue: data.shareValue,
+          shareValue: data.shareType === 'CUSTOM' ? 0 : data.shareValue,
           totalShares: data.totalShares ?? null,
           investmentAmount: data.investmentAmount ?? null,
+          joinDate: data.joinDate ? new Date(data.joinDate) : undefined,
           isActive: data.isActive ?? true,
           notes: data.notes ?? null,
         },
@@ -76,24 +80,60 @@ export const createShareholder = async (req: Request, res: Response, next: NextF
 
 export const updateShareholder = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = shareholderSchema.partial().parse(req.body);
+    const data = shareholderSchema.partial().parse({
+      ...req.body,
+      email: req.body.email === '' ? null : req.body.email,
+    });
     const existing = await prisma.shareholder.findUnique({ where: { id: req.params.id } });
     if (!existing) throw new AppError('Shareholder not found', 404);
-    const shareholder = await prisma.shareholder.update({
-      where: { id: req.params.id },
-      data: {
-        ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.phone !== undefined ? { phone: data.phone } : {}),
-        ...(data.email !== undefined ? { email: data.email } : {}),
-        ...(data.address !== undefined ? { address: data.address } : {}),
-        ...(data.nid !== undefined ? { nid: data.nid } : {}),
-        ...(data.shareType !== undefined ? { shareType: data.shareType } : {}),
-        ...(data.shareValue !== undefined ? { shareValue: data.shareValue } : {}),
-        ...(data.totalShares !== undefined ? { totalShares: data.totalShares } : {}),
-        ...(data.investmentAmount !== undefined ? { investmentAmount: data.investmentAmount } : {}),
-        ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
-        ...(data.notes !== undefined ? { notes: data.notes } : {}),
-      },
+
+    const shareholder = await prisma.$transaction(async (tx) => {
+      let userId: string | undefined | null = undefined;
+      if (data.createLogin && !existing.userId) {
+        const email = data.email !== undefined ? data.email : existing.email;
+        if (!email) throw new AppError('Email is required to create a login', 400);
+        if (!data.password) throw new AppError('Password is required to create a login', 400);
+        const conflict = await tx.user.findUnique({ where: { email } });
+        if (conflict) throw new AppError('A user with this email already exists', 409);
+        const user = await tx.user.create({
+          data: {
+            name: data.name ?? existing.name,
+            email,
+            password: await bcrypt.hash(data.password, 10),
+            role: 'SHAREHOLDER',
+          },
+        });
+        userId = user.id;
+      }
+
+      const shareType = data.shareType ?? existing.shareType;
+      const shareValue =
+        data.shareType === 'CUSTOM'
+          ? 0
+          : data.shareValue !== undefined
+            ? data.shareValue
+            : undefined;
+
+      return tx.shareholder.update({
+        where: { id: req.params.id },
+        data: {
+          ...(userId !== undefined ? { userId } : {}),
+          ...(data.name !== undefined ? { name: data.name } : {}),
+          ...(data.phone !== undefined ? { phone: data.phone } : {}),
+          ...(data.email !== undefined ? { email: data.email } : {}),
+          ...(data.address !== undefined ? { address: data.address } : {}),
+          ...(data.nid !== undefined ? { nid: data.nid } : {}),
+          ...(data.shareType !== undefined ? { shareType: data.shareType } : {}),
+          ...(shareValue !== undefined ? { shareValue } : {}),
+          ...(data.totalShares !== undefined ? { totalShares: data.totalShares } : {}),
+          ...(data.investmentAmount !== undefined ? { investmentAmount: data.investmentAmount } : {}),
+          ...(data.joinDate !== undefined
+            ? { joinDate: data.joinDate ? new Date(data.joinDate) : existing.joinDate }
+            : {}),
+          ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+          ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        },
+      });
     });
     res.json({ success: true, shareholder });
   } catch (error) { next(error); }

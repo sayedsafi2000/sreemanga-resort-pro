@@ -41,6 +41,7 @@ export const dayLongBookingSchema = z
     preferredPaymentMethod: z.string().optional().nullable(),
     paymentTransactionId: z.string().optional().nullable(),
     paymentProofImage: z.string().max(12_000_000).optional().nullable(),
+    voucherCode: z.string().min(1).optional().nullable(),
   })
   .refine((d) => d.slotEnd > d.slotStart, {
     message: 'slotEnd must be after slotStart',

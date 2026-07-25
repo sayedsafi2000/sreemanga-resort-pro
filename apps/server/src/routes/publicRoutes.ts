@@ -20,6 +20,7 @@ import {
   publicCreateBooking,
   checkAvailability as dayLongAvailability,
 } from '../controllers/dayLongController';
+import { validateVoucher } from '../controllers/voucherController';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.get('/day-long/products', publicListProducts);
 router.get('/day-long/products/:id', publicGetProduct);
 router.get('/day-long/availability', dayLongAvailability);
 router.post('/day-long/bookings', publicCreateBooking);
+router.post('/vouchers/validate', validateVoucher);
 router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
 router.get('/stripe/session/:id', getCheckoutStatus);

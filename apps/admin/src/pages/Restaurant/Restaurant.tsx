@@ -55,7 +55,9 @@ const Restaurant: React.FC = () => {
     items: Array<{ menuId?: string; name: string; qty: number; price: number }>;
     totalPrice: string;
     notes: string;
-  }>({ roomId: '', items: [], totalPrice: '', notes: '' });
+    voucherCode: string;
+  }>({ roomId: '', items: [], totalPrice: '', notes: '', voucherCode: '' });
+  const [orderVoucherPreview, setOrderVoucherPreview] = useState<string | null>(null);
   const [orderStatus, setOrderStatus] = useState('PENDING');
   const [orderDateFrom, setOrderDateFrom] = useState('');
   const [orderDateTo, setOrderDateTo] = useState('');
@@ -270,7 +272,8 @@ const Restaurant: React.FC = () => {
   };
 
   const openNewOrder = () => {
-    setOrderForm({ roomId: '', items: [], totalPrice: '', notes: '' });
+    setOrderForm({ roomId: '', items: [], totalPrice: '', notes: '', voucherCode: '' });
+    setOrderVoucherPreview(null);
     setOrderOpen(true);
   };
 
@@ -308,11 +311,17 @@ const Restaurant: React.FC = () => {
     try {
       await api.post('/restaurant/orders', {
         roomId: orderForm.roomId || undefined,
-        items: orderForm.items,
+        items: orderForm.items.map((it) => ({
+          ...it,
+          menuItemId: it.menuId,
+          quantity: it.qty,
+        })),
         totalPrice,
         notes: orderForm.notes || undefined,
+        ...(orderForm.voucherCode.trim() ? { voucherCode: orderForm.voucherCode.trim() } : {}),
       });
       setOrderOpen(false);
+      setOrderVoucherPreview(null);
       fetchData();
     } catch (err) { console.error(err); }
   };
@@ -712,6 +721,51 @@ const Restaurant: React.FC = () => {
               />
             </div>
             <div className="space-y-2"><Label>Notes</Label><Input value={orderForm.notes} onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })} /></div>
+            <div className="space-y-2">
+              <Label>Voucher code (optional)</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={orderForm.voucherCode}
+                  onChange={(e) => {
+                    setOrderForm({ ...orderForm, voucherCode: e.target.value.toUpperCase() });
+                    setOrderVoucherPreview(null);
+                  }}
+                  placeholder="Code"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    const totalPrice =
+                      Number(orderForm.totalPrice) ||
+                      orderForm.items.reduce((s, it) => s + it.price * it.qty, 0);
+                    if (!orderForm.voucherCode.trim() || totalPrice <= 0) return;
+                    try {
+                      const res = await api.post('/vouchers/validate', {
+                        code: orderForm.voucherCode.trim(),
+                        channel: 'RESTAURANT',
+                        grossAmount: totalPrice,
+                        lineItems: orderForm.items
+                          .filter((it) => it.menuId)
+                          .map((it) => ({
+                            itemType: 'MENU_ITEM',
+                            itemId: it.menuId!,
+                            amount: it.price * it.qty,
+                          })),
+                      });
+                      setOrderVoucherPreview(
+                        `Save ৳${res.data.discountAmount} — net ৳${res.data.netAmount}`
+                      );
+                    } catch (err: any) {
+                      setOrderVoucherPreview(err?.response?.data?.message || 'Invalid voucher');
+                    }
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
+              {orderVoucherPreview && <p className="text-sm text-green-700">{orderVoucherPreview}</p>}
+            </div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOrderOpen(false)}>Cancel</Button><Button onClick={handleCreateOrder}>Create</Button></DialogFooter>
         </DialogContent>

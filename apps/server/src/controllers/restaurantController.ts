@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { AppError } from '../middleware/errorHandler';
 import { recordRevenue } from '../utils/accountLedger';
 import { consumeForOrder } from '../utils/inventory';
+import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
 
 // netAmount = totalPrice - discount + serviceCharge (never below 0)
 function computeNet(totalPrice: number, discount: number, serviceCharge: number): number {
@@ -35,6 +36,7 @@ const orderSchema = z.object({
   discount: z.number().nonnegative().optional(),
   serviceCharge: z.number().nonnegative().optional(),
   notes: z.string().optional(),
+  voucherCode: z.string().min(1).optional(),
 });
 
 const orderUpdateSchema = z.object({
@@ -46,6 +48,7 @@ const orderUpdateSchema = z.object({
   notes: z.string().optional().nullable(),
   userId: z.string().uuid().optional().nullable(),
   roomId: z.string().uuid().optional().nullable(),
+  voucherCode: z.string().min(1).optional().nullable(),
 });
 
 const orderPaymentSchema = z.object({
@@ -167,23 +170,59 @@ export const createOrder = async (
   try {
     const data = orderSchema.parse(req.body);
 
-    const discount = data.discount ?? 0;
     const serviceCharge = data.serviceCharge ?? 0;
-    const netAmount = computeNet(data.totalPrice, discount, serviceCharge);
+    const lineItems = (Array.isArray(data.items) ? data.items : [])
+      .map((it: any) => ({
+        itemType: 'MENU_ITEM' as const,
+        itemId: String(it.menuItemId || it.id || ''),
+        amount: Number(it.price || 0) * Number(it.quantity || 1),
+      }))
+      .filter((li) => li.itemId && li.amount > 0);
 
-    const order = await prisma.restaurantOrder.create({
-      data: {
-        roomId: data.roomId,
-        userId: data.userId,
-        items: data.items,
-        totalPrice: data.totalPrice,
-        discount,
-        serviceCharge,
-        netAmount,
-        status: 'PENDING',
-        paymentStatus: 'UNPAID',
-        notes: data.notes,
-      },
+    const order = await prisma.$transaction(async (tx) => {
+      let discount = data.discount ?? 0;
+      let voucherId: string | undefined;
+
+      if (data.voucherCode?.trim()) {
+        const applied = await validateVoucherForCheckout(tx, {
+          code: data.voucherCode,
+          channel: 'RESTAURANT',
+          grossAmount: data.totalPrice,
+          lineItems,
+          assignee: { userId: data.userId || req.user?.id },
+        });
+        discount = applied.discountAmount;
+        voucherId = applied.voucher.id;
+      }
+
+      const netAmount = computeNet(data.totalPrice, discount, serviceCharge);
+      const created = await tx.restaurantOrder.create({
+        data: {
+          roomId: data.roomId,
+          userId: data.userId,
+          items: data.items,
+          totalPrice: data.totalPrice,
+          discount,
+          serviceCharge,
+          netAmount,
+          voucherId,
+          status: 'PENDING',
+          paymentStatus: 'UNPAID',
+          notes: data.notes,
+        },
+      });
+
+      if (voucherId && discount > 0) {
+        await recordVoucherRedemption(tx, {
+          voucherId,
+          amountDiscounted: discount,
+          referenceType: 'RESTAURANT_ORDER',
+          referenceId: created.id,
+          redeemedById: req.user?.id,
+        });
+      }
+
+      return created;
     });
 
     res.status(201).json({ success: true, order });
@@ -242,27 +281,68 @@ export const updateOrder = async (
     if (!existing) throw new AppError('Order not found', 404);
 
     // Recompute net + payment status when any amount component changes.
-    const totalsChanged =
-      data.totalPrice !== undefined || data.discount !== undefined || data.serviceCharge !== undefined;
+    let discount = data.discount ?? existing.discount;
+    let voucherId = existing.voucherId;
     const totalPrice = data.totalPrice ?? existing.totalPrice;
-    const discount = data.discount ?? existing.discount;
     const serviceCharge = data.serviceCharge ?? existing.serviceCharge;
-    const netAmount = computeNet(totalPrice, discount, serviceCharge);
+    const items = data.items ?? existing.items;
 
-    const order = await prisma.restaurantOrder.update({
-      where: { id },
-      data: {
-        ...(data.status !== undefined ? { status: data.status } : {}),
-        ...(data.items !== undefined ? { items: data.items } : {}),
-        ...(data.totalPrice !== undefined ? { totalPrice: data.totalPrice } : {}),
-        ...(data.discount !== undefined ? { discount: data.discount } : {}),
-        ...(data.serviceCharge !== undefined ? { serviceCharge: data.serviceCharge } : {}),
-        ...(totalsChanged ? { netAmount, paymentStatus: derivePaymentStatus(existing.paidAmount, netAmount) } : {}),
-        ...(data.notes !== undefined ? { notes: data.notes } : {}),
-        ...(data.userId !== undefined ? { userId: data.userId } : {}),
-        ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
-      },
-      include: { room: true, user: true },
+    const order = await prisma.$transaction(async (tx) => {
+      if (data.voucherCode?.trim()) {
+        const lineItems = (Array.isArray(items) ? items : [])
+          .map((it: any) => ({
+            itemType: 'MENU_ITEM' as const,
+            itemId: String(it.menuItemId || it.id || ''),
+            amount: Number(it.price || 0) * Number(it.quantity || 1),
+          }))
+          .filter((li) => li.itemId && li.amount > 0);
+        const applied = await validateVoucherForCheckout(tx, {
+          code: data.voucherCode,
+          channel: 'RESTAURANT',
+          grossAmount: totalPrice,
+          lineItems,
+          assignee: { userId: data.userId || existing.userId || req.user?.id },
+        });
+        discount = applied.discountAmount;
+        voucherId = applied.voucher.id;
+        if (!existing.voucherId || existing.voucherId !== voucherId) {
+          await recordVoucherRedemption(tx, {
+            voucherId,
+            amountDiscounted: discount,
+            referenceType: 'RESTAURANT_ORDER',
+            referenceId: id,
+            redeemedById: req.user?.id,
+          });
+        }
+      }
+
+      const totalsChanged =
+        data.totalPrice !== undefined ||
+        data.discount !== undefined ||
+        data.serviceCharge !== undefined ||
+        !!data.voucherCode;
+      const netAmount = computeNet(totalPrice, discount, serviceCharge);
+
+      return tx.restaurantOrder.update({
+        where: { id },
+        data: {
+          ...(data.status !== undefined ? { status: data.status } : {}),
+          ...(data.items !== undefined ? { items: data.items } : {}),
+          ...(data.totalPrice !== undefined ? { totalPrice: data.totalPrice } : {}),
+          ...(data.discount !== undefined || data.voucherCode
+            ? { discount }
+            : {}),
+          ...(data.serviceCharge !== undefined ? { serviceCharge: data.serviceCharge } : {}),
+          ...(data.voucherCode ? { voucherId } : {}),
+          ...(totalsChanged
+            ? { netAmount, paymentStatus: derivePaymentStatus(existing.paidAmount, netAmount) }
+            : {}),
+          ...(data.notes !== undefined ? { notes: data.notes } : {}),
+          ...(data.userId !== undefined ? { userId: data.userId } : {}),
+          ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
+        },
+        include: { room: true, user: true },
+      });
     });
 
     res.json({ success: true, order });

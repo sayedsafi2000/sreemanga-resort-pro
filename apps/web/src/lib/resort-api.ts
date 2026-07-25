@@ -205,6 +205,34 @@ async function getDayLongProductsUncached(category?: string): Promise<DayLongPro
 
 export const getDayLongProducts = cache(getDayLongProductsUncached);
 
+export async function validatePublicVoucher(payload: {
+  code: string;
+  channel: 'ROOM' | 'DAY_LONG' | 'RESTAURANT';
+  grossAmount: number;
+  lineItems?: { itemType: string; itemId: string; amount: number }[];
+  guestEmail?: string;
+}): Promise<{ ok: boolean; message: string; discountAmount?: number; netAmount?: number }> {
+  try {
+    const res = await fetch(`${apiBase()}/vouchers/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, message: j.message || 'Invalid voucher' };
+    }
+    return {
+      ok: true,
+      message: 'Voucher applied',
+      discountAmount: j.discountAmount,
+      netAmount: j.netAmount,
+    };
+  } catch {
+    return { ok: false, message: 'Could not validate voucher' };
+  }
+}
+
 export async function getDayLongProductById(id: string): Promise<DayLongProduct | null> {
   const data = await safeFetch<{ success: boolean; product: DayLongProduct }>(
     `${apiBase()}/day-long/products/${encodeURIComponent(id)}`,
@@ -224,6 +252,7 @@ export interface DayLongBookingInput {
   adults: number;
   children: number;
   notes?: string;
+  voucherCode?: string;
 }
 
 export async function submitDayLongBooking(

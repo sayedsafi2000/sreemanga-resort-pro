@@ -92,6 +92,7 @@ export interface PublicBookingInput {
   checkInDate: string;
   checkOutDate: string;
   notes?: string;
+  voucherCode?: string;
 }
 
 export interface ContactFormInput {

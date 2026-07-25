@@ -5,6 +5,7 @@ import {
   submitDayLongBooking,
   sendBookingOtp,
   verifyBookingOtp,
+  validatePublicVoucher,
   type DayLongProduct,
 } from '@/lib/resort-api';
 
@@ -21,6 +22,8 @@ export default function DayLongBookingForm({ products }: Props) {
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
 
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [otp, setOtp] = useState('');
@@ -70,6 +73,7 @@ export default function DayLongBookingForm({ products }: Props) {
       adults,
       children,
       notes: notes || undefined,
+      ...(voucherCode.trim() ? { voucherCode: voucherCode.trim() } : {}),
     });
     setBusy(false);
     setMessage({ ok: r.ok, text: r.message });
@@ -145,6 +149,46 @@ export default function DayLongBookingForm({ products }: Props) {
           <div>
             <label className="mb-1 block text-sm font-medium">Notes (optional)</label>
             <textarea className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Voucher code (optional)</label>
+            <div className="flex gap-2">
+              <input
+                className={inputCls}
+                value={voucherCode}
+                onChange={(e) => {
+                  setVoucherCode(e.target.value.toUpperCase());
+                  setVoucherPreview(null);
+                }}
+                placeholder="Have a code?"
+              />
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-3 text-sm"
+                disabled={!voucherCode.trim() || !product || total <= 0}
+                onClick={async () => {
+                  if (!product) return;
+                  const r = await validatePublicVoucher({
+                    code: voucherCode.trim(),
+                    channel: 'DAY_LONG',
+                    grossAmount: total,
+                    lineItems: [
+                      { itemType: 'DAY_LONG_PRODUCT', itemId: product.id, amount: total },
+                    ],
+                    guestEmail: guestEmail || undefined,
+                  });
+                  if (r.ok) {
+                    setVoucherPreview(`Save ৳${r.discountAmount} — pay ৳${r.netAmount}`);
+                  } else {
+                    setVoucherPreview(null);
+                    setMessage({ ok: false, text: r.message });
+                  }
+                }}
+              >
+                Apply
+              </button>
+            </div>
+            {voucherPreview && <p className="mt-1 text-sm text-green-700">{voucherPreview}</p>}
           </div>
 
           <div className="flex items-center justify-between border-t pt-3">

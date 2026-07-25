@@ -21,6 +21,7 @@ export const bookingSchema = z
     checkOutDate: stayDateString,
     status: z.enum(['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED']).optional(),
     notes: z.string().optional(),
+    voucherCode: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {
     const hasGuestId = Boolean(data.guestId?.trim());

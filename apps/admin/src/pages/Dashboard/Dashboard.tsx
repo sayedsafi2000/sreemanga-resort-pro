@@ -574,6 +574,7 @@ const Dashboard: React.FC = () => {
     if (role === 'RECEPTIONIST' || role === 'SUPER_ADMIN' || role === 'MANAGER') {
       actions.push(
         { label: 'New Booking', href: '/bookings?new=1', icon: CalendarCheck, color: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100' },
+        { label: 'Day Long Booking', href: '/day-long?tab=bookings&new=1', icon: Sun, color: 'text-amber-600 bg-amber-50 border-amber-100 hover:bg-amber-100' },
         { label: 'Add Guest', href: '/guests', icon: Users, color: 'text-violet-600 bg-violet-50 border-violet-100 hover:bg-violet-100' },
       );
     }

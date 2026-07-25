@@ -25,6 +25,7 @@ import {
   PieChart,
   Users2,
   ScrollText,
+  Ticket,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -50,7 +51,7 @@ export const SIDEBAR_SECTION: Record<string, string> = {
   dash: '', 'book-new': '',
   rooms: 'Operations', book: 'Operations', 'book-all': 'Operations', guest: 'Operations',
   rest: 'Operations', daylong: 'Operations', ord: 'Operations', menu: 'Operations', inv: 'Operations',
-  pay: 'Finance', acct: 'Finance', share: 'Finance', rep: 'Finance', exp: 'Finance',
+  pay: 'Finance', acct: 'Finance', voucher: 'Finance', share: 'Finance', rep: 'Finance', exp: 'Finance',
   hr: 'People', sal: 'People', staff: 'People',
   gal: 'Content', near: 'Content', blog: 'Content',
   brand: 'System', tmpl: 'System', audit: 'System', set: 'System',
@@ -87,6 +88,7 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/day-long': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
   '/inventory': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'HOUSEKEEPING', 'RESTAURANT_STAFF'],
   '/accounts': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
+  '/vouchers': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/shareholders': ['SUPER_ADMIN', 'MANAGER'],
   '/staff-hr': ['SUPER_ADMIN', 'MANAGER'],
   '/audit-log': ['SUPER_ADMIN'],
@@ -135,6 +137,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       // Finance
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
+      { key: 'voucher', label: 'Vouchers', path: '/vouchers', icon: Ticket },
       expenditureParent,
       { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
@@ -164,6 +167,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       // Finance
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
+      { key: 'voucher', label: 'Vouchers', path: '/vouchers', icon: Ticket },
       expenditureParent,
       { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
@@ -200,6 +204,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       { key: 'acct', label: 'Accounts', path: '/accounts', icon: Landmark },
+      { key: 'voucher', label: 'Vouchers', path: '/vouchers', icon: Ticket },
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
