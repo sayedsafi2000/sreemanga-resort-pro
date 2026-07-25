@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import {
@@ -6,6 +7,7 @@ import {
   dayLongBookingSchema,
   dayLongBookingUpdateSchema,
 } from '../validators/dayLongValidator';
+import { recordRevenue } from '../utils/accountLedger';
 
 // ── Pricing ────────────────────────────────────────────────────────────────
 // total = basePrice + pricePerPerson * (adults + children)
@@ -293,6 +295,92 @@ export const deleteBooking = async (req: Request, res: Response, next: NextFunct
     });
     res.json({ success: true, booking, message: 'Booking cancelled' });
   } catch (error) { next(error); }
+};
+
+const dayLongPaymentSchema = z.object({
+  amount: z.number().positive(),
+  method: z.enum(['CASH', 'BKASH', 'NAGAD', 'CARD', 'BANK_TRANSFER', 'MOBILE_BANKING']),
+  transactionId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+export const recordBookingPayment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const data = dayLongPaymentSchema.parse(req.body);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const booking = await tx.dayLongBooking.findUnique({ where: { id } });
+      if (!booking) throw new AppError('Day Long booking not found', 404);
+      if (booking.status === 'CANCELLED') {
+        throw new AppError('Cannot pay a cancelled booking', 400);
+      }
+
+      const remaining = booking.totalAmount - booking.paidAmount;
+      if (data.amount > remaining + 0.001) {
+        throw new AppError(
+          `Payment exceeds balance due (৳${Math.max(0, remaining).toFixed(2)})`,
+          400
+        );
+      }
+
+      const payment = await tx.payment.create({
+        data: {
+          amount: data.amount,
+          method: data.method,
+          status: 'COMPLETED',
+          transactionId: data.transactionId || undefined,
+          notes: data.notes || undefined,
+          referenceType: 'DAY_LONG_BOOKING',
+          referenceId: booking.id,
+          businessLine: 'DAY_LONG',
+        },
+      });
+
+      const paidAmount = booking.paidAmount + data.amount;
+      const statusUpdate =
+        booking.status === 'PENDING' && paidAmount >= booking.totalAmount
+          ? { status: 'CONFIRMED' as const }
+          : {};
+
+      const updated = await tx.dayLongBooking.update({
+        where: { id },
+        data: { paidAmount, ...statusUpdate },
+        include: { product: true },
+      });
+
+      await recordRevenue(tx, {
+        amount: data.amount,
+        method: data.method,
+        businessLine: 'DAY_LONG',
+        referenceType: 'DAY_LONG_BOOKING',
+        referenceId: booking.id,
+        createdById: req.user?.id,
+      });
+
+      return { booking: updated, payment };
+    });
+
+    res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBookingPayments = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const booking = await prisma.dayLongBooking.findUnique({ where: { id }, select: { id: true } });
+    if (!booking) throw new AppError('Day Long booking not found', 404);
+
+    const payments = await prisma.payment.findMany({
+      where: { referenceType: 'DAY_LONG_BOOKING', referenceId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ success: true, payments });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // ── Public (web) handlers ──────────────────────────────────────────────────

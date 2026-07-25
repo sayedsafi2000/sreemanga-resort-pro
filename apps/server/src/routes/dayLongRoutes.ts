@@ -11,11 +11,14 @@ import {
   createBooking,
   updateBooking,
   deleteBooking,
+  recordBookingPayment,
+  getBookingPayments,
 } from '../controllers/dayLongController';
 import { roleCheck } from '../middleware/roleCheck';
 
 const MANAGE = ['SUPER_ADMIN', 'MANAGER'] as const;
 const BOOK = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
+const PAY = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'ACCOUNTANT'] as const;
 
 const router = Router();
 
@@ -35,5 +38,7 @@ router.get('/bookings/:id', getBooking);
 router.post('/bookings', roleCheck([...BOOK]), createBooking);
 router.patch('/bookings/:id', updateBooking);
 router.delete('/bookings/:id', roleCheck(['SUPER_ADMIN']), deleteBooking);
+router.get('/bookings/:id/payments', roleCheck([...PAY]), getBookingPayments);
+router.post('/bookings/:id/payments', roleCheck([...PAY]), recordBookingPayment);
 
 export default router;

@@ -31,6 +31,8 @@ const Payments: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -53,6 +55,7 @@ const Payments: React.FC = () => {
 
   const openNew = () => {
     setForm({ bookingId: '', amount: '', method: 'CASH', transactionId: '', notes: '' });
+    setSaveError(null);
     setOpen(true);
   };
 
@@ -63,8 +66,17 @@ const Payments: React.FC = () => {
       transactionId: p.transactionId || '',
       notes: p.notes || '',
     });
+    setSaveError(null);
     setEditOpen(true);
   };
+
+  const completedPaidForBooking = (bookingId: string) =>
+    payments
+      .filter((p: any) => p.bookingId === bookingId && p.status === 'COMPLETED')
+      .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+
+  const remainingForBooking = (b: any) =>
+    Math.max(0, (b.totalAmount || 0) - completedPaidForBooking(b.id));
 
   const handleSave = async () => {
     const data = {
@@ -74,15 +86,23 @@ const Payments: React.FC = () => {
       transactionId: form.transactionId.trim() || undefined,
       notes: form.notes.trim() || undefined,
     };
+    setSaving(true);
+    setSaveError(null);
     try {
       await api.post('/payments', data);
       setOpen(false);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEditSave = async () => {
     if (!editingPayment) return;
+    setSaving(true);
+    setSaveError(null);
     try {
       await api.put(`/payments/${editingPayment.id}`, {
         status: editForm.status,
@@ -92,7 +112,11 @@ const Payments: React.FC = () => {
       setEditOpen(false);
       setEditingPayment(null);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.message || 'Failed to update payment');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const statusColor = (s: string) => {
@@ -134,8 +158,12 @@ const Payments: React.FC = () => {
 
   const bookingLabel = (b: any) => {
     const guest = b.guest?.name || b.guestId?.slice(0, 8);
-    return `${guest} — ৳${b.totalAmount}`;
+    const due = remainingForBooking(b);
+    return `${guest} — ৳${b.totalAmount}${due > 0 ? ` (due ৳${due})` : ' (paid)'}`;
   };
+
+  const selectedBooking = bookings.find((b: any) => b.id === form.bookingId);
+  const selectedDue = selectedBooking ? remainingForBooking(selectedBooking) : null;
 
   return (
     <div className="space-y-6">
@@ -278,7 +306,17 @@ const Payments: React.FC = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Booking</Label><Select value={form.bookingId} onValueChange={(v) => setForm({ ...form, bookingId: v })}><SelectTrigger><SelectValue placeholder="Select booking" /></SelectTrigger><SelectContent>{bookings.map((b: any) => <SelectItem key={b.id} value={b.id}>{bookingLabel(b)}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Booking</Label><Select value={form.bookingId} onValueChange={(v) => {
+              const b = bookings.find((x: any) => x.id === v);
+              const due = b ? remainingForBooking(b) : 0;
+              setForm({ ...form, bookingId: v, amount: due > 0 ? String(due) : '' });
+              setSaveError(null);
+            }}><SelectTrigger><SelectValue placeholder="Select booking" /></SelectTrigger><SelectContent>{bookings.map((b: any) => <SelectItem key={b.id} value={b.id}>{bookingLabel(b)}</SelectItem>)}</SelectContent></Select></div>
+            {selectedDue != null && (
+              <p className="text-sm text-muted-foreground">
+                Remaining balance: <span className="font-medium text-foreground">৳{selectedDue.toLocaleString()}</span>
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Amount (৳)</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
               <div className="space-y-2"><Label>Method</Label><Select value={form.method} onValueChange={(v) => setForm({ ...form, method: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{paymentMethods.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select></div>
@@ -299,9 +337,15 @@ const Payments: React.FC = () => {
                 placeholder="Internal note"
               />
             </div>
-            <p className="text-xs text-muted-foreground">New payments are recorded as completed on the server.</p>
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+            <p className="text-xs text-muted-foreground">Posts to Cash/Bank and Room Revenue accounts. Day Long payments are recorded from the Day Long page.</p>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={handleSave}>Record</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving || !form.bookingId || !Number(form.amount)}>
+              {saving ? 'Saving…' : 'Record'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -312,8 +356,12 @@ const Payments: React.FC = () => {
             <div className="space-y-2"><Label>Status</Label><Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{paymentStatuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Transaction ID</Label><Input value={editForm.transactionId} onChange={(e) => setEditForm({ ...editForm, transactionId: e.target.value })} placeholder="e.g. bKash TXN ID" /></div>
             <div className="space-y-2"><Label>Notes</Label><Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={handleEditSave}>Save</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

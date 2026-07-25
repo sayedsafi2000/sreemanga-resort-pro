@@ -311,14 +311,14 @@ const Inventory: React.FC = () => {
         <div className="ml-auto flex flex-wrap gap-2">
           {canManage && tab === 'items' && (
             <>
-              <Button variant="outline" onClick={openPurchase} disabled={items.length === 0}>
+              <Button variant="success" onClick={openPurchase} disabled={items.length === 0}>
                 <PackagePlus className="h-4 w-4 mr-1" /> Purchase
               </Button>
-              <Button onClick={openCreateItem}><Plus className="h-4 w-4 mr-1" /> New Item</Button>
+              <Button variant="stock" onClick={openCreateItem}><Plus className="h-4 w-4 mr-1" /> New Item</Button>
             </>
           )}
           {canSuppliers && tab === 'suppliers' && (
-            <Button onClick={() => { setSupplierForm({ name: '', phone: '', email: '' }); setSupplierDialog(true); }}>
+            <Button variant="guest" onClick={() => { setSupplierForm({ name: '', phone: '', email: '' }); setSupplierDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" /> New Supplier
             </Button>
           )}

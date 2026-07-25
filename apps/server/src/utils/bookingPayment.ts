@@ -72,6 +72,9 @@ export async function createPaymentFromBooking(
       status: 'PENDING',
       transactionId: isInstant ? booking.paymentTransactionId?.trim() || undefined : undefined,
       notes: buildPaymentNotesFromBooking(booking),
+      referenceType: 'BOOKING',
+      referenceId: booking.id,
+      businessLine: 'ROOM',
     },
   });
 }

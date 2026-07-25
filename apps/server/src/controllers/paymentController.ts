@@ -101,18 +101,55 @@ export const createPayment = async (
       });
       if (!booking) throw new AppError('Booking not found', 404);
 
-      const totalPaid = booking.payments.reduce((s, p) => s + p.amount, 0);
-      if (totalPaid + numAmount > booking.totalAmount) {
-        throw new AppError('Payment amount exceeds remaining balance', 400);
+      // Only COMPLETED counts toward paid — PENDING (website Instant/Later) must not block recording.
+      const totalPaid = booking.payments
+        .filter((p) => p.status === 'COMPLETED')
+        .reduce((s, p) => s + p.amount, 0);
+      const remaining = booking.totalAmount - totalPaid;
+      if (numAmount > remaining + 0.001) {
+        throw new AppError(
+          `Payment amount exceeds remaining balance (৳${Math.max(0, remaining).toFixed(2)} due)`,
+          400
+        );
       }
 
-      const newPayment = await tx.payment.create({
-        data: {
-          bookingId, amount: numAmount, method, transactionId, notes, status: 'COMPLETED',
-          referenceType: 'BOOKING', referenceId: bookingId, businessLine: 'ROOM',
-        },
-        include: { booking: { include: { room: true, guest: true } } },
-      });
+      // Prefer completing a matching PENDING row (website Instant/Later) instead of duplicating.
+      const matchingPending = booking.payments.find(
+        (p) =>
+          p.status === 'PENDING' && Math.abs(p.amount - numAmount) < 0.01
+      );
+
+      let completedPayment;
+      if (matchingPending) {
+        completedPayment = await tx.payment.update({
+          where: { id: matchingPending.id },
+          data: {
+            status: 'COMPLETED',
+            method,
+            ...(transactionId !== undefined ? { transactionId } : {}),
+            ...(notes !== undefined ? { notes } : {}),
+            referenceType: matchingPending.referenceType || 'BOOKING',
+            referenceId: matchingPending.referenceId || bookingId,
+            businessLine: matchingPending.businessLine || 'ROOM',
+          },
+          include: { booking: { include: { room: true, guest: true } } },
+        });
+      } else {
+        completedPayment = await tx.payment.create({
+          data: {
+            bookingId,
+            amount: numAmount,
+            method,
+            transactionId,
+            notes,
+            status: 'COMPLETED',
+            referenceType: 'BOOKING',
+            referenceId: bookingId,
+            businessLine: 'ROOM',
+          },
+          include: { booking: { include: { room: true, guest: true } } },
+        });
+      }
 
       // Only upgrade PENDING → CONFIRMED, never downgrade
       if (totalPaid + numAmount >= booking.totalAmount && booking.status === 'PENDING') {
@@ -129,7 +166,7 @@ export const createPayment = async (
         createdById: (req as any).user?.id,
       });
 
-      return newPayment;
+      return completedPayment;
     });
 
     // Send email outside transaction

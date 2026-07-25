@@ -30,13 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Loader2, CalendarDays } from 'lucide-react';
+import { Plus, Pencil, Loader2, CalendarDays, CalendarPlus, Wallet } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageRooms } from '@/config/rbac';
 
 const CATEGORIES = ['POOL', 'COTTAGE', 'CONFERENCE', 'EVENT', 'PICNIC'] as const;
 const BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'] as const;
+const PAY_METHODS = ['CASH', 'BKASH', 'NAGAD', 'CARD', 'BANK_TRANSFER', 'MOBILE_BANKING'] as const;
 
 type Product = {
   id: string;
@@ -62,6 +63,7 @@ type Booking = {
   adults: number;
   children: number;
   totalAmount: number;
+  paidAmount?: number;
   status: string;
 };
 
@@ -125,6 +127,11 @@ const DayLong: React.FC = () => {
   const [bookingForm, setBookingForm] = useState<any>(emptyBooking);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payBooking, setPayBooking] = useState<Booking | null>(null);
+  const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', transactionId: '' });
+  const [paySaving, setPaySaving] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -246,6 +253,35 @@ const DayLong: React.FC = () => {
     await load();
   };
 
+  const bookingBalance = (b: Booking) =>
+    Math.max(0, (b.totalAmount || 0) - (b.paidAmount || 0));
+
+  const openPayment = (b: Booking) => {
+    setPayBooking(b);
+    setPayForm({ amount: String(bookingBalance(b) || ''), method: 'CASH', transactionId: '' });
+    setPayError(null);
+    setPayOpen(true);
+  };
+
+  const handleTakePayment = async () => {
+    if (!payBooking) return;
+    setPaySaving(true);
+    setPayError(null);
+    try {
+      await api.post(`/day-long/bookings/${payBooking.id}/payments`, {
+        amount: Number(payForm.amount),
+        method: payForm.method,
+        transactionId: payForm.transactionId.trim() || undefined,
+      });
+      setPayOpen(false);
+      await load();
+    } catch (e: any) {
+      setPayError(e?.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
   const previewTotal = useMemo(() => {
     const p = products.find((x) => x.id === bookingForm.productId);
     if (!p) return 0;
@@ -259,8 +295,8 @@ const DayLong: React.FC = () => {
         title="Day Long"
         description="Pool, cottage, conference, event and picnic day-use bookings"
         actions={
-          <Button onClick={openCreateBooking} disabled={products.length === 0 || loading}>
-            <Plus className="h-4 w-4 mr-1" /> New Booking
+          <Button variant="booking" onClick={openCreateBooking} disabled={products.length === 0 || loading}>
+            <CalendarPlus className="h-4 w-4 mr-1" /> New Booking
           </Button>
         }
       />
@@ -282,8 +318,8 @@ const DayLong: React.FC = () => {
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="flex justify-end">
-              <Button onClick={openCreateBooking} disabled={products.length === 0}>
-                <Plus className="h-4 w-4 mr-1" /> New Booking
+              <Button variant="booking" onClick={openCreateBooking} disabled={products.length === 0}>
+                <CalendarPlus className="h-4 w-4 mr-1" /> New Booking
               </Button>
             </div>
             <Table>
@@ -295,11 +331,15 @@ const DayLong: React.FC = () => {
                   <TableHead>Slot</TableHead>
                   <TableHead>Pax</TableHead>
                   <TableHead>Total</TableHead>
+                  <TableHead>Paid</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookings.map((b) => (
+                {bookings.map((b) => {
+                  const due = bookingBalance(b);
+                  return (
                   <TableRow key={b.id}>
                     <TableCell>{new Date(b.bookingDate).toLocaleDateString()}</TableCell>
                     <TableCell>{b.product?.name ?? '—'}</TableCell>
@@ -310,6 +350,12 @@ const DayLong: React.FC = () => {
                     <TableCell>{b.slotStart}–{b.slotEnd}</TableCell>
                     <TableCell>{b.adults + b.children}</TableCell>
                     <TableCell>৳{b.totalAmount}</TableCell>
+                    <TableCell>
+                      <div>৳{b.paidAmount ?? 0}</div>
+                      {due > 0 && (
+                        <div className="text-xs text-amber-700">Due ৳{due}</div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Select value={b.status} onValueChange={(v) => updateBookingStatus(b.id, v)}>
                         <SelectTrigger className="w-[140px]">
@@ -324,11 +370,24 @@ const DayLong: React.FC = () => {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell>
+                      {b.status !== 'CANCELLED' && due > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Record payment"
+                          onClick={() => openPayment(b)}
+                        >
+                          <Wallet className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {bookings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       <CalendarDays className="h-6 w-6 mx-auto mb-2 opacity-50" />
                       No bookings yet.
                     </TableCell>
@@ -343,7 +402,7 @@ const DayLong: React.FC = () => {
           <CardContent className="p-4 space-y-4">
             <div className="flex justify-end">
               {canManage && (
-                <Button onClick={openCreateProduct}>
+                <Button variant="product" onClick={openCreateProduct}>
                   <Plus className="h-4 w-4 mr-1" /> New Product
                 </Button>
               )}
@@ -507,6 +566,74 @@ const DayLong: React.FC = () => {
             <Button variant="outline" onClick={() => setBookingDialog(false)}>Cancel</Button>
             <Button onClick={saveBooking} disabled={saving || !bookingForm.productId || !bookingForm.bookingDate}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Day Long Payment</DialogTitle>
+          </DialogHeader>
+          {payBooking && (
+            <div className="space-y-3">
+              <div className="rounded-md bg-muted/40 px-3 py-2 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Guest</span>
+                  <span className="font-medium">{payBooking.guestName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total</span>
+                  <span className="font-medium">৳{payBooking.totalAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Paid</span>
+                  <span className="font-medium">৳{(payBooking.paidAmount ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Balance due</span>
+                  <span className="font-semibold">৳{bookingBalance(payBooking).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Amount</Label>
+                  <Input
+                    type="number"
+                    value={payForm.amount}
+                    onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Method</Label>
+                  <Select
+                    value={payForm.method}
+                    onValueChange={(v) => setPayForm({ ...payForm, method: v })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAY_METHODS.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Transaction ID (optional)</Label>
+                <Input
+                  value={payForm.transactionId}
+                  onChange={(e) => setPayForm({ ...payForm, transactionId: e.target.value })}
+                />
+              </div>
+              {payError && <p className="text-sm text-red-600">{payError}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
+            <Button onClick={handleTakePayment} disabled={paySaving || !Number(payForm.amount)}>
+              {paySaving ? 'Saving…' : 'Record Payment'}
             </Button>
           </DialogFooter>
         </DialogContent>

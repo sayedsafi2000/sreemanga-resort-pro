@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { requireStripe } from '../utils/stripe';
 import { emailService } from '../utils/emailService';
+import { recordRevenue } from '../utils/accountLedger';
 
 function webUrl(): string {
   return (process.env.WEB_PUBLIC_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3002').replace(/\/$/, '');
@@ -92,20 +93,30 @@ async function fulfillCheckout(session: CheckoutSessionLike): Promise<void> {
   const piId = paymentIntentId(session);
 
   const bookingId = payment.bookingId;
-  await prisma.$transaction([
-    prisma.payment.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
       where: { id: payment.id },
       data: {
         status: 'COMPLETED',
         stripePaymentIntentId: piId,
         transactionId: piId,
+        referenceType: payment.referenceType || 'BOOKING',
+        referenceId: payment.referenceId || bookingId,
+        businessLine: payment.businessLine || 'ROOM',
       },
-    }),
-    prisma.booking.update({
+    });
+    await tx.booking.update({
       where: { id: bookingId },
       data: { status: 'CONFIRMED' },
-    }),
-  ]);
+    });
+    await recordRevenue(tx, {
+      amount: payment.amount,
+      method: payment.method || 'STRIPE',
+      businessLine: (payment.businessLine as string) || 'ROOM',
+      referenceType: payment.referenceType || 'BOOKING',
+      referenceId: payment.referenceId || bookingId,
+    });
+  });
 
   const b = payment.booking;
   if (b.guest.email) {

@@ -1070,7 +1070,7 @@ export default function Expenditures() {
                   <Link to="/staff-salaries"><Banknote className="mr-2 h-4 w-4" /> Staff Salaries</Link>
                 </Button>
               ) : (
-                <Button onClick={openAddExpense} variant="default">
+                <Button onClick={openAddExpense} variant="expense">
                   <Plus className="mr-2 h-4 w-4" /> Add Expense
                 </Button>
               )}

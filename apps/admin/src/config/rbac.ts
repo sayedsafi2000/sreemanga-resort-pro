@@ -127,7 +127,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       // Operations — frequent first
       { key: 'book', label: 'Bookings', path: '/bookings', icon: CalendarCheck },
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
-      { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
+      { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed, tab: 'orders' },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       { key: 'rooms', label: 'Rooms Management', path: '/rooms', icon: BedDouble },
@@ -159,7 +159,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       { key: 'rooms', label: 'Rooms', path: '/rooms', icon: BedDouble },
-      { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed },
+      { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed, tab: 'orders' },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
       // Finance
       { key: 'pay', label: 'Payments', path: '/payments', icon: DollarSign },
@@ -219,7 +219,7 @@ export function sidebarItemActive(pathname: string, search: string, item: Sideba
   if (item.key === 'book-all') return q.get('new') !== '1';
   if (item.tab) return q.get('tab') === item.tab;
   if (item.path === '/restaurant' && !item.tab)
-    return !q.get('tab') || q.get('tab') === 'menu';
+    return !q.get('tab') || q.get('tab') === 'orders';
   return true;
 }
 

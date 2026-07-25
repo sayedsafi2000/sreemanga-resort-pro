@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, ImageIcon, UtensilsCrossed, ShoppingBag, LayoutGrid, Wallet } from 'lucide-react';
+import { Plus, Pencil, Trash2, ImageIcon, UtensilsCrossed, ShoppingBag, LayoutGrid, Wallet, ClipboardPlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -38,7 +38,7 @@ const Restaurant: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderEditOpen, setOrderEditOpen] = useState(false);
-  const [tab, setTab] = useState<'menu' | 'orders'>('menu');
+  const [tab, setTab] = useState<'menu' | 'orders'>('orders');
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
   const [editing, setEditing] = useState<any>(null);
   const [editingOrder, setEditingOrder] = useState<any>(null);
@@ -112,7 +112,11 @@ const Restaurant: React.FC = () => {
   useEffect(() => {
     const t = searchParams.get('tab');
     if (t === 'orders' || t === 'menu') setTab(t);
-  }, [searchParams]);
+    else {
+      setTab('orders');
+      navigate('/restaurant?tab=orders', { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   const setTabNavigate = (next: 'menu' | 'orders') => {
     setTab(next);
@@ -352,10 +356,15 @@ const Restaurant: React.FC = () => {
       <PageHeader
         eyebrow="Operations"
         title="Restaurant"
-        description="Manage the menu and track room-service orders."
+        description="Track room-service orders and manage the menu."
         actions={
-          tab === 'menu' && menuWrite ? (
-            <Button variant="default" className="w-full sm:w-auto" onClick={openNew}>
+          tab === 'orders' ? (
+            <Button variant="booking" className="w-full sm:w-auto" onClick={openNewOrder}>
+              <ClipboardPlus className="mr-2 h-4 w-4" />
+              New order
+            </Button>
+          ) : tab === 'menu' && menuWrite ? (
+            <Button variant="product" className="w-full sm:w-auto" onClick={openNew}>
               <Plus className="mr-2 h-4 w-4" />
               Add Item
             </Button>
@@ -365,21 +374,21 @@ const Restaurant: React.FC = () => {
       <div className="flex w-full gap-1 rounded-lg border border-border bg-secondary/60 p-1 sm:w-fit">
         <button
           type="button"
-          onClick={() => setTabNavigate('menu')}
-          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition sm:flex-none sm:py-1.5 ${
-            tab === 'menu' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Menu Items
-        </button>
-        <button
-          type="button"
           onClick={() => setTabNavigate('orders')}
           className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition sm:flex-none sm:py-1.5 ${
             tab === 'orders' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Orders
+        </button>
+        <button
+          type="button"
+          onClick={() => setTabNavigate('menu')}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition sm:flex-none sm:py-1.5 ${
+            tab === 'menu' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Menu Items
         </button>
       </div>
 
@@ -525,8 +534,8 @@ const Restaurant: React.FC = () => {
                   Clear
                 </Button>
               )}
-              <Button variant="default" className="w-full sm:w-auto" onClick={openNewOrder}>
-                <Plus className="mr-2 h-4 w-4" />
+              <Button variant="booking" className="w-full sm:w-auto" onClick={openNewOrder}>
+                <ClipboardPlus className="mr-2 h-4 w-4" />
                 New order
               </Button>
             </div>

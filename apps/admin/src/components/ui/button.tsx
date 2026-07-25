@@ -10,6 +10,21 @@ const buttonVariants = cva(
       variant: {
         default:
           "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow",
+        /** Room / day-long bookings — frequent ops */
+        booking:
+          "bg-blue-600 text-white shadow-sm hover:bg-blue-700 hover:shadow",
+        /** Catalog: day-long products, menu items */
+        product:
+          "bg-violet-600 text-white shadow-sm hover:bg-violet-700 hover:shadow",
+        /** Inventory items / stock */
+        stock:
+          "bg-teal-600 text-white shadow-sm hover:bg-teal-700 hover:shadow",
+        /** Guests / people */
+        guest:
+          "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 hover:shadow",
+        /** Expenses / money out */
+        expense:
+          "bg-rose-600 text-white shadow-sm hover:bg-rose-700 hover:shadow",
         ink:
           "bg-ink text-ink-foreground shadow-sm hover:bg-ink/90 hover:shadow",
         destructive:
