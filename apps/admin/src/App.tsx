@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import Login from '@/pages/Login/Login';
+import Login, { ShareholderLogin } from '@/pages/Login/Login';
 import Dashboard from '@/pages/Dashboard/Dashboard';
 import Rooms from '@/pages/Rooms/Rooms';
 import Bookings from '@/pages/Bookings/Bookings';
@@ -57,6 +57,7 @@ const App: React.FC = () => {
     <Layout>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/shareholder-login" element={<ShareholderLogin />} />
         <Route path="/" element={<RootRedirect />} />
         <Route path="/dashboard" element={<ProtectedRoute><RoleGuard path="/dashboard"><Dashboard /></RoleGuard></ProtectedRoute>} />
         <Route path="/rooms" element={<ProtectedRoute><RoleGuard path="/rooms"><Rooms /></RoleGuard></ProtectedRoute>} />

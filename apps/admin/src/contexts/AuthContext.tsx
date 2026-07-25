@@ -8,10 +8,12 @@ interface User {
   role: string;
 }
 
+export type LoginAudience = 'staff' | 'shareholder';
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, audience: LoginAudience) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -33,8 +35,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
+  const login = useCallback(async (email: string, password: string, audience: LoginAudience) => {
+    const response = await api.post('/auth/login', { email, password, audience });
     const { token: newToken, user: newUser } = response.data;
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));

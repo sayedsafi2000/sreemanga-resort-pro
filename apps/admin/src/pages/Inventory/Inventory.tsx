@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { Button } from '@/components/ui/button';
@@ -29,11 +30,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Loader2, AlertTriangle, PackagePlus, SlidersHorizontal } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Loader2,
+  AlertTriangle,
+  PackagePlus,
+  SlidersHorizontal,
+  PackageMinus,
+  Ban,
+} from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  canAdjustStock,
+  canDeactivateInventoryItem,
+  canIssueStock,
+  canManageInventory,
+  canManageSuppliers,
+} from '@/config/rbac';
 
 const CATEGORIES = ['FOOD_ITEM', 'AMENITY', 'PRODUCT', 'SUPPLY', 'ASSET'] as const;
+type Tab = 'items' | 'movements' | 'suppliers';
 
 type Item = {
   id: string;
@@ -58,16 +76,42 @@ type Movement = {
 };
 type Supplier = { id: string; name: string; phone?: string | null; email?: string | null; isActive: boolean };
 
-const canManageRole = (r?: string) => r === 'SUPER_ADMIN' || r === 'MANAGER' || r === 'ACCOUNTANT';
-
 const emptyItem = {
   name: '', category: 'FOOD_ITEM', unit: 'pcs', currentStock: '', reorderLevel: '', costPrice: '', sellPrice: '', notes: '',
 };
 
 const Inventory: React.FC = () => {
   const { user } = useAuth();
-  const canManage = canManageRole(user?.role);
-  const [tab, setTab] = useState<'items' | 'movements' | 'suppliers'>('items');
+  const canManage = canManageInventory(user?.role);
+  const canAdjust = canAdjustStock(user?.role);
+  const canIssue = canIssueStock(user?.role);
+  const canDeactivate = canDeactivateInventoryItem(user?.role);
+  const canSuppliers = canManageSuppliers(user?.role);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: Tab =
+    tabParam === 'movements' || tabParam === 'suppliers' || tabParam === 'items'
+      ? tabParam
+      : 'items';
+  const lowOnly = searchParams.get('low') === '1';
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  const setTab = (t: Tab) => {
+    const p = new URLSearchParams(searchParams);
+    p.set('tab', t);
+    if (t !== 'items') p.delete('low');
+    setSearchParams(p, { replace: true });
+  };
+  const setLowOnly = (on: boolean) => {
+    const p = new URLSearchParams(searchParams);
+    p.set('tab', 'items');
+    if (on) p.set('low', '1');
+    else p.delete('low');
+    setSearchParams(p, { replace: true });
+  };
+
   const [items, setItems] = useState<Item[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -85,6 +129,11 @@ const Inventory: React.FC = () => {
   const [adjustItem, setAdjustItem] = useState<Item | null>(null);
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustNotes, setAdjustNotes] = useState('');
+
+  const [issueDialog, setIssueDialog] = useState(false);
+  const [issueItem, setIssueItem] = useState<Item | null>(null);
+  const [issueQty, setIssueQty] = useState('');
+  const [issueNotes, setIssueNotes] = useState('');
 
   const [supplierDialog, setSupplierDialog] = useState(false);
   const [supplierForm, setSupplierForm] = useState<any>({ name: '', phone: '', email: '' });
@@ -110,6 +159,26 @@ const Inventory: React.FC = () => {
   useEffect(() => { load(); }, []);
 
   const lowCount = items.filter((i) => i.isActive && i.currentStock <= i.reorderLevel).length;
+
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((it) => {
+      if (lowOnly && !(it.isActive && it.currentStock <= it.reorderLevel)) return false;
+      if (categoryFilter !== 'all' && it.category !== categoryFilter) return false;
+      if (q && !it.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [items, lowOnly, categoryFilter, search]);
+
+  const adjustPreview = adjustItem && adjustQty !== '' && !Number.isNaN(Number(adjustQty))
+    ? adjustItem.currentStock + Number(adjustQty)
+    : null;
+  const adjustWouldGoNegative = adjustPreview != null && adjustPreview < 0;
+
+  const issuePreview = issueItem && issueQty !== '' && Number(issueQty) > 0
+    ? issueItem.currentStock - Number(issueQty)
+    : null;
+  const issueWouldGoNegative = issuePreview != null && issuePreview < 0;
 
   // ── Item CRUD ──
   const openCreateItem = () => { setEditingItem(null); setItemForm(emptyItem); setError(null); setItemDialog(true); };
@@ -139,6 +208,16 @@ const Inventory: React.FC = () => {
     finally { setSaving(false); }
   };
 
+  const deactivateItem = async (it: Item) => {
+    if (!confirm(`Deactivate "${it.name}"? It will no longer appear as active stock.`)) return;
+    setSaving(true); setError(null);
+    try {
+      await api.delete(`/inventory/items/${it.id}`);
+      await load();
+    } catch (e: any) { setError(e?.response?.data?.message || 'Failed to deactivate'); }
+    finally { setSaving(false); }
+  };
+
   // ── Purchase ──
   const openPurchase = () => { setPurchaseLines([{ itemId: items[0]?.id ?? '', quantity: '', unitCost: '' }]); setPurchaseSupplier(''); setError(null); setPurchaseDialog(true); };
   const savePurchase = async () => {
@@ -156,12 +235,24 @@ const Inventory: React.FC = () => {
   // ── Adjust ──
   const openAdjust = (it: Item) => { setAdjustItem(it); setAdjustQty(''); setAdjustNotes(''); setError(null); setAdjustDialog(true); };
   const saveAdjust = async () => {
-    if (!adjustItem) return;
+    if (!adjustItem || adjustWouldGoNegative) return;
     setSaving(true); setError(null);
     try {
       await api.post('/inventory/adjustments', { itemId: adjustItem.id, quantity: Number(adjustQty), notes: adjustNotes || null });
       setAdjustDialog(false); await load();
     } catch (e: any) { setError(e?.response?.data?.message || 'Failed to adjust'); }
+    finally { setSaving(false); }
+  };
+
+  // ── Issue ──
+  const openIssue = (it: Item) => { setIssueItem(it); setIssueQty(''); setIssueNotes(''); setError(null); setIssueDialog(true); };
+  const saveIssue = async () => {
+    if (!issueItem || issueWouldGoNegative || !(Number(issueQty) > 0)) return;
+    setSaving(true); setError(null);
+    try {
+      await api.post('/inventory/issues', { itemId: issueItem.id, quantity: Number(issueQty), notes: issueNotes || null });
+      setIssueDialog(false); await load();
+    } catch (e: any) { setError(e?.response?.data?.message || 'Failed to issue stock'); }
     finally { setSaving(false); }
   };
 
@@ -183,10 +274,14 @@ const Inventory: React.FC = () => {
       />
 
       {lowCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          <AlertTriangle className="h-4 w-4" />
-          {lowCount} item{lowCount > 1 ? 's' : ''} at or below reorder level.
-        </div>
+        <button
+          type="button"
+          onClick={() => setLowOnly(true)}
+          className="flex w-full items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-left text-sm text-amber-800 hover:bg-amber-100"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {lowCount} item{lowCount > 1 ? 's' : ''} at or below reorder level. Click to filter.
+        </button>
       )}
 
       <div className="flex flex-wrap gap-2">
@@ -195,7 +290,7 @@ const Inventory: React.FC = () => {
             {t}
           </Button>
         ))}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
           {canManage && tab === 'items' && (
             <>
               <Button variant="outline" onClick={openPurchase} disabled={items.length === 0}>
@@ -204,13 +299,44 @@ const Inventory: React.FC = () => {
               <Button onClick={openCreateItem}><Plus className="h-4 w-4 mr-1" /> New Item</Button>
             </>
           )}
-          {canManage && tab === 'suppliers' && (
+          {canSuppliers && tab === 'suppliers' && (
             <Button onClick={() => { setSupplierForm({ name: '', phone: '', email: '' }); setSupplierDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" /> New Supplier
             </Button>
           )}
         </div>
       </div>
+
+      {tab === 'items' && !loading && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            className="max-w-xs"
+            placeholder="Search items…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c.replace('_', ' ')}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant={lowOnly ? 'default' : 'outline'}
+            onClick={() => setLowOnly(!lowOnly)}
+            className={lowOnly ? 'bg-amber-600 hover:bg-amber-700' : ''}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+            Low stock only
+          </Button>
+        </div>
+      )}
+
+      {error && !itemDialog && !purchaseDialog && !adjustDialog && !issueDialog && !supplierDialog && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -222,7 +348,7 @@ const Inventory: React.FC = () => {
               <TableHead>Reorder</TableHead><TableHead>Cost</TableHead><TableHead>Supplier</TableHead><TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {items.map((it) => {
+              {filteredItems.map((it) => {
                 const low = it.currentStock <= it.reorderLevel;
                 return (
                   <TableRow key={it.id}>
@@ -232,18 +358,38 @@ const Inventory: React.FC = () => {
                     <TableCell className="text-muted-foreground">{it.reorderLevel}</TableCell>
                     <TableCell>৳{it.costPrice}</TableCell>
                     <TableCell className="text-muted-foreground">{it.supplier?.name ?? '—'}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
+                      {canIssue && it.isActive && (
+                        <Button size="sm" variant="ghost" title="Issue stock" onClick={() => openIssue(it)}>
+                          <PackageMinus className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canAdjust && it.isActive && (
+                        <Button size="sm" variant="ghost" title="Adjust stock" onClick={() => openAdjust(it)}>
+                          <SlidersHorizontal className="h-4 w-4" />
+                        </Button>
+                      )}
                       {canManage && (
-                        <>
-                          <Button size="sm" variant="ghost" title="Adjust stock" onClick={() => openAdjust(it)}><SlidersHorizontal className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => openEditItem(it)}><Pencil className="h-4 w-4" /></Button>
-                        </>
+                        <Button size="sm" variant="ghost" title="Edit" onClick={() => openEditItem(it)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDeactivate && it.isActive && (
+                        <Button size="sm" variant="ghost" title="Deactivate" onClick={() => deactivateItem(it)}>
+                          <Ban className="h-4 w-4 text-red-600" />
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>
                 );
               })}
-              {items.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No items yet.</TableCell></TableRow>}
+              {filteredItems.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    {items.length === 0 ? 'No items yet.' : 'No items match this filter.'}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent></Card>
@@ -261,7 +407,7 @@ const Inventory: React.FC = () => {
                   <TableCell>{m.item?.name ?? '—'}</TableCell>
                   <TableCell><Badge variant="outline">{m.type}</Badge></TableCell>
                   <TableCell>{m.quantity} {m.item?.unit}</TableCell>
-                  <TableCell className="font-medium">{m.balanceAfter}</TableCell>
+                  <TableCell className={`font-medium ${m.balanceAfter < 0 ? 'text-red-600' : ''}`}>{m.balanceAfter}</TableCell>
                   <TableCell>{m.unitCost != null ? `৳${m.unitCost}` : '—'}</TableCell>
                 </TableRow>
               ))}
@@ -339,7 +485,7 @@ const Inventory: React.FC = () => {
                     {idx === 0 && <Label>Item</Label>}
                     <Select value={line.itemId} onValueChange={(v) => setPurchaseLines(purchaseLines.map((l, i) => i === idx ? { ...l, itemId: v } : l))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{items.map((it) => <SelectItem key={it.id} value={it.id}>{it.name} ({it.unit})</SelectItem>)}</SelectContent>
+                      <SelectContent>{items.filter((it) => it.isActive).map((it) => <SelectItem key={it.id} value={it.id}>{it.name} ({it.unit})</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>{idx === 0 && <Label>Qty</Label>}<Input type="number" value={line.quantity} onChange={(e) => setPurchaseLines(purchaseLines.map((l, i) => i === idx ? { ...l, quantity: e.target.value } : l))} /></div>
@@ -347,7 +493,7 @@ const Inventory: React.FC = () => {
                   <Button variant="ghost" size="sm" onClick={() => setPurchaseLines(purchaseLines.filter((_, i) => i !== idx))}>✕</Button>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={() => setPurchaseLines([...purchaseLines, { itemId: items[0]?.id ?? '', quantity: '', unitCost: '' }])}>+ Add line</Button>
+              <Button variant="outline" size="sm" onClick={() => setPurchaseLines([...purchaseLines, { itemId: items.find((i) => i.isActive)?.id ?? '', quantity: '', unitCost: '' }])}>+ Add line</Button>
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
@@ -363,14 +509,51 @@ const Inventory: React.FC = () => {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Adjust Stock — {adjustItem?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Current: {adjustItem?.currentStock} {adjustItem?.unit}. Use a negative number to remove (wastage), positive to add.</p>
+            <p className="text-sm text-muted-foreground">
+              Current: {adjustItem?.currentStock} {adjustItem?.unit}. Use a negative number to remove (wastage), positive to add.
+            </p>
             <div><Label>Quantity (+/-)</Label><Input type="number" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} /></div>
+            {adjustPreview != null && (
+              <p className={`text-sm ${adjustWouldGoNegative ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
+                New balance: {adjustPreview} {adjustItem?.unit}
+                {adjustWouldGoNegative && ' — cannot go below zero'}
+              </p>
+            )}
             <div><Label>Notes</Label><Textarea value={adjustNotes} onChange={(e) => setAdjustNotes(e.target.value)} /></div>
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdjustDialog(false)}>Cancel</Button>
-            <Button onClick={saveAdjust} disabled={saving || !adjustQty}>{saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Apply</Button>
+            <Button onClick={saveAdjust} disabled={saving || !adjustQty || adjustWouldGoNegative}>
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue dialog */}
+      <Dialog open={issueDialog} onOpenChange={setIssueDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Issue Stock — {issueItem?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Current: {issueItem?.currentStock} {issueItem?.unit}. Enter how much to take out.
+            </p>
+            <div><Label>Quantity out</Label><Input type="number" min={0.01} step="any" value={issueQty} onChange={(e) => setIssueQty(e.target.value)} /></div>
+            {issuePreview != null && (
+              <p className={`text-sm ${issueWouldGoNegative ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
+                New balance: {issuePreview} {issueItem?.unit}
+                {issueWouldGoNegative && ' — insufficient stock'}
+              </p>
+            )}
+            <div><Label>Notes</Label><Textarea value={issueNotes} onChange={(e) => setIssueNotes(e.target.value)} placeholder="e.g. Housekeeping floor 2" /></div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIssueDialog(false)}>Cancel</Button>
+            <Button onClick={saveIssue} disabled={saving || !(Number(issueQty) > 0) || issueWouldGoNegative}>
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Issue
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { AppError } from '../middleware/errorHandler';
 import prisma from '../utils/prisma';
+import { recordExpense } from '../utils/accountLedger';
 
 const pendingPaymentSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -100,7 +101,7 @@ export const deletePendingPayment = async (req: Request, res: Response, next: Ne
   }
 };
 
-/** Mark a pending payment as paid — creates an Expense and links it back. */
+/** Mark a pending payment as paid — creates an Expense, posts ledger, links it back. */
 export const payNow = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -126,23 +127,37 @@ export const payNow = async (req: Request, res: Response, next: NextFunction) =>
       categoryId = misc.id;
     }
 
-    const expense = await prisma.expense.create({
-      data: {
-        title: pending.title,
-        amount: pending.amount,
-        categoryId,
-        date: payDate,
-        paymentMethod: (opts.paymentMethod as any) ?? 'CASH',
-        paidTo: opts.paidTo ?? null,
-        description: opts.description ?? pending.notes ?? null,
-        status: 'PAID',
-        createdById: userId,
-      },
-    });
+    const expense = await prisma.$transaction(async (tx) => {
+      const created = await tx.expense.create({
+        data: {
+          title: pending.title,
+          amount: pending.amount,
+          categoryId: categoryId!,
+          date: payDate,
+          paymentMethod: (opts.paymentMethod as any) ?? 'CASH',
+          paidTo: opts.paidTo ?? null,
+          description: opts.description ?? pending.notes ?? null,
+          status: 'PAID',
+          createdById: userId,
+        },
+      });
 
-    await prisma.pendingPayment.update({
-      where: { id },
-      data: { status: 'PAID', paidExpenseId: expense.id },
+      const category = await tx.expenseCategory.findUnique({ where: { id: created.categoryId } });
+      await recordExpense(tx, {
+        amount: created.amount,
+        method: created.paymentMethod ?? 'CASH',
+        expenseAccountId: category?.accountId ?? undefined,
+        title: created.title,
+        expenseId: created.id,
+        createdById: userId,
+      });
+
+      await tx.pendingPayment.update({
+        where: { id },
+        data: { status: 'PAID', paidExpenseId: created.id },
+      });
+
+      return created;
     });
 
     res.json({ success: true, expense });

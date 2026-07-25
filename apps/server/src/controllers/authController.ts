@@ -12,7 +12,7 @@ export const login = async (
   next: NextFunction
 ) => {
   try {
-    const { email, password } = loginSchema.parse(req.body);
+    const { email, password, audience } = loginSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -26,6 +26,14 @@ export const login = async (
 
     if (!isValidPassword) {
       throw new AppError('Invalid credentials', 401);
+    }
+
+    // Reject wrong portal before issuing a JWT — no client login-then-logout.
+    if (audience === 'staff' && user.role === 'SHAREHOLDER') {
+      throw new AppError('Shareholder account — use Shareholder login', 403);
+    }
+    if (audience === 'shareholder' && user.role !== 'SHAREHOLDER') {
+      throw new AppError('Staff account — use Staff login', 403);
     }
 
     const signOptions: SignOptions = {

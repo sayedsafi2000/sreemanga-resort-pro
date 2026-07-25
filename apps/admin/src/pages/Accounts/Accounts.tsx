@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import {
 import { Loader2, ArrowLeftRight, Plus, Landmark, Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/contexts/AuthContext';
+import { canEditPayments } from '@/config/rbac';
 
 type Account = {
   id: string;
@@ -71,11 +73,23 @@ const TYPE_GROUPS: { label: string; types: string[] }[] = [
 ];
 
 const CASH_TYPES = ['CASH', 'BANK', 'MOBILE_BANKING'];
-const canTxn = (r?: string) => r === 'SUPER_ADMIN' || r === 'MANAGER' || r === 'ACCOUNTANT';
 
 const Accounts: React.FC = () => {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'chart' | 'receivables'>('chart');
+  const canTxn = canEditPayments(user?.role);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'receivables' ? 'receivables' : 'chart';
+  const setTab = (next: 'chart' | 'receivables') => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('tab', next);
+        return p;
+      },
+      { replace: true }
+    );
+  };
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +101,7 @@ const Accounts: React.FC = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferForm, setTransferForm] = useState({ fromAccountId: '', toAccountId: '', amount: '', description: '' });
   const [entryOpen, setEntryOpen] = useState(false);
+  const [entryAccount, setEntryAccount] = useState<Account | null>(null);
   const [entryForm, setEntryForm] = useState({ direction: 'IN', amount: '', description: '' });
   const [recvOpen, setRecvOpen] = useState(false);
   const [recvForm, setRecvForm] = useState({ customerName: '', amount: '', dueDate: '' });
@@ -123,6 +138,21 @@ const Accounts: React.FC = () => {
     }
   };
 
+  const openTransfer = (fromId?: string) => {
+    const from = fromId || cashAccounts[0]?.id || '';
+    const to = cashAccounts.find((a) => a.id !== from)?.id || cashAccounts[1]?.id || '';
+    setTransferForm({ fromAccountId: from, toAccountId: to, amount: '', description: '' });
+    setError(null);
+    setTransferOpen(true);
+  };
+
+  const openManualEntry = (acc: Account) => {
+    setEntryAccount(acc);
+    setEntryForm({ direction: 'IN', amount: '', description: '' });
+    setError(null);
+    setEntryOpen(true);
+  };
+
   const doTransfer = async () => {
     setSaving(true); setError(null);
     try {
@@ -133,21 +163,25 @@ const Accounts: React.FC = () => {
         description: transferForm.description || undefined,
       });
       setTransferOpen(false); await load();
+      if (detail) await openDetail(detail);
     } catch (e: any) { setError(e?.response?.data?.message || 'Transfer failed'); }
     finally { setSaving(false); }
   };
 
   const doEntry = async () => {
-    if (!detail) return;
+    const acc = entryAccount || detail;
+    if (!acc) return;
     setSaving(true); setError(null);
     try {
-      await api.post(`/accounts/${detail.id}/transactions`, {
+      await api.post(`/accounts/${acc.id}/transactions`, {
         direction: entryForm.direction,
         amount: Number(entryForm.amount),
         description: entryForm.description || undefined,
       });
-      setEntryOpen(false); await load();
-      await openDetail(detail);
+      setEntryOpen(false);
+      setEntryAccount(null);
+      await load();
+      if (detail?.id === acc.id) await openDetail(acc);
     } catch (e: any) { setError(e?.response?.data?.message || 'Entry failed'); }
     finally { setSaving(false); }
   };
@@ -179,22 +213,39 @@ const Accounts: React.FC = () => {
   };
 
   const fmt = (n: number) => `৳${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const entryTarget = entryAccount || detail;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Accounts" description="Chart of accounts, balances, transfers and receivables" />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card><CardContent className="p-4">
+        <Card><CardContent className="p-4 space-y-2">
           <div className="text-sm text-muted-foreground">Cash Position</div>
-          <div className="text-2xl font-bold">{fmt(cashPosition)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Cash + Bank + Mobile</div>
+          <div className="text-2xl font-bold">{loading ? '…' : fmt(cashPosition)}</div>
+          <div className="text-xs text-muted-foreground">Cash + Bank + Mobile</div>
+          {canTxn && cashAccounts.length >= 2 && (
+            <Button size="sm" variant="outline" className="mt-1" onClick={() => openTransfer()}>
+              <ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Transfer
+            </Button>
+          )}
         </CardContent></Card>
         {cashAccounts.slice(0, 2).map((a) => (
-          <Card key={a.id}><CardContent className="p-4">
+          <Card key={a.id}><CardContent className="p-4 space-y-2">
             <div className="text-sm text-muted-foreground">{a.name}</div>
             <div className="text-2xl font-bold">{fmt(a.currentBalance)}</div>
-            <div className="text-xs text-muted-foreground mt-1">{a.code}</div>
+            <div className="text-xs text-muted-foreground">{a.code}</div>
+            {canTxn && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                <Button size="sm" variant="outline" onClick={() => openTransfer(a.id)}>
+                  <ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Transfer
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => openManualEntry(a)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Entry
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => openDetail(a)}>View</Button>
+              </div>
+            )}
           </CardContent></Card>
         ))}
       </div>
@@ -203,12 +254,12 @@ const Accounts: React.FC = () => {
         <Button variant={tab === 'chart' ? 'default' : 'outline'} onClick={() => setTab('chart')}><Landmark className="h-4 w-4 mr-1" /> Chart of Accounts</Button>
         <Button variant={tab === 'receivables' ? 'default' : 'outline'} onClick={() => setTab('receivables')}><Receipt className="h-4 w-4 mr-1" /> Receivables</Button>
         <div className="ml-auto flex gap-2">
-          {canTxn(user?.role) && tab === 'chart' && (
-            <Button variant="outline" onClick={() => { setTransferForm({ fromAccountId: cashAccounts[0]?.id ?? '', toAccountId: cashAccounts[1]?.id ?? '', amount: '', description: '' }); setError(null); setTransferOpen(true); }}>
+          {canTxn && tab === 'chart' && (
+            <Button variant="outline" onClick={() => openTransfer()}>
               <ArrowLeftRight className="h-4 w-4 mr-1" /> Transfer
             </Button>
           )}
-          {canTxn(user?.role) && tab === 'receivables' && (
+          {canTxn && tab === 'receivables' && (
             <Button onClick={() => { setRecvForm({ customerName: '', amount: '', dueDate: '' }); setError(null); setRecvOpen(true); }}>
               <Plus className="h-4 w-4 mr-1" /> New Receivable
             </Button>
@@ -220,32 +271,36 @@ const Accounts: React.FC = () => {
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : tab === 'chart' ? (
         <div className="space-y-6">
-          {TYPE_GROUPS.map((group) => {
-            const rows = accounts.filter((a) => group.types.includes(a.type));
-            if (rows.length === 0) return null;
-            const total = rows.reduce((s, a) => s + a.currentBalance, 0);
-            return (
-              <Card key={group.label}><CardContent className="p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="font-semibold">{group.label}</h3>
-                  <span className="text-sm font-semibold">{fmt(total)}</span>
-                </div>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead className="text-right">Balance</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {rows.map((a) => (
-                      <TableRow key={a.id} className="cursor-pointer" onClick={() => openDetail(a)}>
-                        <TableCell className="font-mono text-xs">{a.code}</TableCell>
-                        <TableCell className={a.parentId ? 'pl-6' : 'font-medium'}>{a.name}</TableCell>
-                        <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
-                        <TableCell className="text-right tabular-nums">{fmt(a.currentBalance)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent></Card>
-            );
-          })}
+          {accounts.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">No accounts yet. Run the database seed to create the chart of accounts.</CardContent></Card>
+          ) : (
+            TYPE_GROUPS.map((group) => {
+              const rows = accounts.filter((a) => group.types.includes(a.type));
+              if (rows.length === 0) return null;
+              const total = rows.reduce((s, a) => s + a.currentBalance, 0);
+              return (
+                <Card key={group.label}><CardContent className="p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="font-semibold">{group.label}</h3>
+                    <span className="text-sm font-semibold">{fmt(total)}</span>
+                  </div>
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead className="text-right">Balance</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {rows.map((a) => (
+                        <TableRow key={a.id} className="cursor-pointer" onClick={() => openDetail(a)}>
+                          <TableCell className="font-mono text-xs">{a.code}</TableCell>
+                          <TableCell className={a.parentId ? 'pl-6' : 'font-medium'}>{a.name}</TableCell>
+                          <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
+                          <TableCell className="text-right tabular-nums">{fmt(a.currentBalance)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent></Card>
+              );
+            })
+          )}
         </div>
       ) : (
         <Card><CardContent className="p-4">
@@ -261,7 +316,7 @@ const Accounts: React.FC = () => {
                   <TableCell className="text-sm text-muted-foreground">{r.dueDate ? new Date(r.dueDate).toLocaleDateString() : '—'}</TableCell>
                   <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
                   <TableCell className="text-right">
-                    {canTxn(user?.role) && r.status !== 'COLLECTED' && r.status !== 'CANCELLED' && (
+                    {canTxn && r.status !== 'COLLECTED' && r.status !== 'CANCELLED' && (
                       <Button size="sm" variant="outline" onClick={() => { setCollectRecv(r); setCollectForm({ amount: String(r.amount - r.collectedAmount), method: 'CASH' }); setError(null); setCollectOpen(true); }}>Collect</Button>
                     )}
                   </TableCell>
@@ -273,7 +328,6 @@ const Accounts: React.FC = () => {
         </CardContent></Card>
       )}
 
-      {/* Account detail dialog */}
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -285,9 +339,14 @@ const Accounts: React.FC = () => {
                 <span className="text-sm text-muted-foreground">Current balance</span>
                 <span className="text-lg font-bold">{fmt(detail.currentBalance)}</span>
               </div>
-              {canTxn(user?.role) && (
-                <div className="flex justify-end">
-                  <Button size="sm" variant="outline" onClick={() => { setEntryForm({ direction: 'IN', amount: '', description: '' }); setError(null); setEntryOpen(true); }}>
+              {canTxn && (
+                <div className="flex justify-end gap-2">
+                  {CASH_TYPES.includes(detail.type) && (
+                    <Button size="sm" variant="outline" onClick={() => openTransfer(detail.id)}>
+                      <ArrowLeftRight className="h-4 w-4 mr-1" /> Transfer
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => openManualEntry(detail)}>
                     <Plus className="h-4 w-4 mr-1" /> Manual Entry
                   </Button>
                 </div>
@@ -317,7 +376,6 @@ const Accounts: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Transfer dialog */}
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Transfer Between Accounts</DialogTitle></DialogHeader>
@@ -347,10 +405,9 @@ const Accounts: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Manual entry dialog */}
-      <Dialog open={entryOpen} onOpenChange={setEntryOpen}>
+      <Dialog open={entryOpen} onOpenChange={(o) => { setEntryOpen(o); if (!o) setEntryAccount(null); }}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Manual Entry — {detail?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Manual Entry — {entryTarget?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Direction</Label>
@@ -370,7 +427,6 @@ const Accounts: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* New receivable dialog */}
       <Dialog open={recvOpen} onOpenChange={setRecvOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>New Receivable</DialogTitle></DialogHeader>
@@ -387,7 +443,6 @@ const Accounts: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Collect dialog */}
       <Dialog open={collectOpen} onOpenChange={setCollectOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Collect — {collectRecv?.customerName}</DialogTitle></DialogHeader>

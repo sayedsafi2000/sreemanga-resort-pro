@@ -446,6 +446,7 @@ export default function Expenditures() {
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Expense filters
@@ -485,12 +486,26 @@ export default function Expenditures() {
   });
 
   const canEdit = canEditPayments(user?.role);
+  const lockedCategoryId = !editingExpense && categoryFilter !== 'all' ? categoryFilter : null;
+  const lockedCategoryName = lockedCategoryId
+    ? categories.find((c) => c.id === lockedCategoryId)?.name
+    : null;
 
   const activeFields: CategoryField[] = useMemo(() => {
     if (!expenseForm.categoryId) return [];
     const cat = categories.find((c) => c.id === expenseForm.categoryId);
     return cat?.fields ?? [];
   }, [expenseForm.categoryId, categories]);
+
+  const openAddExpense = useCallback(() => {
+    setEditingExpense(null);
+    setExpenseForm({
+      ...DEFAULT_EXPENSE_FORM,
+      categoryId: categoryFilter !== 'all' ? categoryFilter : '',
+    });
+    setExpenseMetadata({});
+    setOpenExpense(true);
+  }, [categoryFilter]);
 
   // ── URL helpers ─────────────────────────────────────────────────────────────
 
@@ -549,11 +564,14 @@ export default function Expenditures() {
 
   const fetchAll = useCallback(async () => {
     try {
+      setLoading(true);
       setLoadError(null);
       await Promise.all([fetchCategories(), fetchExpenses(), fetchPendingPayments(), fetchStats()]);
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } };
       setLoadError(ax.response?.data?.message || 'Could not load data. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }, [fetchCategories, fetchExpenses, fetchPendingPayments, fetchStats]);
 
@@ -562,6 +580,20 @@ export default function Expenditures() {
     const t = setTimeout(() => void fetchAll(), delay);
     return () => clearTimeout(t);
   }, [search, statusFilter, categoryFilter, tab, fetchAll]);
+
+  // Deep-link: /expenditures?tab=expenses&categoryId=X&new=1 opens Add Expense with category locked.
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return;
+    openAddExpense();
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete('new');
+        return p;
+      },
+      { replace: true }
+    );
+  }, [searchParams, openAddExpense, setSearchParams]);
 
   // ── Category CRUD ─────────────────────────────────────────────────────────
 
@@ -594,11 +626,20 @@ export default function Expenditures() {
   const handleDeleteCategory = async (id: string) => {
     const cat = categories.find((c) => c.id === id);
     const count = cat?._count?.expenses ?? 0;
-    const msg =
-      count > 0
-        ? `${cat?.name} has ${count} expense${count === 1 ? '' : 's'}. Delete anyway?`
-        : `Delete ${cat?.name ?? 'this category'}?`;
-    if (!confirm(msg)) return;
+    if (count > 0) {
+      const deactivate = confirm(
+        `${cat?.name} has ${count} expense${count === 1 ? '' : 's'} and cannot be deleted. Deactivate it instead?`
+      );
+      if (!deactivate) return;
+      try {
+        await api.patch(`/expenditures/categories/${id}`, { isActive: false });
+        await fetchCategories();
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Could not deactivate category.');
+      }
+      return;
+    }
+    if (!confirm(`Delete ${cat?.name ?? 'this category'}?`)) return;
     try {
       await api.delete(`/expenditures/categories/${id}`);
       await fetchCategories();
@@ -991,7 +1032,7 @@ export default function Expenditures() {
               >
                 Export CSV
               </Button>
-              <Button onClick={() => { setEditingExpense(null); setExpenseForm({ ...DEFAULT_EXPENSE_FORM }); setExpenseMetadata({}); setOpenExpense(true); }} variant="ink">
+              <Button onClick={openAddExpense} variant="ink">
                 <Plus className="mr-2 h-4 w-4" /> Add Expense
               </Button>
             </div>
@@ -1014,23 +1055,33 @@ export default function Expenditures() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExpenses.map((exp) => (
-                    <ExpenseRow
-                      key={exp.id}
-                      exp={exp}
-                      canEdit={canEdit}
-                      formatCurrency={formatCurrency}
-                      onEdit={openEditExpense}
-                      onDelete={handleDeleteExpense}
-                      onPreview={setPreviewUrl}
-                    />
-                  ))}
-                  {filteredExpenses.length === 0 && (
+                  {loading ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                        No expenses found
+                      <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                       </TableCell>
                     </TableRow>
+                  ) : (
+                    <>
+                      {filteredExpenses.map((exp) => (
+                        <ExpenseRow
+                          key={exp.id}
+                          exp={exp}
+                          canEdit={canEdit}
+                          formatCurrency={formatCurrency}
+                          onEdit={openEditExpense}
+                          onDelete={handleDeleteExpense}
+                          onPreview={setPreviewUrl}
+                        />
+                      ))}
+                      {filteredExpenses.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                            No expenses found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   )}
                 </TableBody>
               </Table>
@@ -1314,14 +1365,20 @@ export default function Expenditures() {
             </div>
             <div className="space-y-2">
               <Label>Category *</Label>
-              <Select value={expenseForm.categoryId} onValueChange={(v) => { setExpenseForm({ ...expenseForm, categoryId: v }); setExpenseMetadata({}); }}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>
-                  {categories.filter((cat) => cat.isActive !== false).map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {lockedCategoryId ? (
+                <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-medium">
+                  {lockedCategoryName || 'Selected category'}
+                </div>
+              ) : (
+                <Select value={expenseForm.categoryId} onValueChange={(v) => { setExpenseForm({ ...expenseForm, categoryId: v }); setExpenseMetadata({}); }}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.filter((cat) => cat.isActive !== false).map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <CustomFieldsForm fields={activeFields} values={expenseMetadata} onChange={setExpenseMetadata} />
             <div className="grid grid-cols-2 gap-4">

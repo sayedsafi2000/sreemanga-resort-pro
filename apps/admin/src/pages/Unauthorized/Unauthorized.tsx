@@ -1,10 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { landingPath } from '@/config/rbac';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ShieldOff } from 'lucide-react';
 
 const Unauthorized: React.FC = () => {
+  const { user } = useAuth();
+  const home = landingPath(user?.role);
+
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">
       <Card className="max-w-md w-full">
@@ -19,7 +24,7 @@ const Unauthorized: React.FC = () => {
         </CardHeader>
         <CardContent className="flex justify-center pb-8">
           <Button asChild>
-            <Link to="/dashboard">Back to dashboard</Link>
+            <Link to={home}>{user?.role === 'SHAREHOLDER' ? 'Back to portal' : 'Back to dashboard'}</Link>
           </Button>
         </CardContent>
       </Card>

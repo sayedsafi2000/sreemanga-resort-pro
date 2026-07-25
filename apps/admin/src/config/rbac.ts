@@ -186,11 +186,13 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     HOUSEKEEPING: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { key: 'rooms', label: 'Room Status', path: '/rooms', icon: BedDouble },
+      { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
     ],
     RESTAURANT_STAFF: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { key: 'ord', label: 'Orders', path: '/restaurant', icon: ShoppingBag, tab: 'orders' },
       { key: 'menu', label: 'Menu', path: '/restaurant', icon: UtensilsCrossed, tab: 'menu' },
+      { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
     ],
     ACCOUNTANT: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -236,4 +238,34 @@ export function canManageRestaurantMenu(role: string | undefined): boolean {
 
 export function canEditPayments(role: string | undefined): boolean {
   return role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT';
+}
+
+/** Item CRUD + purchases — matches inventory MANAGE roles. */
+export function canManageInventory(role: string | undefined): boolean {
+  return role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT';
+}
+
+/** Signed stock adjustments — matches inventory ADMIN_MANAGE (not ACCOUNTANT). */
+export function canAdjustStock(role: string | undefined): boolean {
+  return role === 'SUPER_ADMIN' || role === 'MANAGER';
+}
+
+/** Issue stock out — matches inventory ISSUE_ROLES. */
+export function canIssueStock(role: string | undefined): boolean {
+  return (
+    role === 'SUPER_ADMIN' ||
+    role === 'MANAGER' ||
+    role === 'HOUSEKEEPING' ||
+    role === 'RESTAURANT_STAFF'
+  );
+}
+
+/** Soft-delete / deactivate inventory items — SUPER_ADMIN only on API. */
+export function canDeactivateInventoryItem(role: string | undefined): boolean {
+  return role === 'SUPER_ADMIN';
+}
+
+/** Create/update suppliers — ADMIN_MANAGE. */
+export function canManageSuppliers(role: string | undefined): boolean {
+  return role === 'SUPER_ADMIN' || role === 'MANAGER';
 }
