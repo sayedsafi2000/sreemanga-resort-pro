@@ -7,6 +7,12 @@ import { createCheckoutSessionForBooking } from './stripeController';
 import { emailService } from '../utils/emailService';
 import crypto from 'crypto';
 import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
+import {
+  assertRoomAvailable,
+  isNightBooked,
+  lockRoomForBooking,
+  overlappingStayWhere,
+} from '../utils/bookingAvailability';
 
 // ── OTP store (DB-backed, Phase 0.6) ───────────────────────────────────────
 // Persisted in the OtpCode table so it survives restarts and works across
@@ -49,14 +55,12 @@ export const checkRoomAvailability = async (req: Request, res: Response, next: N
     if (!checkInDate || !checkOutDate) throw new AppError('Check-in and check-out dates are required', 400);
     const checkIn = new Date(checkInDate as string);
     const checkOut = new Date(checkOutDate as string);
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+      throw new AppError('Invalid check-in or check-out date', 400);
+    }
+    if (checkOut <= checkIn) throw new AppError('Check-out date must be after check-in date', 400);
     const bookedRooms = await prisma.booking.findMany({
-      where: {
-        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-        AND: [
-          { checkInDate: { lte: checkOut } },
-          { checkOutDate: { gte: checkIn } },
-        ],
-      },
+      where: overlappingStayWhere(checkIn, checkOut),
       select: { roomId: true },
     });
     const bookedRoomIds = [...new Set(bookedRooms.map(b => b.roomId))];
@@ -71,11 +75,15 @@ export const getAvailabilityCalendar = async (req: Request, res: Response, next:
   try {
     const { roomId, from, days } = req.query;
     const parsedDays = Math.min(Math.max(Number(days ?? 60), 1), 90);
+    // Stay dates are stored as UTC midnight (from 'yyyy-MM-dd' input) and the
+    // calendar labels days via toISOString, so build the window in UTC too.
+    // Local-time setHours() shifted the window a day early on UTC+ servers.
     const start = from ? new Date(from as string) : new Date();
-    start.setHours(0, 0, 0, 0);
+    if (Number.isNaN(start.getTime())) throw new AppError('Invalid from date', 400);
+    start.setUTCHours(0, 0, 0, 0);
     const end = new Date(start);
-    end.setDate(end.getDate() + parsedDays - 1);
-    end.setHours(23, 59, 59, 999);
+    end.setUTCDate(end.getUTCDate() + parsedDays - 1);
+    end.setUTCHours(23, 59, 59, 999);
 
     const roomsWhere = roomId ? { id: String(roomId) } : {};
     const rooms = await prisma.room.findMany({
@@ -93,8 +101,7 @@ export const getAvailabilityCalendar = async (req: Request, res: Response, next:
     const bookings = await prisma.booking.findMany({
       where: {
         roomId: { in: roomIds },
-        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-        AND: [{ checkInDate: { lte: end } }, { checkOutDate: { gte: start } }],
+        ...overlappingStayWhere(start, end),
       },
       select: {
         roomId: true,
@@ -107,7 +114,7 @@ export const getAvailabilityCalendar = async (req: Request, res: Response, next:
     const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
     const dates = Array.from({ length: parsedDays }, (_, i) => {
       const d = new Date(start);
-      d.setDate(start.getDate() + i);
+      d.setUTCDate(start.getUTCDate() + i);
       return toIsoDate(d);
     });
 
@@ -119,9 +126,7 @@ export const getAvailabilityCalendar = async (req: Request, res: Response, next:
       const roomBookings = byRoom.get(room.id) || [];
       const availability = dates.map((date) => {
         const d = new Date(`${date}T12:00:00.000Z`);
-        const matched = roomBookings.find(
-          (b) => b.checkInDate <= d && b.checkOutDate >= d
-        );
+        const matched = roomBookings.find((b) => isNightBooked(d, b));
         return {
           date,
           status: matched ? 'BOOKED' : 'FREE',
@@ -178,11 +183,16 @@ const publicBookingSchema = z.object({
     .refine((v) => v.replace(/\D/g, '').length >= 10, {
       message: 'Phone must be at least 10 digits',
     }),
-  guestEmail: z.string().email().optional(),
+  // Required: the OTP step verifies this address, so a booking without it
+  // would skip verification entirely.
+  guestEmail: z.string().trim().email('A valid guest email is required'),
   adults: z.number().int().min(1).max(20).default(1),
   children: z.number().int().min(0).max(20).default(0),
-  preferredPaymentTiming: z.enum(['INSTANT', 'LATER']).default('LATER'),
-  preferredPaymentMethod: z.enum(['BKASH', 'BANK_TRANSFER', 'STRIPE']).optional(),
+  // Website bookings are pay-now only: the guest pays via bKash / Nagad / bank
+  // transfer and submits the transaction ID. "Pay later" is not accepted here;
+  // staff can still create pay-later bookings from the admin panel.
+  preferredPaymentTiming: z.literal('INSTANT').default('INSTANT'),
+  preferredPaymentMethod: z.enum(['BKASH', 'NAGAD', 'BANK_TRANSFER', 'STRIPE']),
   paymentTransactionId: z.string().min(4).max(100).optional(),
   paymentProofImage: z.string().optional(),
   guestNid: z.string().optional(),
@@ -192,22 +202,11 @@ const publicBookingSchema = z.object({
   notes: z.string().optional(),
   voucherCode: z.string().min(1).optional(),
 }).superRefine((data, ctx) => {
-  if (data.preferredPaymentTiming === 'INSTANT' && !data.preferredPaymentMethod) {
+  // Manual methods (bKash / Nagad / bank) need a transaction ID; Stripe is charged online.
+  if (data.preferredPaymentMethod !== 'STRIPE' && !data.paymentTransactionId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Payment method is required for instant payment',
-      path: ['preferredPaymentMethod'],
-    });
-  }
-  // Manual methods (bKash / bank) need a transaction ID; Stripe is charged online.
-  if (
-    data.preferredPaymentTiming === 'INSTANT' &&
-    data.preferredPaymentMethod !== 'STRIPE' &&
-    !data.paymentTransactionId
-  ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Transaction ID is required for instant payment',
+      message: 'Transaction ID is required',
       path: ['paymentTransactionId'],
     });
   }
@@ -218,17 +217,15 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     const data = publicBookingSchema.parse(req.body);
 
     // ── OTP guard ────────────────────────────────────────────────────────────
-    if (data.guestEmail) {
-      const normalised = data.guestEmail.toLowerCase().trim();
-      const entry = await prisma.otpCode.findFirst({
-        where: { email: normalised, verified: true, expiresAt: { gt: new Date() } },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!entry) {
-        throw new AppError('Email OTP not verified. Please verify your email before booking.', 403);
-      }
-      // Invalidate all OTPs for this email after use so they can't be replayed
-      await prisma.otpCode.deleteMany({ where: { email: normalised } });
+    // The OTP is consumed after the booking commits (see below), so a failed
+    // validation doesn't force the guest to re-verify their email.
+    const normalisedEmail = data.guestEmail.toLowerCase();
+    const otpEntry = await prisma.otpCode.findFirst({
+      where: { email: normalisedEmail, verified: true, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!otpEntry) {
+      throw new AppError('Email OTP not verified. Please verify your email before booking.', 403);
     }
     // ────────────────────────────────────────────────────────────────────────
 
@@ -239,22 +236,15 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     const room = await prisma.room.findUnique({ where: { id: data.roomId } });
     if (!room) throw new AppError('Room not found', 404);
 
-    const conflictingBookings = await prisma.booking.findMany({
-      where: {
-        roomId: data.roomId,
-        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-        AND: [
-          { checkInDate: { lte: checkOut } },
-          { checkOutDate: { gte: checkIn } },
-        ],
-      },
-    });
-    if (conflictingBookings.length > 0) throw new AppError('Room is not available for the selected dates', 400);
-
     const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
     const grossAmount = room.price * days;
 
     const result = await prisma.$transaction(async (tx) => {
+      // Serialise per room, then check availability inside the transaction so
+      // two simultaneous requests can't both pass the check and double-book.
+      await lockRoomForBooking(tx, room.id);
+      await assertRoomAvailable(tx, room.id, checkIn, checkOut);
+
       const guest = await tx.guest.create({
         data: {
           name: data.guestName,
@@ -325,6 +315,9 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
       return booking;
     });
 
+    // OTP is single-use: invalidate it now that the booking is committed.
+    await prisma.otpCode.deleteMany({ where: { email: normalisedEmail } });
+
     // Card payment → create a Stripe Checkout Session and hand the URL back so
     // the client can redirect. The confirmation email fires from the webhook
     // once payment succeeds, so we skip the "pending" email here.
@@ -386,35 +379,19 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       },
     });
 
-    const isDev = process.env.NODE_ENV !== 'production';
-    // Dev convenience: surface the OTP in the server console so local testing
-    // works even when SMTP isn't configured.
-    if (isDev) console.log(`[OTP] ${normalised} → ${otp} (dev; expires in 5 min)`);
-
+    // The code travels only by email — it is never logged or returned in the
+    // response, in any environment. If delivery fails, drop the row so the
+    // guest can retry immediately and no undelivered OTP lingers.
     const sent = await emailService.sendOtpEmail(normalised, otp);
-
     if (!sent) {
-      if (!isDev) {
-        // Prod: drop the entry so the user can retry immediately and no
-        // undelivered OTP lingers.
-        await prisma.otpCode.deleteMany({ where: { email: normalised } });
-        throw new AppError('Failed to send OTP email. Please try again.', 500);
-      }
-      // Dev: keep the OTP valid and hand it back so local testing works
-      // without SMTP. `devOtp` is only ever set when NODE_ENV !== production.
-      res.json({
-        success: true,
-        message: 'OTP generated (dev mode — email not configured).',
-        devOtp: otp,
-      });
-      return;
+      await prisma.otpCode.deleteMany({ where: { email: normalised } });
+      throw new AppError(
+        'Failed to send the verification email. Please check the address and try again.',
+        500
+      );
     }
 
-    res.json({
-      success: true,
-      message: 'OTP sent to your email.',
-      ...(isDev ? { devOtp: otp } : {}),
-    });
+    res.json({ success: true, message: 'OTP sent to your email.' });
   } catch (error) { next(error); }
 };
 

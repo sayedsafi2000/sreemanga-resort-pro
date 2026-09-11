@@ -5,7 +5,7 @@ import { ArrowRight, Utensils } from 'lucide-react';
 import { useReveal, useRevealGroup } from '@/hooks/useReveal';
 import type { MenuItem } from '@/types/resort';
 import Image from 'next/image';
-import restaurantBg from '@/assets/484617672_630330766444611_3236540395920013731_n.jpg';
+import restaurantBg from '@public/pina-vista/07-lodge-path.jpg';
 
 type Props = {
   teaser: string;

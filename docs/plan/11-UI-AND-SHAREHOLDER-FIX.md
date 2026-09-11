@@ -94,9 +94,9 @@ whole time — the gap was purely front-end routing + RBAC.
 ### Manual test
 1. `localhost:8001/login` → **Staff / Shareholder** toggle visible.
 2. Shareholder tab → fuchsia theme, "Shareholder Login", no register.
-3. `shareholder@resortnirjon.com` / `Share@12345` → lands on `/portal` with
+3. `shareholder@pinavista.com` / `Share@12345` → lands on `/portal` with
    Investment ৳500,000, Total Received ৳999, 50% share, one distribution row.
-4. `admin@resortnirjon.com` / `Admin@12345` → sidebar shows grouped sections.
+4. `admin@pinavista.com` / `Admin@12345` → sidebar shows grouped sections.
 
 ---
 

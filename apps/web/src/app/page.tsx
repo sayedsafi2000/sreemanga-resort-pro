@@ -12,10 +12,10 @@ import {
   getBlogs,
 } from '@/lib/resort-api';
 import { siteUrl } from '@/lib/site';
-import logo from '@/assets/logo.jpg';
-import heroSlideOne from '@/assets/481975880_623662033778151_8552626618543070325_n.jpg';
-import heroSlideTwo from '@/assets/488846677_644425541701800_5934371764185234027_n.jpg';
-import heroSlideThree from '@/assets/505802308_693720310105656_2079549114860582276_n.jpg';
+import logoFull from '@/assets/logo-full.png';
+import heroSlideOne from '@public/pina-vista/03-hillside-cottages.jpg';
+import heroSlideTwo from '@public/pina-vista/06-aerial-cottages-pool.jpg';
+import heroSlideThree from '@public/pina-vista/13-garden-driveway.jpg';
 
 const templateMap = {
   'template-one': TemplateOneHome,
@@ -40,7 +40,7 @@ export default async function HomePage() {
     '@type': 'Organization',
     name: settings.resortName,
     url: siteUrl,
-    logo: `${siteUrl}${logo.src}`,
+    logo: `${siteUrl}${logoFull.src}`,
   };
 
   const heroImages = [heroSlideOne.src, heroSlideTwo.src, heroSlideThree.src];

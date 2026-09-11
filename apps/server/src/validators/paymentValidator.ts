@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const paymentSchema = z.object({
   bookingId: z.string().uuid('Invalid booking ID'),
   amount: z.number().positive('Amount must be positive'),
-  method: z.enum(['CASH', 'BKASH', 'NAGAD', 'CARD']),
+  method: z.enum(['CASH', 'BKASH', 'NAGAD', 'CARD', 'BANK_TRANSFER', 'MOBILE_BANKING']),
   transactionId: z.string().optional(),
   notes: z.string().optional(),
 });

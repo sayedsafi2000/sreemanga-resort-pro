@@ -34,10 +34,20 @@ import { authenticateToken } from './middleware/auth';
 import { roleCheck } from './middleware/roleCheck';
 import { authLimiter, otpLimiter, apiLimiter } from './middleware/rateLimiter';
 import { audit } from './middleware/audit';
+import { parseTrustProxy } from './utils/trustProxy';
 import auditRoutes from './routes/auditRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+
+// Behind a reverse proxy (Coolify/Traefik, nginx) the client IP arrives in
+// X-Forwarded-For. Without trusting it, rate limiting and audit logs see the
+// proxy's IP, so every user shares one rate-limit bucket. TRUST_PROXY takes
+// Express's values ("1", "true", "loopback"); default is one hop in production.
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY, process.env.NODE_ENV === 'production'));
+
+// Every staff role — everything except the external SHAREHOLDER portal role.
+const STAFF_ROLES = ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'RESTAURANT_STAFF', 'ACCOUNTANT'];
 
 // Middleware
 app.use(helmet());
@@ -85,13 +95,13 @@ app.use('/api/bookings', authenticateToken, audit('Booking'), bookingRoutes);
 app.use('/api/guests', authenticateToken, guestRoutes);
 app.use('/api/payments', authenticateToken, audit('Payment'), paymentRoutes);
 app.use('/api/restaurant', authenticateToken, audit('Restaurant'), restaurantRoutes);
-app.use('/api/day-long', authenticateToken, audit('DayLong'), dayLongRoutes);
+app.use('/api/day-long', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'ACCOUNTANT']), audit('DayLong'), dayLongRoutes);
 app.use('/api/inventory', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'HOUSEKEEPING', 'RESTAURANT_STAFF']), audit('Inventory'), inventoryRoutes);
 app.use('/api/accounts', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Account'), accountRoutes);
 app.use('/api/shareholders', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Shareholder'), shareholderRoutes);
 app.use('/api/shareholder', authenticateToken, roleCheck(['SHAREHOLDER']), shareholderPortalRoutes);
 app.use('/api/vouchers', authenticateToken, audit('Voucher'), voucherRoutes);
-app.use('/api/staff', authenticateToken, audit('Staff'), staffRoutes);
+app.use('/api/staff', authenticateToken, roleCheck(STAFF_ROLES), audit('Staff'), staffRoutes);
 app.use('/api/settings', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), audit('Setting'), settingsRoutes);
 app.use('/api/gallery', authenticateToken, galleryRoutes);
 app.use('/api/nearby-spots', authenticateToken, nearbySpotsRoutes);
@@ -100,7 +110,7 @@ app.use('/api/reports', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 
 app.use('/api/expenditures', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Expense'), expenditureRoutes);
 app.use('/api/salaries', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('Salary'), salaryRoutes);
 app.use('/api/pending-payments', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT']), audit('PendingPayment'), pendingPaymentRoutes);
-app.use('/api/branding', authenticateToken, roleCheck(['SUPER_ADMIN', 'MANAGER']), brandingRoutes);
+app.use('/api/branding', authenticateToken, brandingRoutes); // GET: any staff (sidebar logo); PUT gated inside the router
 app.use('/api/audit-logs', authenticateToken, roleCheck(['SUPER_ADMIN']), auditRoutes);
 
 // Error handling

@@ -2,51 +2,65 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
-import { distributionSchema, customSharesSchema } from '../validators/shareholderValidator';
+import { distributionSchema, shareOverridesSchema } from '../validators/shareholderValidator';
 import { recordManualEntry } from '../utils/accountLedger';
 import { emailService } from '../utils/emailService';
+import { calculateCapitalShares, round2 } from '../utils/shareCapital';
 
-type ShareholderLite = {
-  id: string;
-  shareType: 'PERCENTAGE' | 'FIXED' | 'CUSTOM';
-  shareValue: number;
-  isActive: boolean;
-};
+const DIST_INCLUDE = {
+  shares: {
+    include: { shareholder: { select: { id: true, name: true, email: true, phone: true, isActive: true } } },
+    orderBy: { capitalAmount: 'desc' as const },
+  },
+} as const;
 
-// Compute each active shareholder's cut of a distribution.
-// PERCENTAGE: proportional to shareValue among percentage holders, applied to
-//   the pool remaining after FIXED payouts. FIXED: flat shareValue. CUSTOM: 0
-//   (admin sets manually).
-export function calculateProfitShares(
-  totalProfit: number,
-  shareholders: ShareholderLite[]
-): { shareholderId: string; amount: number }[] {
-  const active = shareholders.filter((s) => s.isActive);
-  const fixedTotal = active.filter((s) => s.shareType === 'FIXED').reduce((sum, s) => sum + s.shareValue, 0);
-  const pctPool = Math.max(0, totalProfit - fixedTotal);
-  const pctSum = active.filter((s) => s.shareType === 'PERCENTAGE').reduce((sum, s) => sum + s.shareValue, 0);
-
-  return active.map((s) => {
-    if (s.shareType === 'FIXED') return { shareholderId: s.id, amount: s.shareValue };
-    if (s.shareType === 'PERCENTAGE') {
-      const amount = pctSum > 0 ? (s.shareValue / pctSum) * pctPool : 0;
-      return { shareholderId: s.id, amount: Math.round(amount * 100) / 100 };
-    }
-    return { shareholderId: s.id, amount: 0 }; // CUSTOM
+/** Active shareholders with paid-up capital — the only ones who earn a share. */
+async function activeHolders(tx: Prisma.TransactionClient) {
+  const rows = await tx.shareholder.findMany({
+    where: { isActive: true },
+    include: { holdings: { where: { status: 'ACTIVE' }, select: { totalPrice: true } } },
   });
+  return rows
+    .map((r) => ({ id: r.id, capital: round2(r.holdings.reduce((s, h) => s + h.totalPrice, 0)) }))
+    .filter((h) => h.capital > 0);
 }
 
+/**
+ * (Re)compute every share of a DRAFT distribution from current paid-up capital.
+ * Admin overrides (isManual) keep their amount; the calculated figure is still
+ * refreshed next to them. Holders who dropped out lose their row.
+ */
 async function rebuildShares(tx: Prisma.TransactionClient, distributionId: string, totalProfit: number) {
-  const shareholders = await tx.shareholder.findMany({ where: { isActive: true } });
-  const calc = calculateProfitShares(totalProfit, shareholders as ShareholderLite[]);
-  await tx.profitShare.deleteMany({ where: { distributionId } });
-  if (calc.length > 0) {
-    await tx.profitShare.createMany({
-      data: calc.map((c) => ({ distributionId, shareholderId: c.shareholderId, amount: c.amount })),
+  const holders = await activeHolders(tx);
+  const { totalCapital, shares } = calculateCapitalShares(totalProfit, holders);
+  const existing = await tx.profitShare.findMany({ where: { distributionId } });
+  const previous = new Map(existing.map((s) => [s.shareholderId, s]));
+
+  await tx.profitShare.deleteMany({
+    where: { distributionId, shareholderId: { notIn: shares.map((s) => s.shareholderId) } },
+  });
+  let totalDistributed = 0;
+  for (const s of shares) {
+    const prev = previous.get(s.shareholderId);
+    const amount = prev?.isManual ? prev.amount : s.amount;
+    totalDistributed += amount;
+    await tx.profitShare.upsert({
+      where: { distributionId_shareholderId: { distributionId, shareholderId: s.shareholderId } },
+      update: { calculatedAmount: s.amount, capitalAmount: s.capitalAmount, sharePercent: s.sharePercent, amount },
+      create: {
+        distributionId,
+        shareholderId: s.shareholderId,
+        amount: s.amount,
+        calculatedAmount: s.amount,
+        capitalAmount: s.capitalAmount,
+        sharePercent: s.sharePercent,
+      },
     });
   }
-  const totalDistributed = calc.reduce((s, c) => s + c.amount, 0);
-  await tx.profitDistribution.update({ where: { id: distributionId }, data: { totalDistributed } });
+  await tx.profitDistribution.update({
+    where: { id: distributionId },
+    data: { totalDistributed: round2(totalDistributed), totalCapital },
+  });
 }
 
 export const listDistributions = async (_req: Request, res: Response, next: NextFunction) => {
@@ -63,7 +77,7 @@ export const getDistribution = async (req: Request, res: Response, next: NextFun
   try {
     const distribution = await prisma.profitDistribution.findUnique({
       where: { id: req.params.id },
-      include: { shares: { include: { shareholder: true }, orderBy: { amount: 'desc' } } },
+      include: DIST_INCLUDE,
     });
     if (!distribution) throw new AppError('Distribution not found', 404);
     res.json({ success: true, distribution });
@@ -86,7 +100,7 @@ export const createDistribution = async (req: Request, res: Response, next: Next
         },
       });
       await rebuildShares(tx, dist.id, data.totalProfit);
-      return tx.profitDistribution.findUnique({ where: { id: dist.id }, include: { shares: { include: { shareholder: true } } } });
+      return tx.profitDistribution.findUnique({ where: { id: dist.id }, include: DIST_INCLUDE });
     });
     res.status(201).json({ success: true, distribution });
   } catch (error) { next(error); }
@@ -98,32 +112,39 @@ export const recalcDistribution = async (req: Request, res: Response, next: Next
     if (!dist) throw new AppError('Distribution not found', 404);
     if (dist.status !== 'DRAFT') throw new AppError('Only DRAFT distributions can be recalculated', 400);
     await prisma.$transaction((tx) => rebuildShares(tx, dist.id, dist.totalProfit));
-    const updated = await prisma.profitDistribution.findUnique({ where: { id: dist.id }, include: { shares: { include: { shareholder: true } } } });
+    const updated = await prisma.profitDistribution.findUnique({ where: { id: dist.id }, include: DIST_INCLUDE });
     res.json({ success: true, distribution: updated });
   } catch (error) { next(error); }
 };
 
-// Set CUSTOM shareholders' amounts manually (DRAFT only).
-export const setCustomShares = async (req: Request, res: Response, next: NextFunction) => {
+// Admin override of individual amounts (DRAFT only). amount=null clears the
+// override and restores the capital-calculated figure.
+export const setShareOverrides = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = customSharesSchema.parse(req.body);
+    const data = shareOverridesSchema.parse(req.body);
     const dist = await prisma.profitDistribution.findUnique({ where: { id: req.params.id } });
     if (!dist) throw new AppError('Distribution not found', 404);
     if (dist.status !== 'DRAFT') throw new AppError('Only DRAFT distributions can be edited', 400);
     await prisma.$transaction(async (tx) => {
       for (const s of data.shares) {
-        await tx.profitShare.updateMany({
-          where: { distributionId: dist.id, shareholderId: s.shareholderId },
-          data: { amount: s.amount },
+        const row = await tx.profitShare.findUnique({
+          where: { distributionId_shareholderId: { distributionId: dist.id, shareholderId: s.shareholderId } },
+        });
+        if (!row) continue;
+        await tx.profitShare.update({
+          where: { id: row.id },
+          data: s.amount == null
+            ? { amount: row.calculatedAmount, isManual: false }
+            : { amount: round2(s.amount), isManual: true },
         });
       }
       const shares = await tx.profitShare.findMany({ where: { distributionId: dist.id } });
       await tx.profitDistribution.update({
         where: { id: dist.id },
-        data: { totalDistributed: shares.reduce((sum, x) => sum + x.amount, 0) },
+        data: { totalDistributed: round2(shares.reduce((sum, x) => sum + x.amount, 0)) },
       });
     });
-    const updated = await prisma.profitDistribution.findUnique({ where: { id: dist.id }, include: { shares: { include: { shareholder: true } } } });
+    const updated = await prisma.profitDistribution.findUnique({ where: { id: dist.id }, include: DIST_INCLUDE });
     res.json({ success: true, distribution: updated });
   } catch (error) { next(error); }
 };
@@ -133,6 +154,11 @@ export const approveDistribution = async (req: Request, res: Response, next: Nex
     const dist = await prisma.profitDistribution.findUnique({ where: { id: req.params.id } });
     if (!dist) throw new AppError('Distribution not found', 404);
     if (dist.status !== 'DRAFT') throw new AppError('Only DRAFT distributions can be approved', 400);
+    const shareCount = await prisma.profitShare.count({ where: { distributionId: dist.id } });
+    if (shareCount === 0) throw new AppError('No shareholder with paid-up capital — nothing to approve', 400);
+    if (dist.totalDistributed > dist.totalProfit + 0.005) {
+      throw new AppError('Total payout exceeds the profit being distributed — adjust the overrides first', 400);
+    }
     const updated = await prisma.profitDistribution.update({ where: { id: dist.id }, data: { status: 'APPROVED' } });
     res.json({ success: true, distribution: updated });
   } catch (error) { next(error); }

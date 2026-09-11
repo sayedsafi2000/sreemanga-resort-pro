@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const spot = await getNearbySpotBySlug(params.slug);
   if (!spot) return { title: 'Place not found' };
   const ogImage = absoluteSpotImageUrlForMeta(spot.imageUrl);
-  const description = spot.bestFor || `${spot.title} — places near Sreemangal and Nirjon Nature Hideout.`;
+  const description = spot.bestFor || `${spot.title} — places near Sreemangal and Pina Vista.`;
   return {
     title: `${spot.title} · Explore`,
     description,

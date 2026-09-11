@@ -4,12 +4,13 @@
 
 | রোল | ইমেইল | পাসওয়ার্ড |
 |-----|--------|-------------|
-| SUPER_ADMIN | admin@resortnirjon.com | Admin@12345 |
-| MANAGER | manager@resortnirjon.com | Manager@12345 |
-| RECEPTIONIST | receptionist@resortnirjon.com | Reception@12345 |
-| HOUSEKEEPING | housekeeping@resortnirjon.com | House@12345 |
-| RESTAURANT_STAFF | restaurant@resortnirjon.com | Resto@12345 |
-| ACCOUNTANT | accountant@resortnirjon.com | Account@12345 |
+| SUPER_ADMIN | admin@pinavista.com | Admin@12345 |
+| MANAGER | manager@pinavista.com | Manager@12345 |
+| RECEPTIONIST | receptionist@pinavista.com | Staff@12345 |
+| HOUSEKEEPING | housekeeping@pinavista.com | Staff@12345 |
+| RESTAURANT_STAFF | restaurant@pinavista.com | Staff@12345 |
+| ACCOUNTANT | accountant@pinavista.com | Staff@12345 |
+| SHAREHOLDER (portal, `/shareholder-login`) | shareholder@pinavista.com | Share@12345 |
 
 প্রোডাকশনে এই পাসওয়ার্ড অবশ্যই বদলাবে।
 

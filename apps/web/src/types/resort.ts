@@ -64,6 +64,7 @@ export interface ResortSettings {
   restaurantTeaser: string;
   /** Payment accounts (admin Settings → Payment Accounts) */
   bkashNumber?: string;
+  nagadNumber?: string;
   bankAccountName?: string;
   bankAccountNumber?: string;
   bankName?: string;
@@ -92,7 +93,7 @@ export interface PublicBookingInput {
   adults: number;
   children: number;
   preferredPaymentTiming: 'INSTANT' | 'LATER';
-  preferredPaymentMethod?: 'BKASH' | 'BANK_TRANSFER' | 'STRIPE';
+  preferredPaymentMethod?: 'BKASH' | 'NAGAD' | 'BANK_TRANSFER' | 'STRIPE';
   paymentTransactionId?: string;
   paymentProofImage?: string;
   checkInDate: string;

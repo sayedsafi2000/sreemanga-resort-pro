@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { roomSchema } from '../validators/roomValidator';
 import { AppError } from '../middleware/errorHandler';
+import { overlappingStayWhere } from '../utils/bookingAvailability';
 
 function pruneValue(value: any): any {
   if (Array.isArray(value)) {
@@ -164,20 +165,17 @@ export const checkAvailability = async (
 
     const checkIn = new Date(checkInDate as string);
     const checkOut = new Date(checkOutDate as string);
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+      throw new AppError('Invalid check-in or check-out date', 400);
+    }
+    if (checkOut <= checkIn) {
+      throw new AppError('Check-out date must be after check-in date', 400);
+    }
 
-    // Find rooms that are not booked in the given date range
+    // Rooms with an active booking sharing a night with the stay. PENDING is
+    // included — the same rule createBooking enforces, so the two agree.
     const bookedRooms = await prisma.booking.findMany({
-      where: {
-        OR: [
-          {
-            AND: [
-              { checkInDate: { lte: checkOut } },
-              { checkOutDate: { gte: checkIn } },
-              { status: { in: ['CONFIRMED', 'CHECKED_IN'] } },
-            ],
-          },
-        ],
-      },
+      where: overlappingStayWhere(checkIn, checkOut),
       select: { roomId: true },
     });
 

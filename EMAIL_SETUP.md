@@ -21,7 +21,7 @@
 4. `.env` file এ add করো:
 
 ```env
-EMAIL_FROM="Resort Nirjon <noreply@yourdomain.com>"
+EMAIL_FROM="Pina Vista <noreply@yourdomain.com>"
 ADMIN_URL="http://localhost:8001"
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
 ```
@@ -40,7 +40,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
 4. `.env` file এ add করো:
 
 ```env
-EMAIL_FROM="Resort Nirjon <noreply@yourdomain.com>"
+EMAIL_FROM="Pina Vista <noreply@yourdomain.com>"
 ADMIN_URL="http://localhost:8001"
 BREVO_API_KEY=xkeysib-xxxxxxxxxxxxxxxxxxxxx
 BREVO_EMAIL=your-brevo-login-email@example.com
@@ -58,7 +58,7 @@ BREVO_EMAIL=your-brevo-login-email@example.com
 4. `.env` file এ add করো:
 
 ```env
-EMAIL_FROM="Resort Nirjon <noreply@yourdomain.com>"
+EMAIL_FROM="Pina Vista <noreply@yourdomain.com>"
 ADMIN_URL="http://localhost:8001"
 MAILGUN_API_KEY=xxxxxxxxxxxxxxxxxxxxx
 MAILGUN_SMTP_HOST=smtp.mailgun.org
@@ -77,7 +77,7 @@ MAILGUN_SMTP_USER=postmaster@yourdomain.mailgun.org
 4. `.env` file এ add করো:
 
 ```env
-EMAIL_FROM="Resort Nirjon <noreply@yourdomain.com>"
+EMAIL_FROM="Pina Vista <noreply@yourdomain.com>"
 ADMIN_URL="http://localhost:8001"
 SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxx
 ```
@@ -93,7 +93,7 @@ SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxx
 3. `.env` file এ add করো:
 
 ```env
-EMAIL_FROM="Resort Nirjon <your-email@gmail.com>"
+EMAIL_FROM="Pina Vista <your-email@gmail.com>"
 ADMIN_URL="http://localhost:8001"
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -145,7 +145,7 @@ GET /api/auth/verify-reset-token?token=xxx
 ```bash
 curl -X POST http://localhost:8000/api/auth/forgot-password \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@resortnirjon.com"}'
+  -d '{"email":"admin@pinavista.com"}'
 ```
 
 4. Email check করো
@@ -158,7 +158,7 @@ curl -X POST http://localhost:8000/api/auth/forgot-password \
 Production এর জন্য Coolify environment variables:
 
 ```env
-EMAIL_FROM=Resort Nirjon <noreply@yourdomain.com>
+EMAIL_FROM=Pina Vista <noreply@yourdomain.com>
 ADMIN_URL=https://admin.pixelsbee.com
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
 ```

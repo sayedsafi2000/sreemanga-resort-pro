@@ -108,7 +108,7 @@ export default function AboutNature({ aboutShort, aboutLong }: Props) {
             style={{ aspectRatio: '4/5', clipPath: 'inset(0 100% 0 0)' }}
           >
             <img
-              src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=85"
+              src="/pina-vista/11-amphitheatre-hill.jpg"
               alt="Nature at our resort"
               className="w-full h-full object-cover"
             />

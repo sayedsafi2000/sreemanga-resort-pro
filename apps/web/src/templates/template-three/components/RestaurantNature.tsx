@@ -25,7 +25,7 @@ export default function RestaurantNature({ teaser, highlights = [] }: Props) {
             }`}
           >
             <img
-              src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=85"
+              src="/pina-vista/07-lodge-path.jpg"
               alt="Forest dining"
               className="w-full h-full object-cover"
             />

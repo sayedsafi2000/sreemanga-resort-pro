@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Menu, X, Mountain, ChevronDown, ChevronUp, Plus, Bell, Settings, Search, CalendarCheck, DollarSign, BedDouble, UtensilsCrossed, AlertCircle } from 'lucide-react';
+import logoMark from '@/assets/logo-mark.png';
+import { LogOut, Menu, X, ChevronDown, ChevronUp, Plus, Bell, Settings, Search, CalendarCheck, DollarSign, BedDouble, UtensilsCrossed, AlertCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getSidebarItems, navItemHref, sidebarItemActive, canAccessPath, EXPENDITURE_SIDEBAR_KEY, SIDEBAR_SECTION } from '@/config/rbac';
+import { getSidebarItems, navItemHref, sidebarItemActive, canAccessPath, EXPENDITURE_SIDEBAR_KEY, SIDEBAR_SECTION, type SidebarItem } from '@/config/rbac';
 import { InitialsAvatar } from '@/components/ui/avatar';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
@@ -34,7 +35,8 @@ function useNotifications(role: string | undefined) {
 
       // Pending bookings
       if (['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(role)) {
-        const bRes = await api.get('/bookings');
+        // Only live bookings — the notification bell doesn't need the full history.
+        const bRes = await api.get('/bookings?status=PENDING,CONFIRMED,CHECKED_IN');
         const bookings = unwrapList<any>(bRes, ['bookings']);
         const pending = bookings.filter((b: any) => b.status === 'PENDING');
         const todayCI = bookings.filter((b: any) =>
@@ -74,7 +76,7 @@ function useNotifications(role: string | undefined) {
 
       // Pending payments
       if (['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST'].includes(role)) {
-        const pRes = await api.get('/payments');
+        const pRes = await api.get('/payments?status=PENDING');
         const payments = unwrapList<any>(pRes, ['payments']);
         const pendingPay = payments.filter((p: any) => p.status === 'PENDING');
         if (pendingPay.length > 0) notifs.push({
@@ -252,6 +254,52 @@ function ExpenditureNavGroup({
   );
 }
 
+// ── Generic dropdown nav group (Bookings → New / List / Reserved / Calendar) ──
+
+function NavGroup({ item, onNavigate }: { item: SidebarItem; onNavigate: () => void }) {
+  const location = useLocation();
+  const groupActive = sidebarItemActive(location.pathname, location.search, item);
+  const [open, setOpen] = useState(groupActive);
+  useEffect(() => { if (groupActive) setOpen(true); }, [groupActive]);
+  const Icon = item.icon;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+          groupActive ? 'bg-sidebar-accent text-white' : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-white'
+        }`}
+      >
+        <Icon className="h-[18px] w-[18px] shrink-0" />
+        <span className="flex-1 text-left">{item.label}</span>
+        {open ? <ChevronUp className="h-3.5 w-3.5 opacity-70" /> : <ChevronDown className="h-3.5 w-3.5 opacity-70" />}
+      </button>
+      {open && item.children && (
+        <div className="ml-5 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
+          {item.children.map((child) => {
+            const ChildIcon = child.icon;
+            const childOn = location.pathname === child.path;
+            return (
+              <Link
+                key={child.key}
+                to={child.path}
+                onClick={onNavigate}
+                className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150 ${
+                  childOn ? 'bg-sidebar-item-active text-white shadow-sm shadow-amber-900/50' : 'text-sidebar-text hover:bg-sidebar-item-hover hover:text-white'
+                }`}
+              >
+                <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Layout ───────────────────────────────────────────────────────────────
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -337,22 +385,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <aside
-        className={`sidebar-scroll fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto bg-sidebar-bg transition-transform duration-300 ease-out lg:static lg:inset-auto lg:translate-x-0 ${
+        className={`print:hidden sidebar-scroll fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto bg-sidebar-bg transition-transform duration-300 ease-out lg:static lg:inset-auto lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* ── Brand / Logo ─────────────────────────────────────────────── */}
         <div className="flex shrink-0 items-center gap-3 border-b border-sidebar-border px-5 py-[18px]">
-          {brandingSettings.site_logo ? (
-            <img src={brandingSettings.site_logo} alt="Logo" className="h-10 w-10 rounded-xl object-contain" />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/30">
-              <Mountain className="h-5 w-5 text-white" />
-            </div>
-          )}
+          {/* Branding → Site Logo (uploaded) wins; otherwise the bundled Pina Vista mark. */}
+          <img
+            src={brandingSettings.site_logo || logoMark}
+            alt={brandingSettings.site_name}
+            className="h-10 w-10 shrink-0 rounded-xl bg-black/40 object-contain p-0.5"
+          />
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold leading-tight text-white">Resort Management System</p>
-            <p className="eyebrow !text-[10px] !tracking-[0.12em] text-slate-500">{brandingSettings.site_name}</p>
+            <p className="truncate text-[15px] font-bold leading-tight text-white">{brandingSettings.site_name}</p>
+            <p className="eyebrow !text-[10px] !tracking-[0.12em] text-slate-500">Resort Management System</p>
           </div>
           <button
             type="button"
@@ -391,6 +438,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   </React.Fragment>
                 );
               }
+              if (item.children) {
+                return (
+                  <React.Fragment key={item.key}>
+                    {header}
+                    <NavGroup item={item} onNavigate={() => setSidebarOpen(false)} />
+                  </React.Fragment>
+                );
+              }
               const href = navItemHref(item);
               const isActive = sidebarItemActive(location.pathname, location.search, item);
               return (
@@ -418,7 +473,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {canBook && (
           <div className="shrink-0 px-3 pb-1">
             <Link
-              to="/bookings?new=1"
+              to="/bookings/new"
               onClick={() => setSidebarOpen(false)}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-sidebar-item-active px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-900/40 transition hover:opacity-90 active:scale-[0.98]"
             >
@@ -457,7 +512,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* ── Top bar ────────────────────────────────────────────────────── */}
-        <header className="relative z-30 flex shrink-0 items-center gap-3 border-b border-border bg-white/80 px-4 py-3 backdrop-blur-md sm:px-6">
+        <header className="print:hidden relative z-30 flex shrink-0 items-center gap-3 border-b border-border bg-white/80 px-4 py-3 backdrop-blur-md sm:px-6">
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
@@ -602,7 +657,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </header>
 
         {/* ── Page content ───────────────────────────────────────────────── */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto print:overflow-visible">
           <div className="page-enter min-h-full p-4 sm:p-6 lg:p-8">
             {children}
           </div>

@@ -51,8 +51,11 @@ export const errorHandler = (
     return;
   }
 
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal server error';
+  // Prisma "known request" errors carry a code; the common ones map to clean HTTP
+  // statuses instead of a 500 with a query dump (e.g. deleting an id that no longer exists).
+  const prisma = mapPrismaError(err);
+  const statusCode = prisma?.status || err.statusCode || 500;
+  const message = prisma?.message || err.message || 'Internal server error';
 
   // Headers may already be sent if the response was streamed before the error;
   // guard against ERR_HTTP_HEADERS_SENT so the process keeps serving requests.
@@ -66,6 +69,18 @@ export const errorHandler = (
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 };
+
+function mapPrismaError(err: any): { status: number; message: string } | null {
+  if (!err || typeof err.code !== 'string' || !/^P\d{4}$/.test(err.code)) return null;
+  const target = Array.isArray(err.meta?.target) ? err.meta.target.join(', ') : err.meta?.target;
+  switch (err.code) {
+    case 'P2025': return { status: 404, message: 'Record not found' };
+    case 'P2002': return { status: 409, message: target ? `Already exists (${target} must be unique)` : 'Already exists' };
+    case 'P2003': return { status: 409, message: 'Cannot complete: other records still reference this one' };
+    case 'P2023': return { status: 400, message: 'Invalid id' };
+    default: return null;
+  }
+}
 
 export class AppError extends Error {
   statusCode: number;

@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
+import { activeCapital, describeUnits, type HoldingLite } from '../utils/shareCapital';
+
+type HoldingBrief = HoldingLite & { tier: { code: string; name: string } };
 import { guestSchema } from '../validators/guestValidator';
 import { AppError } from '../middleware/errorHandler';
 
@@ -43,8 +46,7 @@ export const getAllGuests = async (
       name: string;
       phone: string;
       email: string | null;
-      shareType: string;
-      shareValue: number;
+      holdings: HoldingBrief[];
       userId: string | null;
     }[] = [];
     let extraUsers: {
@@ -71,8 +73,10 @@ export const getAllGuests = async (
             name: true,
             phone: true,
             email: true,
-            shareType: true,
-            shareValue: true,
+            holdings: {
+              where: { status: { not: 'CANCELLED' } },
+              select: { quantity: true, totalPrice: true, paidAmount: true, status: true, tier: { select: { code: true, name: true } } },
+            },
             userId: true,
           },
         }),
@@ -103,8 +107,10 @@ export const getAllGuests = async (
             name: true,
             phone: true,
             email: true,
-            shareType: true,
-            shareValue: true,
+            holdings: {
+              where: { status: { not: 'CANCELLED' } },
+              select: { quantity: true, totalPrice: true, paidAmount: true, status: true, tier: { select: { code: true, name: true } } },
+            },
             userId: true,
           },
         }),
@@ -136,8 +142,8 @@ export const getAllGuests = async (
         name: string;
         phone?: string | null;
         email: string | null;
-        shareType: string;
-        shareValue: number;
+        shareLabel: string;
+        activeCapital: number;
       } | null;
       user: {
         id: string;
@@ -163,8 +169,8 @@ export const getAllGuests = async (
               name: shareholder.name,
               phone: shareholder.phone,
               email: shareholder.email,
-              shareType: shareholder.shareType,
-              shareValue: shareholder.shareValue,
+              shareLabel: describeUnits(shareholder.holdings),
+              activeCapital: activeCapital(shareholder.holdings),
             }
           : null,
         user: user
@@ -202,6 +208,8 @@ export const getAllGuests = async (
           nid: null,
           passport: null,
           address: null,
+          gender: null,
+          dateOfBirth: null,
           email: s.email,
           createdAt: new Date(0),
           updatedAt: new Date(0),
@@ -210,8 +218,8 @@ export const getAllGuests = async (
             name: s.name,
             phone: s.phone,
             email: s.email,
-            shareType: s.shareType,
-            shareValue: s.shareValue,
+            shareLabel: describeUnits(s.holdings),
+            activeCapital: activeCapital(s.holdings),
           },
           user: linkedUser
             ? {
@@ -239,6 +247,8 @@ export const getAllGuests = async (
           nid: null,
           passport: null,
           address: null,
+          gender: null,
+          dateOfBirth: null,
           email: u.email,
           createdAt: new Date(0),
           updatedAt: new Date(0),

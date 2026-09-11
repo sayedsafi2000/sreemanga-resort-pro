@@ -26,7 +26,7 @@ export default async function BookingSuccessPage({
             <h1 className="mt-4 text-2xl font-bold text-stone-800">Payment successful</h1>
             <p className="mt-3 text-sm leading-relaxed text-stone-600">
               Your booking is confirmed. We&apos;ve emailed your confirmation and payment
-              receipt. We look forward to welcoming you to Nirjon Nature&apos;s Hideout.
+              receipt. We look forward to welcoming you to Pina Vista.
             </p>
           </>
         ) : (

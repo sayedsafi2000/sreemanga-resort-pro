@@ -119,7 +119,7 @@ export const createBlog = async (req: Request, res: Response, next: NextFunction
         imageUrl: data.imageUrl,
         imageAlt: data.imageAlt || '',
         category: data.category || 'General',
-        authorName: data.authorName || "Nirjon Nature's Hideout",
+        authorName: data.authorName || "Pina Vista",
         tags: normalizeTags(data.tags),
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,

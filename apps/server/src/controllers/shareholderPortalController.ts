@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { findMineVouchers } from './voucherController';
 import { findVouchersForIdentities } from '../utils/voucher';
 import { toSafeMineVoucher } from './voucherController';
+import { round2, summarizeHoldings } from '../utils/shareCapital';
 
 // Resolve the Shareholder record for the logged-in SHAREHOLDER user.
 async function requireShareholder(req: Request) {
@@ -40,13 +41,18 @@ export const getMyProfitShares = async (req: Request, res: Response, next: NextF
 export const getMySummary = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const shareholder = await requireShareholder(req);
-    const shares = await prisma.profitShare.findMany({
-      where: { shareholderId: shareholder.id },
-      include: { distribution: true },
-    });
-    const totalReceived = shares
-      .filter((s) => s.status === 'PAID')
-      .reduce((sum, s) => sum + s.amount, 0);
+    const [holdings, shares, agg] = await Promise.all([
+      prisma.shareHolding.findMany({
+        where: { shareholderId: shareholder.id },
+        include: { tier: true, payments: { orderBy: { paidAt: 'asc' } } },
+        orderBy: { purchaseDate: 'asc' },
+      }),
+      prisma.profitShare.findMany({ where: { shareholderId: shareholder.id }, include: { distribution: true } }),
+      prisma.shareHolding.aggregate({ _sum: { totalPrice: true }, where: { status: 'ACTIVE', shareholder: { isActive: true } } }),
+    ]);
+    const summary = summarizeHoldings(holdings);
+    const totalCapital = round2(agg._sum.totalPrice ?? 0);
+    const totalReceived = shares.filter((s) => s.status === 'PAID').reduce((sum, s) => sum + s.amount, 0);
     const pending = shares
       .filter((s) => s.status === 'PENDING' && s.distribution.status !== 'CANCELLED')
       .reduce((sum, s) => sum + s.amount, 0);
@@ -55,13 +61,16 @@ export const getMySummary = async (req: Request, res: Response, next: NextFuncti
       success: true,
       summary: {
         name: shareholder.name,
-        shareType: shareholder.shareType,
-        shareValue: shareholder.shareValue,
-        investmentAmount: shareholder.investmentAmount ?? 0,
-        totalReceived,
-        pending,
+        isActive: shareholder.isActive,
+        ...summary,
+        totalCapital,
+        ownershipPercent:
+          shareholder.isActive && totalCapital > 0 ? round2((summary.activeCapital / totalCapital) * 100) : 0,
+        totalReceived: round2(totalReceived),
+        pending: round2(pending),
         distributionsCount: shares.length,
       },
+      holdings,
     });
   } catch (error) {
     next(error);

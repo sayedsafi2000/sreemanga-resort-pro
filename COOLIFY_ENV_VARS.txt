@@ -15,6 +15,29 @@ JWT_EXPIRES_IN=7d
 # =============================================================================
 CORS_ORIGIN=https://web.pixelsbee.com,https://admin.pixelsbee.com
 
+# Public URLs the API embeds in emails and Stripe redirects
+ADMIN_URL=https://admin.pixelsbee.com
+WEB_PUBLIC_URL=https://web.pixelsbee.com
+
+# Reverse-proxy hops in front of the API (Coolify/Traefik = 1). Required for
+# per-user rate limiting; otherwise every visitor shares one limit bucket.
+TRUST_PROXY=1
+
+# Stripe card payments — leave both empty to disable card checkout.
+# Webhook endpoint: POST https://<api-domain>/api/public/stripe/webhook
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# Email — without a transport, OTP / booking / reset emails are silently skipped.
+# Set SMTP_* for any SMTP provider (or RESEND_API_KEY, or BREVO_API_KEY+BREVO_EMAIL).
+RESORT_NAME=Pina Vista
+EMAIL_FROM="Pina Vista <noreply@example.com>"
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+
 # =============================================================================
 # Web Service Environment Variables
 # =============================================================================

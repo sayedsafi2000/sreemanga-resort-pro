@@ -4,7 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import Login, { ShareholderLogin } from '@/pages/Login/Login';
 import Dashboard from '@/pages/Dashboard/Dashboard';
 import Rooms from '@/pages/Rooms/Rooms';
-import Bookings from '@/pages/Bookings/Bookings';
+import BookingList from '@/pages/Bookings/BookingList';
+import NewBooking from '@/pages/Bookings/NewBooking';
+import BookingInvoice from '@/pages/Bookings/BookingInvoice';
+import MonthlyCalendar from '@/pages/Bookings/MonthlyCalendar';
 import Guests from '@/pages/Guests/Guests';
 import Payments from '@/pages/Payments/Payments';
 import Restaurant from '@/pages/Restaurant/Restaurant';
@@ -62,7 +65,12 @@ const App: React.FC = () => {
         <Route path="/" element={<RootRedirect />} />
         <Route path="/dashboard" element={<ProtectedRoute><RoleGuard path="/dashboard"><Dashboard /></RoleGuard></ProtectedRoute>} />
         <Route path="/rooms" element={<ProtectedRoute><RoleGuard path="/rooms"><Rooms /></RoleGuard></ProtectedRoute>} />
-        <Route path="/bookings" element={<ProtectedRoute><RoleGuard path="/bookings"><Bookings /></RoleGuard></ProtectedRoute>} />
+        <Route path="/bookings" element={<ProtectedRoute><RoleGuard path="/bookings"><BookingList mode="all" /></RoleGuard></ProtectedRoute>} />
+        <Route path="/bookings/reserved" element={<ProtectedRoute><RoleGuard path="/bookings"><BookingList mode="reserved" /></RoleGuard></ProtectedRoute>} />
+        <Route path="/bookings/new" element={<ProtectedRoute><RoleGuard path="/bookings"><NewBooking /></RoleGuard></ProtectedRoute>} />
+        <Route path="/bookings/calendar" element={<ProtectedRoute><RoleGuard path="/bookings"><MonthlyCalendar /></RoleGuard></ProtectedRoute>} />
+        <Route path="/bookings/:id/edit" element={<ProtectedRoute><RoleGuard path="/bookings"><NewBooking /></RoleGuard></ProtectedRoute>} />
+        <Route path="/bookings/:id/invoice" element={<ProtectedRoute><RoleGuard path="/bookings"><BookingInvoice /></RoleGuard></ProtectedRoute>} />
         <Route path="/guests" element={<ProtectedRoute><RoleGuard path="/guests"><Guests /></RoleGuard></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute><RoleGuard path="/payments"><Payments /></RoleGuard></ProtectedRoute>} />
         <Route path="/restaurant" element={<ProtectedRoute><RoleGuard path="/restaurant"><Restaurant /></RoleGuard></ProtectedRoute>} />

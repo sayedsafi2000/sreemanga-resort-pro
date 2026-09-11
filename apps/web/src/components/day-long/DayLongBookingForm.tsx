@@ -47,7 +47,8 @@ export default function DayLongBookingForm({ products }: Props) {
     setBusy(false);
     if (r.ok) {
       setStep('otp');
-      setMessage({ ok: true, text: r.devOtp ? `OTP (dev): ${r.devOtp}` : r.message });
+      setOtp('');
+      setMessage({ ok: true, text: r.message });
     } else {
       setMessage({ ok: false, text: r.message });
     }

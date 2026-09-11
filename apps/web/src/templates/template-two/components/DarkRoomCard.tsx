@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Users, ArrowRight } from 'lucide-react';
 import type { Room } from '@/types/resort';
 import { ROOM_TYPE_LABEL } from '@/lib/room-labels';
-import fallbackRoomPhoto from '@/assets/room1.avif';
+import fallbackRoomPhoto from '@public/pina-vista/09-hill-cottage.jpg';
 
 export default function DarkRoomCard({ room }: { room: Room }) {
   const img = room.mainImage || room.images[0] || fallbackRoomPhoto.src;

@@ -5,15 +5,15 @@ import RestaurantMenuBook from '@/components/restaurant/RestaurantMenuBook';
 import Container from '@/components/ui/Container';
 import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getRestaurantMenu, getSettings } from '@/lib/resort-api';
-import restCollageA from '@/assets/483508909_629541966523491_8490449706697952327_n.jpg';
-import restCollageB from '@/assets/482204304_622952353849119_4214375716674398722_n.jpg';
-import restCollageC from '@/assets/484386239_628016673342687_4123034380849108737_n.jpg';
+import restCollageA from '@public/pina-vista/07-lodge-path.jpg';
+import restCollageB from '@public/pina-vista/10-amphitheatre.jpg';
+import restCollageC from '@public/pina-vista/05-cottage-row.jpg';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Restaurant',
   description:
-    "Set menus for breakfast, lunch & dinner plus à la carte—hill herbs, Seven Layer Tea and garden-fresh plates at Nirjon Nature's Hideout.",
+    "Set menus for breakfast, lunch & dinner plus à la carte—hill herbs, Seven Layer Tea and garden-fresh plates at Pina Vista.",
 };
 
 export default async function RestaurantPage() {

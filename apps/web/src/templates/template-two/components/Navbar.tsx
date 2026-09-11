@@ -68,7 +68,7 @@ export default function NavbarT2({ resortName, resortNameBn = '', phone, email, 
                 src={logoSrc}
                 alt={`${displayName} logo`}
                 fill
-                className="object-cover"
+                className="object-contain p-0.5"
                 sizes="36px"
               />
             </span>
@@ -77,7 +77,7 @@ export default function NavbarT2({ resortName, resortNameBn = '', phone, email, 
                 {displayName}
               </span>
               <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-earth-400/80">
-                Eco Resort
+                Tea &amp; Hill Resort
               </p>
             </div>
           </Link>

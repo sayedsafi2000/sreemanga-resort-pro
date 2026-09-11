@@ -24,7 +24,7 @@ const Branding = () => {
     site_logo: '',
     site_favicon: '',
     contact_phone: '+880 XXX-XXXXXX',
-    contact_email: 'info@resortnirjon.com',
+    contact_email: 'info@pinavista.com',
     contact_location: 'Sreemangal, Bangladesh',
   });
   
@@ -120,7 +120,7 @@ const Branding = () => {
               <Input
                 value={settings.site_name}
                 onChange={(e) => handleInputChange('site_name', e.target.value)}
-                placeholder="e.g., Nirjon Nature's Hideout"
+                placeholder="e.g., Pina Vista"
               />
               <p className="text-xs text-muted-foreground">
                 This will appear in the sidebar and throughout the platform
@@ -167,7 +167,7 @@ const Branding = () => {
                 type="email"
                 value={settings.contact_email}
                 onChange={(e) => handleInputChange('contact_email', e.target.value)}
-                placeholder="info@resortnirjon.com"
+                placeholder="info@pinavista.com"
               />
             </div>
 

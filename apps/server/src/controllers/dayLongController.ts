@@ -448,17 +448,20 @@ export const publicGetProduct = async (req: Request, res: Response, next: NextFu
 
 export const publicCreateBooking = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // OTP guard (mirrors room booking flow) — requires a verified, unexpired OTP.
-    const email = typeof req.body?.guestEmail === 'string' ? req.body.guestEmail.toLowerCase().trim() : null;
-    if (email) {
-      const entry = await prisma.otpCode.findFirst({
-        where: { email, verified: true, expiresAt: { gt: new Date() } },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!entry) throw new AppError('Email OTP not verified. Please verify your email before booking.', 403);
-      await prisma.otpCode.deleteMany({ where: { email } });
-    }
+    // OTP guard (mirrors room booking flow). Email is mandatory here — it is
+    // the address the OTP verified, so omitting it must not skip the check.
+    const email = typeof req.body?.guestEmail === 'string' ? req.body.guestEmail.toLowerCase().trim() : '';
+    if (!email) throw new AppError('Guest email is required for online booking', 400);
+    const entry = await prisma.otpCode.findFirst({
+      where: { email, verified: true, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!entry) throw new AppError('Email OTP not verified. Please verify your email before booking.', 403);
+
     const booking = await createBookingCore(req.body);
+    // Single-use: consume only after the booking succeeded so a validation
+    // error doesn't force the guest to re-verify.
+    await prisma.otpCode.deleteMany({ where: { email } });
     res.status(201).json({ success: true, booking });
   } catch (error) { next(error); }
 };

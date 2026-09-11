@@ -156,7 +156,7 @@ export const getAllStaffWithSalaries = async (req: Request, res: Response, next:
     const m = month ? parseInt(month as string) : new Date().getMonth() + 1;
 
     const staff = await prisma.user.findMany({
-      where: { role: { not: 'SUPER_ADMIN' } },
+      where: { role: { notIn: ['SUPER_ADMIN', 'SHAREHOLDER'] } }, // shareholders aren't payroll staff
       select: { id: true, name: true, role: true },
     });
 

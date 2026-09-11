@@ -79,7 +79,7 @@ Default admin login after seeding:
 
 | Email | Password | Role |
 |-------|----------|------|
-| admin@resortnirjon.com | Admin@12345 | SUPER_ADMIN |
+| admin@pinavista.com | Admin@12345 | SUPER_ADMIN |
 
 See `docs/ROLES_AND_USERS.md` for all seeded users.
 

@@ -15,6 +15,18 @@ const dayStart = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); retu
 const dayEnd = (d: Date) => { const x = new Date(d); x.setHours(23,59,59,999); return x; };
 
 // ── Departments ────────────────────────────────────────────────────────────
+/** Light user list (id, name, email, role) for pickers on manager-accessible pages — /api/users itself is SUPER_ADMIN only. */
+export const listUserOptions = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: { not: 'SHAREHOLDER' } },
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ success: true, users });
+  } catch (error) { next(error); }
+};
+
 export const listDepartments = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const departments = await prisma.department.findMany({

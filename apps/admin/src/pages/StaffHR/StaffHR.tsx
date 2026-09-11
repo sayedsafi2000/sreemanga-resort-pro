@@ -70,7 +70,10 @@ const StaffHR: React.FC = () => {
     try {
       const [d, dg, s, sh, u, lv, sum] = await Promise.all([
         api.get('/staff/departments'), api.get('/staff/designations'), api.get('/staff'),
-        api.get('/staff/shifts'), api.get('/users'), api.get('/staff/leaves'),
+        api.get('/staff/shifts'),
+        // Light user list (id/name/role) readable by MANAGER too — /users itself is SUPER_ADMIN only.
+        api.get('/staff/user-options').catch(() => ({ data: { users: [] } })),
+        api.get('/staff/leaves'),
         api.get('/staff/dashboard/summary'),
       ]);
       setDepts(unwrapList<Dept>(d, ['departments']));

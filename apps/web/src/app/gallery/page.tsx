@@ -10,7 +10,7 @@ import type { GalleryItem } from '@/types/resort';
 export const metadata: Metadata = {
   title: 'Gallery',
   description:
-    'Photos from our eco-resort — tea hills, poolside evenings, garden paths, and dining at Nirjon Nature Escape.',
+    'Photos from our eco-resort — tea hills, poolside evenings, garden paths, and dining at Pina Vista.',
 };
 
 const aspectMap = [

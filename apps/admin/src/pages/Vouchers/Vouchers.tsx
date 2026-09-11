@@ -339,12 +339,7 @@ const Vouchers: React.FC = () => {
     }
     if (g.shareholder?.id && shareholdersMode === 'SELECTED') {
       const sh = g.shareholder;
-      const shareBit =
-        sh.shareType === 'PERCENTAGE'
-          ? ` ${sh.shareValue ?? 0}%`
-          : sh.shareType === 'FIXED'
-            ? ` ৳${sh.shareValue ?? 0}`
-            : '';
+      const shareBit = sh.shareLabel && sh.shareLabel !== 'No shares' ? ` · ${sh.shareLabel}` : '';
       addAssignee({
         assigneeType: 'SHAREHOLDER',
         assigneeId: sh.id,
@@ -612,7 +607,7 @@ const Vouchers: React.FC = () => {
               <Input
                 value={emailLookup}
                 onChange={(e) => setEmailLookup(e.target.value)}
-                placeholder="e.g. shareholder@resortnirjon.com"
+                placeholder="e.g. shareholder@pinavista.com"
                 type="email"
               />
             </div>

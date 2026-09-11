@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { useReveal } from '@/hooks/useReveal';
 import { useLanguage } from '@/contexts/LanguageContext';
-import aboutMain from '@/assets/484617672_630330766444611_3236540395920013731_n.jpg';
-import aboutAccentA from '@/assets/488846677_644425541701800_5934371764185234027_n.jpg';
+import aboutMain from '@public/pina-vista/11-amphitheatre-hill.jpg';
+import aboutAccentA from '@public/pina-vista/09-hill-cottage.jpg';
 
 type Props = {
   aboutShort: string;

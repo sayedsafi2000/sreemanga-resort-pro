@@ -9,7 +9,7 @@ import { MapPin, Phone, Mail } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'Contact',
   description:
-    'Address, phone, and map for Nirjon Nature Escape in Sreemangal—reach us for stays, events, and directions.',
+    'Address, phone, and map for Pina Vista in Sreemangal—reach us for stays, events, and directions.',
 };
 
 export default async function ContactPage() {

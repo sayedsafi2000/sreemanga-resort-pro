@@ -55,18 +55,18 @@ async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> 
 
 function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
   return {
-    resortName: raw.resortName || "Nirjon Nature's Hideout",
+    resortName: raw.resortName || "Pina Vista",
     tagline: raw.tagline || 'Nature retreat in Sreemangal',
     aboutShort: raw.aboutShort || raw.resortDescription || 'Nature-focused resort stay with calm hospitality.',
     aboutLong:
       raw.aboutLong ||
       raw.resortDescription ||
       'Enjoy tea gardens, fresh air, and a peaceful stay at our Sreemangal resort.',
-    heroImage: raw.heroImage || '/rooms/room1.avif',
+    heroImage: raw.heroImage || '/pina-vista/03-hillside-cottages.jpg',
     logoUrl: raw.logoUrl || undefined,
     address: raw.resortAddress || raw.address || 'Sreemangal, Moulvibazar',
     phone: raw.resortPhone || raw.phone || '+8801700000000',
-    email: raw.resortEmail || raw.email || 'info@resortnirjon.com',
+    email: raw.resortEmail || raw.email || 'info@pinavista.com',
     mapEmbedUrl: raw.mapEmbedUrl || '',
     social: {
       facebook: raw.socialFacebook || undefined,
@@ -76,6 +76,7 @@ function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
     restaurantTeaser:
       raw.restaurantTeaser || 'Seasonal dishes with local ingredients served fresh every day.',
     bkashNumber: raw.bkashNumber || undefined,
+    nagadNumber: raw.nagadNumber || undefined,
     bankAccountName: raw.bankAccountName || undefined,
     bankAccountNumber: raw.bankAccountNumber || undefined,
     bankName: raw.bankName || undefined,
@@ -142,7 +143,7 @@ export const getGallery = cache(getGalleryUncached);
 
 const defaultNearbySection = (): NearbyExplorePayload['section'] => ({
   eyebrow: 'Explore · Around',
-  title: 'Best places to explore around Nirjon Nature Hideout',
+  title: 'Best places to explore around Pina Vista',
   subtitle:
     'Just a step out from the resort—jungles, tea gardens, waterfalls & light tea scents. Click the cards to read more.',
   footnote:
@@ -434,7 +435,7 @@ function publicApiBase(): string {
 
 export async function sendBookingOtp(
   email: string
-): Promise<{ ok: boolean; message: string; devOtp?: string }> {
+): Promise<{ ok: boolean; message: string }> {
   try {
     const res = await fetch(`${publicApiBase()}/otp/send`, {
       method: 'POST',
@@ -443,7 +444,7 @@ export async function sendBookingOtp(
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, message: j.message || 'Failed to send OTP.' };
-    return { ok: true, message: j.message || 'OTP sent.', devOtp: j.devOtp };
+    return { ok: true, message: j.message || 'OTP sent.' };
   } catch {
     return { ok: false, message: 'Network error. Please try again.' };
   }

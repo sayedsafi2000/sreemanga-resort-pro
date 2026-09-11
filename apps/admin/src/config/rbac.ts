@@ -26,6 +26,8 @@ import {
   Users2,
   ScrollText,
   Ticket,
+  Clock,
+  CalendarDays,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -43,7 +45,8 @@ export type SidebarItem = {
   path: string;
   icon: LucideIcon;
   tab?: string;
-  openNewBooking?: boolean;
+  /** Collapsible dropdown group (e.g. Bookings → New / List / Reserved / Calendar). */
+  children?: SidebarItem[];
 };
 
 /** Sidebar section labels keyed by item.key — used to group the nav for clarity. */
@@ -60,6 +63,20 @@ export const SIDEBAR_SECTION: Record<string, string> = {
 
 /** Layout renders category children under this key (fetched from API). */
 export const EXPENDITURE_SIDEBAR_KEY = 'exp';
+
+/** Bookings dropdown — same four entries for every front-desk role. */
+const bookingGroup: SidebarItem = {
+  key: 'book',
+  label: 'Bookings',
+  path: '/bookings',
+  icon: CalendarCheck,
+  children: [
+    { key: 'book-new', label: 'New Booking', path: '/bookings/new', icon: ClipboardPlus },
+    { key: 'book-list', label: 'Booking List', path: '/bookings', icon: ListChecks },
+    { key: 'book-reserved', label: 'Reserved List', path: '/bookings/reserved', icon: Clock },
+    { key: 'book-cal', label: 'Monthly Calendar', path: '/bookings/calendar', icon: CalendarDays },
+  ],
+};
 
 const expenditureParent: SidebarItem = {
   key: EXPENDITURE_SIDEBAR_KEY,
@@ -82,6 +99,9 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/dashboard': allRoles,
   '/rooms': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'],
   '/bookings': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
+  '/bookings/new': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
+  '/bookings/reserved': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
+  '/bookings/calendar': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
   '/guests': ['SUPER_ADMIN', 'MANAGER', 'RECEPTIONIST'],
   '/payments': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST'],
   '/restaurant': ['SUPER_ADMIN', 'MANAGER', 'RESTAURANT_STAFF'],
@@ -109,7 +129,14 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
 export function canAccessPath(role: string | undefined, path: string): boolean {
   if (!role) return false;
   const clean = path.split('?')[0];
-  const allowed = ROUTE_ACCESS[clean];
+  let allowed = ROUTE_ACCESS[clean];
+  if (!allowed) {
+    // Nested pages (/bookings/:id/invoice …) inherit the closest parent rule.
+    const parent = Object.keys(ROUTE_ACCESS)
+      .filter((k) => clean.startsWith(k + '/'))
+      .sort((a, b) => b.length - a.length)[0];
+    if (parent) allowed = ROUTE_ACCESS[parent];
+  }
   if (!allowed) return true;
   return allowed.includes(role as StaffRole);
 }
@@ -127,7 +154,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     SUPER_ADMIN: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       // Operations — frequent first
-      { key: 'book', label: 'Bookings', path: '/bookings', icon: CalendarCheck },
+      bookingGroup,
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
       { key: 'rest', label: 'Restaurant', path: '/restaurant', icon: UtensilsCrossed, tab: 'orders' },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
@@ -158,7 +185,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     MANAGER: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       // Operations — frequent first
-      { key: 'book', label: 'Bookings', path: '/bookings', icon: CalendarCheck },
+      bookingGroup,
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
       { key: 'inv', label: 'Inventory', path: '/inventory', icon: Boxes },
       { key: 'rooms', label: 'Rooms', path: '/rooms', icon: BedDouble },
@@ -181,8 +208,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
     ],
     RECEPTIONIST: [
       { key: 'dash', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-      { key: 'book-new', label: 'New Booking', path: '/bookings', icon: ClipboardPlus, openNewBooking: true },
-      { key: 'book-all', label: 'All Bookings', path: '/bookings', icon: ListChecks },
+      bookingGroup,
       { key: 'daylong', label: 'Day Long', path: '/day-long', icon: Sun, tab: 'bookings' },
       { key: 'rooms', label: 'Room Availability', path: '/rooms', icon: BedDouble },
       { key: 'guest', label: 'Guests', path: '/guests', icon: Users },
@@ -218,10 +244,10 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
 }
 
 export function sidebarItemActive(pathname: string, search: string, item: SidebarItem): boolean {
+  // A dropdown group is active for its own path and every nested page under it.
+  if (item.children) return pathname === item.path || pathname.startsWith(item.path + '/');
   if (pathname !== item.path) return false;
   const q = new URLSearchParams(search);
-  if (item.openNewBooking) return q.get('new') === '1';
-  if (item.key === 'book-all') return q.get('new') !== '1';
   if (item.tab) return q.get('tab') === item.tab;
   if (item.path === '/restaurant' && !item.tab)
     return !q.get('tab') || q.get('tab') === 'orders';
@@ -229,7 +255,6 @@ export function sidebarItemActive(pathname: string, search: string, item: Sideba
 }
 
 export function navItemHref(item: SidebarItem): string {
-  if (item.openNewBooking) return `${item.path}?new=1`;
   if (item.tab) return `${item.path}?tab=${encodeURIComponent(item.tab)}`;
   return item.path;
 }

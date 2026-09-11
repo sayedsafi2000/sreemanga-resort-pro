@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = 'admin@resortnirjon.com';
+  const adminEmail = 'admin@pinavista.com';
   const hashed = await bcrypt.hash('Admin@12345', 10);
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
@@ -18,8 +18,8 @@ async function main() {
   });
 
   /**
-   * Four rooms; `images` / `mainImage` use the public web app paths (`public/rooms/` copies of `src/assets`).
-   * Re-run seed or sync from admin with the same `/rooms/roomN.avif` pattern so the guest site resolves them.
+   * Four rooms; `images` / `mainImage` are paths under the web app's `public/pina-vista/`
+   * (the Pina Vista architectural renders). Real photos are uploaded per room from admin.
    */
   const roomCatalog: Array<{
     name: string;
@@ -35,7 +35,7 @@ async function main() {
       price: 2500,
       capacity: 2,
       description: 'Cozy standard room with garden outlook.',
-      images: ['/rooms/room1.avif'],
+      images: ['/pina-vista/09-hill-cottage.jpg'],
     },
     {
       name: 'Deluxe Suite 201',
@@ -43,7 +43,7 @@ async function main() {
       price: 4500,
       capacity: 3,
       description: 'Spacious deluxe with natural light.',
-      images: ['/rooms/room2.avif'],
+      images: ['/pina-vista/04-brick-villa.jpg'],
     },
     {
       name: 'Family Room 301',
@@ -51,7 +51,7 @@ async function main() {
       price: 6000,
       capacity: 5,
       description: 'Ideal for families—space to spread out.',
-      images: ['/rooms/room3.avif'],
+      images: ['/pina-vista/05-cottage-row.jpg'],
     },
     {
       name: 'Tea Vista 401',
@@ -59,7 +59,7 @@ async function main() {
       price: 7200,
       capacity: 2,
       description: 'Corner suite with tea-garden views.',
-      images: ['/rooms/room4.avif'],
+      images: ['/pina-vista/12-aerial-pool.jpg'],
     },
   ];
 
@@ -345,7 +345,7 @@ async function main() {
         id: 'a1000001-0000-4000-8000-000000000060',
         category: '07_DESSERTS',
         sortOrder: 1,
-        name: 'Nirjon Mishti Tokra · রিসোর্ট মিষ্টি',
+        name: 'Pina Vista Mishti Tokra · রিসোর্ট মিষ্টি',
         price: 250,
         isAvailable: true,
         image: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=1200&q=80',
@@ -464,10 +464,10 @@ async function main() {
   }
 
   const settingKeys = [
-    { key: 'resortName', value: "Nirjon Nature's Hideout", description: 'Public site title' },
-    { key: 'site_name_bn', value: 'নির্জন নেচারস হাইডআউট', description: 'Public site title Bengali' },
+    { key: 'resortName', value: "Pina Vista", description: 'Public site title' },
+    { key: 'site_name_bn', value: 'পিনা ভিস্তা', description: 'Public site title Bengali' },
     { key: 'resortPhone', value: '01727-135520', description: 'Front desk' },
-    { key: 'resortEmail', value: 'nirjonnature@gmail.com', description: 'Inquiries' },
+    { key: 'resortEmail', value: 'info@pinavista.com', description: 'Inquiries' },
     { key: 'resortAddress', value: 'Bishamoni, Radhanagar, Sreemangal (Opposite of Bishamoni High School), Maulvi Bazar, Bangladesh', description: 'Address' },
     { key: 'resortDescription', value: 'Nature-focused resort stay with calm hospitality.', description: 'Short description for admin' },
     { key: 'checkInTime', value: '14:00', description: 'Check-in time' },
@@ -601,7 +601,7 @@ async function main() {
     }
   }
 
-  const demoStaffEmail = 'restaurant@resortnirjon.com';
+  const demoStaffEmail = 'restaurant@pinavista.com';
   await prisma.user.upsert({
     where: { email: demoStaffEmail },
     update: { name: 'Demo Restaurant Staff', role: 'RESTAURANT_STAFF' },
@@ -613,7 +613,7 @@ async function main() {
     },
   });
 
-  const demoReceptionistEmail = 'receptionist@resortnirjon.com';
+  const demoReceptionistEmail = 'receptionist@pinavista.com';
   await prisma.user.upsert({
     where: { email: demoReceptionistEmail },
     update: { name: 'Demo Receptionist', role: 'RECEPTIONIST' },
@@ -625,7 +625,7 @@ async function main() {
     },
   });
 
-  const demoHousekeepingEmail = 'housekeeping@resortnirjon.com';
+  const demoHousekeepingEmail = 'housekeeping@pinavista.com';
   await prisma.user.upsert({
     where: { email: demoHousekeepingEmail },
     update: { name: 'Demo Housekeeping', role: 'HOUSEKEEPING' },
@@ -637,7 +637,7 @@ async function main() {
     },
   });
 
-  const demoAccountantEmail = 'accountant@resortnirjon.com';
+  const demoAccountantEmail = 'accountant@pinavista.com';
   await prisma.user.upsert({
     where: { email: demoAccountantEmail },
     update: { name: 'Demo Accountant', role: 'ACCOUNTANT' },
@@ -677,7 +677,7 @@ async function main() {
     }
   }
 
-  const demoManagerEmail = 'manager@resortnirjon.com';
+  const demoManagerEmail = 'manager@pinavista.com';
   await prisma.user.upsert({
     where: { email: demoManagerEmail },
     update: { name: 'Demo Manager', role: 'MANAGER' },
@@ -749,22 +749,22 @@ async function main() {
     await prisma.siteGalleryItem.createMany({
       data: [
         {
-          imageUrl: '/gallery/scene-1.jpg',
-          alt: 'Resort grounds',
+          imageUrl: '/pina-vista/03-hillside-cottages.jpg',
+          alt: 'Hillside cottages and lily pond',
           category: 'Nature',
           sortOrder: 1,
           isActive: true,
         },
         {
-          imageUrl: '/gallery/scene-2.jpg',
-          alt: 'Tea country',
+          imageUrl: '/pina-vista/01-aerial-site.jpg',
+          alt: 'Pina Vista from the air',
           category: 'Nature',
           sortOrder: 2,
           isActive: true,
         },
         {
-          imageUrl: '/rooms/room1.avif',
-          alt: 'Guest room',
+          imageUrl: '/pina-vista/09-hill-cottage.jpg',
+          alt: 'Thatched hill cottage',
           category: 'Rooms',
           sortOrder: 3,
           isActive: true,
@@ -782,7 +782,7 @@ async function main() {
     },
     {
       key: 'nearbySectionTitle',
-      value: 'Nirjon Nature Hideout-এর আশেপাশে ঘুরার সেরা জায়গা',
+      value: 'Pina Vista-এর আশেপাশে ঘুরার সেরা জায়গা',
       description: 'Public home: nearby spots main title (BN)',
     },
     {
@@ -825,7 +825,7 @@ async function main() {
     {
       slug: 'discovering-lawachara',
       title: 'Discovering Lawachara: A Jungle Escape Near Sreemangal',
-      summary: 'Just a short drive from Resort Nirjon lies Lawachara National Park — a hidden rainforest where you can spot Hoolock gibbons, hike through lush trails, and experience the wild side of Sylhet.',
+      summary: 'Just a short drive from Pina Vista lies Lawachara National Park — a hidden rainforest where you can spot Hoolock gibbons, hike through lush trails, and experience the wild side of Sylhet.',
       content: `Lawachara National Park is one of Bangladesh's most remarkable natural treasures, located just 8-12 km from Sreemangal town in the Moulvibazar district. This semi-evergreen rainforest spans approximately 1,250 hectares and is part of the larger West Bhanugach Reserved Forest.
 
 Established as a national park in 1996 under the Wildlife Act, Lawachara is home to the western Hoolock gibbon — Bangladesh's only wild primate. These gibbons live in small groups high in the canopy, and hearing their morning calls is an unforgettable experience. Along with gibbons, you might spot Phayre's leaf monkeys, capped langurs, and over 167 plant species.
@@ -835,7 +835,7 @@ The park offers well-maintained hiking trails perfect for nature walks. Early mo
 Tips: Hire a local guide for safety, wear comfortable walking shoes, and bring a camera with good low-light performance.`,
       imageUrl: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=1200&q=80',
       category: 'Nature',
-      authorName: "Nirjon Nature's Hideout",
+      authorName: "Pina Vista",
       tags: ['lawachara', 'nature', 'hiking', 'wildlife', 'sreemangal'],
       sortOrder: 1,
       isActive: true,
@@ -854,7 +854,7 @@ Tea garden tours are available through several estates. You can drive through th
 Best time to visit: October to March for pleasant weather. Early morning offers misty views perfect for photography. Bring sun protection and comfortable footwear for garden walks.`,
       imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
       category: 'Experience',
-      authorName: "Nirjon Nature's Hideout",
+      authorName: "Pina Vista",
       tags: ['tea', 'tour', 'sreemangal', 'seven-layer-tea', 'nature'],
       sortOrder: 2,
       isActive: true,
@@ -873,7 +873,7 @@ This is a full-day trip destination. We recommend starting early morning from th
 Pack lightly: Bring water, snacks, good walking shoes, and a change of clothes if you plan to wade in the natural pools. Avoid plastics and help keep this beautiful site clean.`,
       imageUrl: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80',
       category: 'Adventure',
-      authorName: "Nirjon Nature's Hideout",
+      authorName: "Pina Vista",
       tags: ['waterfall', 'madhabkunda', 'day-trip', 'nature', 'adventure'],
       sortOrder: 3,
       isActive: true,
@@ -892,7 +892,7 @@ Sunrise and sunset offer the most dramatic views, with mist floating over the wa
 Remember: Maintain silence, stay at designated viewing points, and never disturb the birds or their nests. This is a protected area — help preserve this precious ecosystem.`,
       imageUrl: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80',
       category: 'Wildlife',
-      authorName: "Nirjon Nature's Hideout",
+      authorName: "Pina Vista",
       tags: ['birdwatching', 'baikka-beel', 'wetland', 'migratory-birds', 'nature'],
       sortOrder: 4,
       isActive: true,
@@ -912,12 +912,12 @@ HILL GOAT CURRY: The local mountain goat is prized for its lean meat. Bhuna Kacc
 
 RICE VARIETIES: Kalo Jira Polao (black cumin rice) and steamed Bashmati are local specialties.
 
-Where to eat: The local market near Sreemangal bus stand has excellent street food. For fine dining, Resort Nirjon's own restaurant offers both traditional Bangladeshi and Continental options.
+Where to eat: The local market near Sreemangal bus stand has excellent street food. For fine dining, Pina Vista's own restaurant offers both traditional Bangladeshi and Continental options.
 
 Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM. Many shops close early in the evening.`,
       imageUrl: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80',
       category: 'Food',
-      authorName: "Nirjon Nature's Hideout",
+      authorName: "Pina Vista",
       tags: ['food', 'tea', 'culinary', 'local', 'sreemangal'],
       sortOrder: 5,
       isActive: true,
@@ -1143,28 +1143,57 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
     }
   }
 
+  // Share tiers: fixed-price units. Profit is split by paid-up capital.
+  const goldTier = await prisma.shareTier.upsert({
+    where: { code: 'GOLD' },
+    update: {},
+    create: { code: 'GOLD', name: 'Gold', unitPrice: 150000, sortOrder: 1 },
+  });
+  const platinumTier = await prisma.shareTier.upsert({
+    where: { code: 'PLATINUM' },
+    update: {},
+    create: { code: 'PLATINUM', name: 'Platinum', unitPrice: 300000, sortOrder: 2 },
+  });
+
   if ((await prisma.shareholder.count()) === 0) {
     const shUser = await prisma.user.upsert({
-      where: { email: 'shareholder@resortnirjon.com' },
+      where: { email: 'shareholder@pinavista.com' },
       update: { role: 'SHAREHOLDER', name: 'Demo Shareholder' },
       create: {
-        email: 'shareholder@resortnirjon.com',
+        email: 'shareholder@pinavista.com',
         name: 'Demo Shareholder',
         password: await bcrypt.hash('Share@12345', 10),
         role: 'SHAREHOLDER',
       },
     });
-    await prisma.shareholder.create({
+    const demoShareholder = await prisma.shareholder.create({
       data: {
         userId: shUser.id,
         name: 'Demo Shareholder',
         phone: '01900000000',
-        email: 'shareholder@resortnirjon.com',
-        shareType: 'PERCENTAGE',
-        shareValue: 50,
-        investmentAmount: 500000,
+        email: 'shareholder@pinavista.com',
       },
     });
+    // 1 Platinum + 1 Gold, fully paid → ৳450,000 paid-up capital.
+    for (const { tier, quantity } of [
+      { tier: platinumTier, quantity: 1 },
+      { tier: goldTier, quantity: 1 },
+    ]) {
+      const total = tier.unitPrice * quantity;
+      await prisma.shareHolding.create({
+        data: {
+          shareholderId: demoShareholder.id,
+          tierId: tier.id,
+          quantity,
+          unitPrice: tier.unitPrice,
+          totalPrice: total,
+          paidAmount: total,
+          status: 'ACTIVE',
+          activatedAt: new Date(),
+          payments: { create: { amount: total, method: 'BANK_TRANSFER', notes: 'Seed data' } },
+        },
+      });
+    }
   }
 
   // ── Sample vouchers ────────────────────────────────────────────────────────
@@ -1176,7 +1205,7 @@ Best times: Breakfast early at tea stalls, lunch around noon, and dinner by 8 PM
   if ((await prisma.voucher.count()) === 0) {
     const receptionist = await prisma.user.findUnique({ where: { email: demoReceptionistEmail } });
     const shareholder = await prisma.shareholder.findFirst({
-      where: { email: 'shareholder@resortnirjon.com' },
+      where: { email: 'shareholder@pinavista.com' },
     });
     const poolProduct = await prisma.dayLongProduct.findFirst({
       where: { name: 'Swimming Pool Day Pass' },

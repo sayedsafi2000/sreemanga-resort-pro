@@ -8,7 +8,7 @@ import { getRooms, getSettings } from '@/lib/resort-api';
 
 export const metadata: Metadata = {
   title: 'Book your stay',
-  description: 'Choose dates, guest count, and room—submit a booking request for Nirjon Nature Escape.',
+  description: 'Choose dates, guest count, and room—submit a booking request for Pina Vista.',
 };
 
 export default async function BookingPage() {
@@ -17,6 +17,7 @@ export default async function BookingPage() {
   const isT2 = settings.activeTemplate === 'template-two' || settings.activeTemplate === 'template-three';
   const paymentAccounts = {
     bkashNumber: settings.bkashNumber,
+    nagadNumber: settings.nagadNumber,
     bankAccountName: settings.bankAccountName,
     bankAccountNumber: settings.bankAccountNumber,
     bankName: settings.bankName,

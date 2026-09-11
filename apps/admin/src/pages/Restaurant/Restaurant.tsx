@@ -103,14 +103,18 @@ const Restaurant: React.FC = () => {
       setOrders(unwrapList(oRes, ['orders']));
       setRooms(unwrapList(rRes, ['rooms']));
     } catch (err) { console.error(err); }
-    // Staff list is gated to SUPER_ADMIN only — fail quietly for other roles.
-    try {
-      const uRes = await api.get('/users');
-      const list = (unwrapList(uRes, ['users']) as Array<{ id: string; name: string; role: string }>).filter(
-        (u) => ['MANAGER', 'RESTAURANT_STAFF', 'RECEPTIONIST'].includes(u.role)
-      );
-      setStaff(list);
-    } catch {
+    // Staff picker (order assignment): light user list for SUPER_ADMIN / MANAGER; other roles don't get one.
+    if (user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') {
+      try {
+        const uRes = await api.get('/staff/user-options');
+        const list = (unwrapList(uRes, ['users']) as Array<{ id: string; name: string; role: string }>).filter(
+          (u) => ['MANAGER', 'RESTAURANT_STAFF', 'RECEPTIONIST'].includes(u.role)
+        );
+        setStaff(list);
+      } catch {
+        setStaff([]);
+      }
+    } else {
       setStaff([]);
     }
   };

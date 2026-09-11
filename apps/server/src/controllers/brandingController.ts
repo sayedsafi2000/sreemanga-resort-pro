@@ -25,12 +25,12 @@ export const getBrandingSettings = async (
     });
 
     const brandingSettings: Record<string, string> = {
-      site_name: "Nirjon Nature's Hideout",
+      site_name: "Pina Vista",
       site_tagline: 'A Nature Resort',
       site_logo: '',
       site_favicon: '',
       contact_phone: '+880 XXX-XXXXXX',
-      contact_email: 'info@resortnirjon.com',
+      contact_email: 'info@pinavista.com',
       contact_location: 'Sreemangal, Bangladesh',
     };
 

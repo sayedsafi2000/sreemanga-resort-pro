@@ -10,7 +10,7 @@ import { getBlogs, getSettings } from '@/lib/resort-api';
 export const metadata: Metadata = {
   title: 'Travel Blog — Stories from Sreemangal',
   description:
-    "Read travel guides, nature tips, and local food recommendations from Nirjon Nature's Hideout in Sreemangal, Sylhet.",
+    "Read travel guides, nature tips, and local food recommendations from Pina Vista in Sreemangal, Sylhet.",
 };
 
 export default async function BlogsPage() {

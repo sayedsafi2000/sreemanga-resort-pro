@@ -17,8 +17,8 @@ export type GuestPick = {
     name: string;
     phone?: string | null;
     email?: string | null;
-    shareType?: string;
-    shareValue?: number;
+    shareLabel?: string;
+    activeCapital?: number;
   } | null;
   user?: {
     id: string;
@@ -39,9 +39,7 @@ type Props = {
 function shareLabel(g: GuestPick): string | null {
   const sh = g.shareholder;
   if (!sh) return null;
-  if (sh.shareType === 'PERCENTAGE') return `Share ${sh.shareValue ?? 0}%`;
-  if (sh.shareType === 'FIXED') return `Share ৳${sh.shareValue ?? 0}`;
-  return 'Shareholder';
+  return sh.shareLabel && sh.shareLabel !== 'No shares' ? `Shares: ${sh.shareLabel}` : 'Shareholder';
 }
 
 function secondaryLine(g: GuestPick): string {

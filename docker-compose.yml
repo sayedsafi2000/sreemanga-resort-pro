@@ -14,7 +14,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 #
 # Then seed (once): docker compose run --rm api npx prisma db seed
-# Login (after seed): admin@resortnirjon.com / Admin@12345
+# Login (after seed): admin@pinavista.com / Admin@12345
 
 services:
   db:
@@ -50,6 +50,7 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       # Public web origin for Stripe success/cancel redirects, e.g. https://your-web-host
       WEB_PUBLIC_URL: ${WEB_PUBLIC_URL}
+      ADMIN_URL: ${ADMIN_URL:-http://localhost:8001}
       # Email (optional) — set to enable OTP + confirmation emails in production.
       EMAIL_FROM: ${EMAIL_FROM:-}
       RESORT_NAME: ${RESORT_NAME:-}
@@ -58,6 +59,7 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
     depends_on:
       db:
         condition: service_healthy

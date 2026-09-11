@@ -85,7 +85,7 @@ export default function Navbar({ resortName, resortNameBn = '', phone, email, lo
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1 text-forest-400">
               <Leaf className="h-3 w-3 text-forest-400" aria-hidden />
-              <span className="text-[11px] uppercase tracking-widest text-forest-400">Eco Resort · Sreemangal</span>
+              <span className="text-[11px] uppercase tracking-widest text-forest-400">Tea &amp; Hill Resort · Sreemangal</span>
             </span>
             <span className="h-3 w-px bg-forest-700" />
             <LanguageToggle />
@@ -117,7 +117,7 @@ export default function Navbar({ resortName, resortNameBn = '', phone, email, lo
                 src={logoSrc}
                 alt={`${displayName} logo`}
                 fill
-                className="object-cover"
+                className="object-contain p-1"
                 sizes="40px"
               />
             </span>
@@ -136,7 +136,7 @@ export default function Navbar({ resortName, resortNameBn = '', phone, email, lo
                   lookSolid ? 'text-forest-500' : 'text-forest-200/80'
                 )}
               >
-                Eco Resort
+                Tea &amp; Hill Resort
               </p>
             </div>
             {/* Mobile-only name */}

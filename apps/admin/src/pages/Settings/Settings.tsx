@@ -3,11 +3,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Save, Building2, Phone, Clock, BookOpen, UtensilsCrossed,
-  Map, CreditCard, Share2, MessageSquareQuote,
-  CheckCircle2, AlertCircle, ChevronDown, Loader2, Globe,
-} from 'lucide-react';
+import { Save, Building2, Phone, Clock, BookOpen, UtensilsCrossed, Map, CreditCard, Share2, MessageSquareQuote, CheckCircle2, AlertCircle, ChevronDown, Loader2, Globe, FileText } from 'lucide-react';
 
 type FieldType = 'text' | 'textarea' | 'url' | 'email' | 'time' | 'tel';
 
@@ -37,7 +33,7 @@ const SECTIONS: Section[] = [
     icon: <Building2 className="h-4 w-4" />,
     color: 'bg-violet-100 text-violet-600',
     fields: [
-      { key: 'resortName', label: 'Resort Name', placeholder: "Nirjon Nature's Hideout" },
+      { key: 'resortName', label: 'Resort Name', placeholder: "Pina Vista" },
       { key: 'tagline', label: 'Tagline', placeholder: 'Nature retreat in Sreemangal' },
       { key: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'https://…/logo.png', hint: 'Public URL to header logo image.' },
       { key: 'heroImage', label: 'Hero Image URL', type: 'url', placeholder: 'https://…/hero.jpg', hint: 'Used as homepage hero / OG share image.' },
@@ -64,6 +60,17 @@ const SECTIONS: Section[] = [
     fields: [
       { key: 'checkInTime', label: 'Check-in Time', type: 'time' },
       { key: 'checkOutTime', label: 'Check-out Time', type: 'time' },
+    ],
+  },
+  {
+    id: 'invoice',
+    title: 'Invoice & Policy',
+    description: 'Printed on every booking invoice',
+    icon: <FileText className="h-4 w-4" />,
+    color: 'bg-rose-100 text-rose-600',
+    fields: [
+      { key: 'invoiceNote', label: 'Invoice notice', placeholder: 'e.g. AC and geyser may not work during load-shedding.', hint: 'Highlighted line under the resort name on the invoice.' },
+      { key: 'cancellationPolicy', label: 'Cancellation policy', type: 'textarea', placeholder: 'One clause per line…', hint: 'Each line becomes a bullet on the invoice.' },
     ],
   },
   {
@@ -106,7 +113,8 @@ const SECTIONS: Section[] = [
     color: 'bg-pink-100 text-pink-600',
     fields: [
       { key: 'bkashNumber', label: 'bKash Number', type: 'tel', placeholder: '017XXXXXXXX' },
-      { key: 'bankAccountName', label: 'Bank Account Name', placeholder: 'Resort Nirjon Ltd.' },
+      { key: 'nagadNumber', label: 'Nagad Number', type: 'tel', placeholder: '018XXXXXXXX' },
+      { key: 'bankAccountName', label: 'Bank Account Name', placeholder: 'Pina Vista Ltd.' },
       { key: 'bankAccountNumber', label: 'Bank Account Number', placeholder: '1234567890' },
       { key: 'bankName', label: 'Bank Name', placeholder: 'Dutch-Bangla Bank' },
       { key: 'bankBranch', label: 'Bank Branch', placeholder: 'Sreemangal Branch' },
@@ -297,11 +305,15 @@ const SectionCard: React.FC<SectionCardProps> = ({ section, settings, onChange, 
               </div>
             </div>
           ) : section.id === 'payment' ? (
-            /* Payment: bkash full width + bank 2-col */
+            /* Payment: mobile wallets (bKash, Nagad) 2-col + bank 2-col */
             <div className="space-y-4">
-              <FieldRow field={section.fields[0]} value={settings[section.fields[0].key] ?? ''} onChange={onChange} />
               <div className="grid gap-4 sm:grid-cols-2">
-                {section.fields.slice(1).map((field) => (
+                {section.fields.slice(0, 2).map((field) => (
+                  <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} onChange={onChange} />
+                ))}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {section.fields.slice(2).map((field) => (
                   <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} onChange={onChange} />
                 ))}
               </div>

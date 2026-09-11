@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
+import { extractEntityId } from '../utils/entityId';
 
 /**
  * Audit middleware — records successful mutations (non-GET, 2xx) fire-and-forget.
@@ -26,7 +27,7 @@ export function audit(entity: string, actionOverride?: string) {
             userRole: user?.role ?? null,
             action,
             entity,
-            entityId: req.params?.id ?? null,
+            entityId: extractEntityId(req.originalUrl, req.params?.id),
             method: req.method,
             path: req.originalUrl?.split('?')[0] ?? null,
             ipAddress: req.ip ?? null,

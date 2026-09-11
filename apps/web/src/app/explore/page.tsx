@@ -9,7 +9,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Explore around Sreemangal',
-  description: 'Places to visit near Nirjon Nature Hideout — Lawachara, tea gardens, waterfalls and more.',
+  description: 'Places to visit near Pina Vista — Lawachara, tea gardens, waterfalls and more.',
 };
 
 export default async function ExploreIndexPage() {

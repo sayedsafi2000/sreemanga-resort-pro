@@ -6,11 +6,12 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+// Pina Vista renders served from /public — no third-party image hosts.
 const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=85',
-  'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=85',
-  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1920&q=85',
-  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=85',
+  '/pina-vista/03-hillside-cottages.jpg',
+  '/pina-vista/01-aerial-site.jpg',
+  '/pina-vista/13-garden-driveway.jpg',
+  '/pina-vista/06-aerial-cottages-pool.jpg',
 ];
 
 interface Props {

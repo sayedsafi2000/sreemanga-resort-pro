@@ -4,7 +4,7 @@ import { Users, ArrowRight } from 'lucide-react';
 import type { Room } from '@/types/resort';
 import { ROOM_TYPE_LABEL } from '@/lib/room-labels';
 import { cn } from '@/lib/utils';
-import fallbackRoomPhoto from '@/assets/room1.avif';
+import fallbackRoomPhoto from '@public/pina-vista/09-hill-cottage.jpg';
 
 type Props = {
   room: Room;

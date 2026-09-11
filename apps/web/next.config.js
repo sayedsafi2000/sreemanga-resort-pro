@@ -27,6 +27,23 @@ const nextConfig = {
     ],
   },
 
+  // Rooms/gallery rows created by the old seed still point at the Nirjon-era
+  // files (/rooms/*.avif, /gallery/scene-*.jpg). Those files are gone; serve the
+  // matching Pina Vista render instead so existing DB records don't 404.
+  async rewrites() {
+    return [
+      { source: '/rooms/room1.avif', destination: '/pina-vista/09-hill-cottage.jpg' },
+      { source: '/rooms/room2.avif', destination: '/pina-vista/04-brick-villa.jpg' },
+      { source: '/rooms/room3.avif', destination: '/pina-vista/05-cottage-row.jpg' },
+      { source: '/rooms/room4.avif', destination: '/pina-vista/12-aerial-pool.jpg' },
+      { source: '/rooms/room5.avif', destination: '/pina-vista/08-aerial-villa.jpg' },
+      { source: '/gallery/scene-1.jpg', destination: '/pina-vista/03-hillside-cottages.jpg' },
+      { source: '/gallery/scene-2.jpg', destination: '/pina-vista/01-aerial-site.jpg' },
+      { source: '/gallery/scene-3.jpg', destination: '/pina-vista/13-garden-driveway.jpg' },
+      { source: '/gallery/scene-4.jpg', destination: '/pina-vista/11-amphitheatre-hill.jpg' },
+    ];
+  },
+
   // Long-cache the immutable build artifacts; Next hashes the filenames so this is safe.
   async headers() {
     return [

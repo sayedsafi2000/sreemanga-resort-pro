@@ -1,17 +1,23 @@
 import { Router } from 'express';
 import {
+  listTiers,
+  updateTier,
   listShareholders,
   getShareholder,
   createShareholder,
   updateShareholder,
   deleteShareholder,
+  addHolding,
+  addHoldingPayment,
+  cancelHolding,
+  deleteHolding,
 } from '../controllers/shareholderController';
 import {
   listDistributions,
   getDistribution,
   createDistribution,
   recalcDistribution,
-  setCustomShares,
+  setShareOverrides,
   approveDistribution,
   distributeDistribution,
   cancelDistribution,
@@ -24,17 +30,27 @@ const DIST_WRITE = ['SUPER_ADMIN', 'MANAGER'] as const;
 
 const router = Router();
 
-// Distributions (before /:id capture on shareholders is not an issue — separate paths)
+// Share tiers (Gold / Platinum): prices, caps, sold/available, capital totals.
+router.get('/tiers', roleCheck([...VIEW]), listTiers);
+router.patch('/tiers/:id', roleCheck([...ADMIN]), updateTier);
+
+// Profit distributions.
 router.get('/distributions', roleCheck([...VIEW]), listDistributions);
 router.get('/distributions/:id', roleCheck([...VIEW]), getDistribution);
 router.post('/distributions', roleCheck([...DIST_WRITE]), createDistribution);
 router.post('/distributions/:id/recalculate', roleCheck([...DIST_WRITE]), recalcDistribution);
-router.post('/distributions/:id/custom-shares', roleCheck([...DIST_WRITE]), setCustomShares);
+router.post('/distributions/:id/overrides', roleCheck([...DIST_WRITE]), setShareOverrides);
 router.post('/distributions/:id/approve', roleCheck([...ADMIN]), approveDistribution);
 router.post('/distributions/:id/distribute', roleCheck([...ADMIN]), distributeDistribution);
 router.post('/distributions/:id/cancel', roleCheck([...ADMIN]), cancelDistribution);
 
-// Shareholders
+// Holdings (units bought by a shareholder) — instalments, cancel/refund, delete.
+router.post('/holdings/:holdingId/payments', roleCheck([...ADMIN]), addHoldingPayment);
+router.post('/holdings/:holdingId/cancel', roleCheck([...ADMIN]), cancelHolding);
+router.delete('/holdings/:holdingId', roleCheck([...ADMIN]), deleteHolding);
+router.post('/:id/holdings', roleCheck([...ADMIN]), addHolding);
+
+// Shareholders.
 router.get('/', roleCheck(['SUPER_ADMIN', 'MANAGER']), listShareholders);
 router.get('/:id', roleCheck(['SUPER_ADMIN', 'MANAGER']), getShareholder);
 router.post('/', roleCheck([...ADMIN]), createShareholder);

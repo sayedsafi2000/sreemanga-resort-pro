@@ -88,7 +88,7 @@ export default function Footer({
           <div className="flex items-center gap-2 text-forest-400">
             <Leaf className="h-4 w-4 flex-shrink-0 text-forest-500" aria-hidden />
             <span className="text-xs font-semibold uppercase tracking-[0.22em] text-forest-400">
-              {t('Eco Resort · Sreemangal, Bangladesh', 'ইকো রিসোর্ট · শ্রীমঙ্গল, বাংলাদেশ')}
+              {t('Tea & Hill Resort · Sreemangal, Bangladesh', 'টি অ্যান্ড হিল রিসোর্ট · শ্রীমঙ্গল, বাংলাদেশ')}
             </span>
           </div>
           <Link
@@ -112,7 +112,7 @@ export default function Footer({
                   src={logoSrc}
                   alt={`${displayName} logo`}
                   fill
-                  className="object-cover"
+                  className="object-contain p-1.5"
                   sizes="48px"
                 />
               </span>

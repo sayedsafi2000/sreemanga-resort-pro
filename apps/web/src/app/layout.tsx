@@ -10,21 +10,22 @@ import JsonLd from '@/components/seo/JsonLd';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { getSettings } from '@/lib/resort-api';
 import { siteUrl } from '@/lib/site';
-import logo from '@/assets/logo.jpg';
+import logoMark from '@/assets/logo-mark.png';
+import logoFull from '@/assets/logo-full.png';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'Nirjon Nature Escape | Sreemangal',
-    template: '%s | Nirjon Nature Escape',
+    default: 'Pina Vista | Sreemangal',
+    template: '%s | Pina Vista',
   },
   description:
     'Peaceful eco-friendly resort near Sreemangal—tea gardens, green trails, and calm hospitality. Book your stay in nature.',
   openGraph: {
     type: 'website',
     locale: 'en_BD',
-    siteName: 'Nirjon Nature Escape',
-    title: 'Nirjon Nature Escape | Sreemangal',
+    siteName: 'Pina Vista',
+    title: 'Pina Vista | Sreemangal',
     description:
       'Peaceful eco-friendly resort—tea gardens, swimming pool, and seasonal dining.',
   },
@@ -39,6 +40,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const settings = await getSettings();
   const isT2 = settings.activeTemplate === 'template-two';
   const isT3 = settings.activeTemplate === 'template-three';
+  // Admin → Settings → Logo URL overrides the bundled pineapple mark.
+  const logoSrc = settings.logoUrl || logoMark.src;
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -54,7 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       addressCountry: 'BD',
     },
     image: settings.heroImage,
-    logo: `${siteUrl}${logo.src}`,
+    logo: `${siteUrl}${logoFull.src}`,
   };
 
   return (
@@ -76,7 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               resortNameBn={settings.resortNameBn}
               phone={settings.phone}
               email={settings.email}
-              logoSrc={logo.src}
+              logoSrc={logoSrc}
             />
           ) : isT2 ? (
             <NavbarT2
@@ -84,7 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               resortNameBn={settings.resortNameBn}
               phone={settings.phone}
               email={settings.email}
-              logoSrc={logo.src}
+              logoSrc={logoSrc}
             />
           ) : (
             <Navbar
@@ -92,16 +95,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               resortNameBn={settings.resortNameBn}
               phone={settings.phone}
               email={settings.email}
-              logoSrc={logo.src}
+              logoSrc={logoSrc}
             />
           )}
           <main className="min-h-screen">{children}</main>
           {isT3 ? (
-            <FooterT3 settings={settings} logoSrc={logo.src} />
+            <FooterT3 settings={settings} logoSrc={logoSrc} />
           ) : isT2 ? (
-            <FooterT2 settings={settings} logoSrc={logo.src} />
+            <FooterT2 settings={settings} logoSrc={logoSrc} />
           ) : (
-            <Footer settings={settings} logoSrc={logo.src} />
+            <Footer settings={settings} logoSrc={logoSrc} />
           )}
         </LanguageProvider>
       </body>

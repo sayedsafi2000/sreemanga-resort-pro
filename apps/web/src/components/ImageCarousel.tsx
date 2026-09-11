@@ -12,7 +12,7 @@ type Props = {
 };
 
 export default function ImageCarousel({ images, alt, className }: Props) {
-  const slides = images.length ? images : ['/rooms/room1.avif'];
+  const slides = images.length ? images : ['/pina-vista/09-hill-cottage.jpg'];
   const [i, setI] = useState(0);
   const prev = () => setI((x) => (x - 1 + slides.length) % slides.length);
   const next = () => setI((x) => (x + 1) % slides.length);

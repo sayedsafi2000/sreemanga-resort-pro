@@ -402,3 +402,35 @@ p {
   animation: marquee 22s linear infinite;
 }
 
+
+/* ── Booking calendar (react-day-picker v9) ───────────────────────────────
+   Theme via the library's CSS variables so its own layout styles keep working. */
+/* `.rdp-root.pv-cal` outranks the library's own `.rdp-root` variable defaults. */
+.rdp-root.pv-cal {
+  --rdp-accent-color: #527252;
+  --rdp-accent-background-color: #c7d7c7;
+  --rdp-range_middle-background-color: #e3ebe3;
+  --rdp-range_start-color: #ffffff;
+  --rdp-range_end-color: #ffffff;
+  --rdp-day-width: 2.5rem;
+  --rdp-day-height: 2.5rem;
+  --rdp-disabled-opacity: 0.35;
+  --rdp-today-color: #325632;
+  color: #44403c;
+  font-size: 0.875rem;
+}
+.pv-cal .rdp-caption_label { font-weight: 600; }
+.pv-cal .rdp-weekday { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.pv-cal .rdp-day_button { font-weight: 500; }
+.pv-cal .rdp-disabled .rdp-day_button { text-decoration: line-through; }
+.pv-cal .rdp-day_button:hover:not([disabled]) { background: var(--rdp-range_middle-background-color); }
+.rdp-root.pv-cal-dark {
+  --rdp-accent-color: #8aad8a;
+  --rdp-accent-background-color: rgba(37, 63, 37, 0.75);
+  --rdp-range_middle-background-color: rgba(37, 63, 37, 0.6);
+  --rdp-range_start-color: #0a130b;
+  --rdp-range_end-color: #0a130b;
+  --rdp-today-color: #a6c2a6;
+  color: #c7d7c7;
+}
+.pv-cal-dark .rdp-chevron { fill: #a6c2a6; }

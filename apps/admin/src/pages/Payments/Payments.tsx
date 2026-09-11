@@ -220,7 +220,7 @@ const Payments: React.FC = () => {
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h3 className="text-base font-semibold text-foreground">Transaction History</h3>
             <span className="text-xs text-muted-foreground">{payments.length} records</span>

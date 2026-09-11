@@ -12,12 +12,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import MyVouchersPanel, { type MineVoucher } from '@/components/MyVouchersPanel';
 
 type Summary = {
-  name: string; shareType: string; shareValue: number; investmentAmount: number;
-  totalReceived: number; pending: number; distributionsCount: number;
+  name: string; isActive: boolean; units: Record<string, number>; totalUnits: number;
+  activeCapital: number; committedCapital: number; paidTotal: number; dueTotal: number; pendingHoldings: number;
+  totalCapital: number; ownershipPercent: number; totalReceived: number; pending: number; distributionsCount: number;
+};
+type Holding = {
+  id: string; quantity: number; unitPrice: number; totalPrice: number; paidAmount: number;
+  status: 'PENDING_PAYMENT' | 'ACTIVE' | 'CANCELLED'; purchaseDate: string;
+  tier: { code: string; name: string };
 };
 type Share = {
-  id: string; amount: number; status: string; paidDate?: string | null;
-  distribution: { periodLabel: string; status: string };
+  id: string; amount: number; sharePercent?: number; status: string; paidDate?: string | null;
+  distribution: { periodLabel: string; status: string; totalProfit?: number };
+};
+const HOLDING_STATUS: Record<string, { label: string; cls: string }> = {
+  ACTIVE: { label: 'Active', cls: 'bg-green-100 text-green-800' },
+  PENDING_PAYMENT: { label: 'Instalments due', cls: 'bg-amber-100 text-amber-800' },
+  CANCELLED: { label: 'Cancelled', cls: 'bg-red-100 text-red-700' },
 };
 
 const fmt = (n: number) => `৳${(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -30,6 +41,7 @@ const STATUS_COLOR: Record<string, string> = {
 const ShareholderPortal: React.FC = () => {
   const { user } = useAuth();
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [holdings, setHoldings] = useState<Holding[]>([]);
   const [shares, setShares] = useState<Share[]>([]);
   const [vouchers, setVouchers] = useState<MineVoucher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +57,7 @@ const ShareholderPortal: React.FC = () => {
           api.get('/shareholder/vouchers').catch(() => ({ data: { vouchers: [] } })),
         ]);
         setSummary(s.data?.summary ?? null);
+        setHoldings(unwrapList<Holding>(s, ['holdings']));
         setShares(unwrapList<Share>(sh, ['shares']));
         setVouchers(unwrapList<MineVoucher>(v, ['vouchers']));
       } catch (e: any) {
@@ -72,13 +85,9 @@ const ShareholderPortal: React.FC = () => {
     );
   }
 
-  const shareLabel = summary
-    ? summary.shareType === 'PERCENTAGE'
-      ? `${summary.shareValue}%`
-      : summary.shareType === 'FIXED'
-        ? `${fmt(summary.shareValue)} fixed`
-        : 'Custom'
-    : '—';
+  const unitsLabel = summary && Object.keys(summary.units).length
+    ? Object.entries(summary.units).map(([code, qty]) => `${qty} ${holdings.find((h) => h.tier.code === code)?.tier.name ?? code}`).join(' · ')
+    : 'No shares yet';
 
   return (
     <div className="space-y-6">
@@ -93,11 +102,48 @@ const ShareholderPortal: React.FC = () => {
           Your position
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Total Investment" value={fmt(summary?.investmentAmount ?? 0)} />
-          <Stat label="Total Received" value={fmt(summary?.totalReceived ?? 0)} accent="text-green-700" />
-          <Stat label="Pending" value={fmt(summary?.pending ?? 0)} accent="text-amber-700" />
-          <Stat label="Your Share" value={shareLabel} />
+          <Stat label="Your shares" value={unitsLabel} />
+          <Stat label="Paid-up capital" value={fmt(summary?.activeCapital ?? 0)} />
+          <Stat label="Ownership" value={`${(summary?.ownershipPercent ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`} accent="text-primary" />
+          <Stat label="Received so far" value={fmt(summary?.totalReceived ?? 0)} accent="text-green-700" />
         </div>
+        {(summary?.dueTotal ?? 0) > 0 && (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {fmt(summary!.dueTotal)} of instalments still due. Shares start earning profit once fully paid.
+          </p>
+        )}
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="mb-3 font-semibold">Your share units</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tier</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Paid</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Bought</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {holdings.map((h) => (
+                  <TableRow key={h.id} className={h.status === 'CANCELLED' ? 'opacity-60' : ''}>
+                    <TableCell className="font-medium">{h.tier.name} <span className="text-xs text-muted-foreground">@ {fmt(h.unitPrice)}</span></TableCell>
+                    <TableCell className="text-right tabular-nums">{h.quantity}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(h.totalPrice)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(h.paidAmount)}</TableCell>
+                    <TableCell><Badge className={HOLDING_STATUS[h.status]?.cls}>{HOLDING_STATUS[h.status]?.label ?? h.status}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{new Date(h.purchaseDate).toLocaleDateString()}</TableCell>
+                  </TableRow>
+                ))}
+                {holdings.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No share units on record yet.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </section>
 
       <section className="space-y-3">
@@ -123,6 +169,7 @@ const ShareholderPortal: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Period</TableHead>
+                  <TableHead className="text-right">Your share</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Paid Date</TableHead>
@@ -132,6 +179,7 @@ const ShareholderPortal: React.FC = () => {
                 {shares.map((s) => (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.distribution.periodLabel}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{s.sharePercent != null ? `${s.sharePercent.toLocaleString(undefined, { maximumFractionDigits: 2 })}%` : '—'}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(s.amount)}</TableCell>
                     <TableCell>
                       <Badge className={STATUS_COLOR[s.status] ?? 'bg-gray-100 text-gray-700'}>
@@ -145,7 +193,7 @@ const ShareholderPortal: React.FC = () => {
                 ))}
                 {shares.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No distributions yet. When profit is shared, it will appear here.
                     </TableCell>
                   </TableRow>

@@ -47,12 +47,12 @@ export default function FooterT2({
           <div>
             <Link href="/" className="flex items-center gap-3">
               <span className="relative h-10 w-10 shrink-0 overflow-hidden border border-earth-400/30">
-                <Image src={logoSrc} alt={resortName} fill className="object-cover" sizes="40px" />
+                <Image src={logoSrc} alt={resortName} fill className="object-contain p-0.5" sizes="40px" />
               </span>
               <div>
                 <p className="font-display text-base font-semibold text-white">{resortName}</p>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-earth-400/70">
-                  Eco Resort · Sreemangal
+                  Tea &amp; Hill Resort · Sreemangal
                 </p>
               </div>
             </Link>

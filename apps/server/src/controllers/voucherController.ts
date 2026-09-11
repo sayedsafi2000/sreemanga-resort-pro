@@ -166,7 +166,7 @@ export const listVouchers = async (req: Request, res: Response, next: NextFuncti
     // Lookup vouchers available to a person (Guest / User / Shareholder by email)
     if (emailStr) {
       const identities = await resolveAssigneeIdentities(prisma, { guestEmail: emailStr });
-      let vouchers = await findVouchersForIdentities(prisma, identities, {
+      const vouchers = await findVouchersForIdentities(prisma, identities, {
         includeAllGuests: true,
       });
 

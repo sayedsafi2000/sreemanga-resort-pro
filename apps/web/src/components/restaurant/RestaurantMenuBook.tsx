@@ -70,7 +70,7 @@ export default function RestaurantMenuBook({ items }: Props) {
                   <span className="h-px w-10 bg-gradient-to-l from-transparent to-amber-800/50 sm:w-14" />
                 </div>
                 <p className="font-display text-xs font-semibold uppercase tracking-[0.38em] text-forest-800 sm:text-sm">
-                  Nirjon · Mountain kitchen
+                  Pina Vista · Mountain kitchen
                 </p>
                 <h2 className="mt-3 font-display text-[2.1rem] font-semibold leading-[1.08] tracking-tight text-stone-900 sm:text-5xl md:text-[3.1rem]">
                   Menu Book

@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mountain, Loader2, UserPlus, PieChart } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import logoMark from '@/assets/logo-mark.png';
 
 const REMEMBER_KEY = 'resort_admin_remember_email';
 
@@ -119,7 +120,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ audience }) => {
   const glow = isShareholder
     ? 'bg-[radial-gradient(circle_at_20%_20%,rgba(217,70,239,0.22),transparent_40%),radial-gradient(circle_at_80%_15%,rgba(147,51,234,0.18),transparent_38%)]'
     : 'bg-[radial-gradient(circle_at_20%_20%,rgba(37,99,235,0.22),transparent_40%),radial-gradient(circle_at_80%_15%,rgba(79,70,229,0.16),transparent_38%)]';
-  const iconWrap = isShareholder ? 'bg-fuchsia-600 shadow-fuchsia-600/30' : 'bg-primary shadow-primary/30';
+  const iconWrap = isShareholder ? 'shadow-fuchsia-600/30 ring-2 ring-fuchsia-500/40' : 'shadow-primary/30 ring-2 ring-primary/40';
   const chip = isShareholder ? 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700' : 'border-blue-200 bg-blue-50 text-blue-700';
   const otherHref = isShareholder ? '/login' : '/shareholder-login';
   const otherLabel = isShareholder ? 'Staff login' : 'Shareholder login';
@@ -133,14 +134,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ audience }) => {
             <div className={`mx-auto inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${chip}`}>
               {isShareholder ? 'Shareholder Portal' : mode === 'login' ? 'Welcome back' : 'Create account'}
             </div>
-            <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg ${iconWrap}`}>
-              {isShareholder ? <PieChart className="h-9 w-9 text-white" />
-                : mode === 'login' ? <Mountain className="h-9 w-9 text-white" />
-                : <UserPlus className="h-9 w-9 text-white" />}
+            <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-black shadow-lg ${iconWrap}`}>
+              <img src={logoMark} alt="Pina Vista" className="h-16 w-16 object-contain" />
             </div>
             <div className="space-y-1">
               <CardTitle className="text-3xl font-bold tracking-tight text-slate-900">
-                {isShareholder ? 'Shareholder Login' : mode === 'login' ? 'Resort Admin' : 'Register'}
+                {isShareholder ? 'Shareholder Login' : mode === 'login' ? 'Pina Vista Admin' : 'Register'}
               </CardTitle>
               <CardDescription className="text-sm text-slate-500">
                 {isShareholder
@@ -160,7 +159,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ audience }) => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder={isShareholder ? 'you@example.com' : 'admin@resortnirjon.com'}
+                    placeholder={isShareholder ? 'you@example.com' : 'admin@pinavista.com'}
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setFieldErrors((f) => ({ ...f, email: undefined })); }}
                     disabled={loading}
@@ -249,7 +248,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ audience }) => {
                   <Input
                     id="regEmail"
                     type="email"
-                    placeholder="staff@resortnirjon.com"
+                    placeholder="staff@pinavista.com"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setFieldErrors((f) => ({ ...f, email: undefined })); }}
                     disabled={loading}

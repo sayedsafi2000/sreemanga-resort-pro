@@ -36,7 +36,7 @@ router.get('/availability', checkAvailability);
 router.get('/bookings', listBookings);
 router.get('/bookings/:id', getBooking);
 router.post('/bookings', roleCheck([...BOOK]), createBooking);
-router.patch('/bookings/:id', updateBooking);
+router.patch('/bookings/:id', roleCheck([...BOOK]), updateBooking);
 router.delete('/bookings/:id', roleCheck(['SUPER_ADMIN']), deleteBooking);
 router.get('/bookings/:id/payments', roleCheck([...PAY]), getBookingPayments);
 router.post('/bookings/:id/payments', roleCheck([...PAY]), recordBookingPayment);

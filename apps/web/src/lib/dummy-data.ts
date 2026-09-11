@@ -2,17 +2,17 @@ import type { GalleryItem, MenuItem, ResortSettings, Room, Testimonial } from '@
 
 /** Matches shapes returned by `/api/public` plus gallery (backend TBD). */
 export const dummySettings: ResortSettings = {
-  resortName: 'Nirjon Nature Escape',
+  resortName: 'Pina Vista',
   tagline: 'Peaceful environment · Tea gardens · Pure air',
   aboutShort:
     'A peaceful eco-friendly retreat surrounded by tea estates, birdsong, and misty mornings—crafted for rest, not rush.',
   aboutLong:
     'Wake to the sound of leaves in the wind, walk garden trails at dawn, and unwind by still water. Our resort blends sustainable hospitality with warm Bangladeshi care. Every stay supports local growers and keeps the landscape green for the next traveller.',
-  heroImage: '/rooms/room1.avif',
+  heroImage: '/pina-vista/09-hill-cottage.jpg',
   logoUrl: undefined,
   address: 'Village Road, Sreemangal, Moulvibazar 3200, Bangladesh',
   phone: '+880 1712 345 678',
-  email: 'stay@nirjon-nature.bd',
+  email: 'stay@pinavista.com',
   mapEmbedUrl:
     'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d11614.5!2d91.72!3d24.31!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x375179be095bcdaf%3A0x20163f07d70ba025!2sSreemangal!5e0!3m2!1sen!2sbd!4v1',
   social: {
@@ -32,8 +32,8 @@ export const dummyRooms: Room[] = [
     price: 2500,
     capacity: 2,
     description: 'Cozy standard room with garden outlook and calm tones.',
-    mainImage: '/rooms/room1.avif',
-    images: ['/rooms/room1.avif'],
+    mainImage: '/pina-vista/09-hill-cottage.jpg',
+    images: ['/pina-vista/09-hill-cottage.jpg'],
   },
   {
     id: 'a1000000-0000-4000-8000-000000000002',
@@ -42,8 +42,8 @@ export const dummyRooms: Room[] = [
     price: 4500,
     capacity: 3,
     description: 'Spacious deluxe with extra comfort and natural light.',
-    mainImage: '/rooms/room2.avif',
-    images: ['/rooms/room2.avif'],
+    mainImage: '/pina-vista/04-brick-villa.jpg',
+    images: ['/pina-vista/04-brick-villa.jpg'],
   },
   {
     id: 'a1000000-0000-4000-8000-000000000003',
@@ -52,8 +52,8 @@ export const dummyRooms: Room[] = [
     price: 6000,
     capacity: 5,
     description: 'Ideal for families—space to spread out and unwind.',
-    mainImage: '/rooms/room3.avif',
-    images: ['/rooms/room3.avif'],
+    mainImage: '/pina-vista/05-cottage-row.jpg',
+    images: ['/pina-vista/05-cottage-row.jpg'],
   },
   {
     id: 'a1000000-0000-4000-8000-000000000004',
@@ -62,20 +62,22 @@ export const dummyRooms: Room[] = [
     price: 7200,
     capacity: 2,
     description: 'Corner suite with tea-garden views and a quiet reading nook.',
-    mainImage: '/rooms/room4.avif',
-    images: ['/rooms/room4.avif'],
+    mainImage: '/pina-vista/12-aerial-pool.jpg',
+    images: ['/pina-vista/12-aerial-pool.jpg'],
   },
 ];
 
 export const dummyGallery: GalleryItem[] = [
-  { id: '1', src: '/rooms/room1.avif', alt: 'Guest room', category: 'Rooms' },
-  { id: '2', src: '/rooms/room2.avif', alt: 'Deluxe space', category: 'Rooms' },
-  { id: '3', src: '/rooms/room3.avif', alt: 'Family room', category: 'Rooms' },
-  { id: '4', src: '/rooms/room4.avif', alt: 'Tea vista suite', category: 'Rooms' },
-  { id: '5', src: '/gallery/scene-1.jpg', alt: 'Resort grounds', category: 'Nature' },
-  { id: '6', src: '/gallery/scene-2.jpg', alt: 'Tea country', category: 'Nature' },
-  { id: '7', src: '/gallery/scene-3.jpg', alt: 'Path and green', category: 'Garden' },
-  { id: '8', src: '/gallery/scene-4.jpg', alt: 'Evening light', category: 'Nature' },
+  { id: '1', src: '/pina-vista/09-hill-cottage.jpg', alt: 'Thatched hill cottage', category: 'Rooms' },
+  { id: '2', src: '/pina-vista/04-brick-villa.jpg', alt: 'Brick villa with glass balconies', category: 'Rooms' },
+  { id: '3', src: '/pina-vista/05-cottage-row.jpg', alt: 'Cottage row along the lawn', category: 'Rooms' },
+  { id: '4', src: '/pina-vista/12-aerial-pool.jpg', alt: 'Cottages and pool from above', category: 'Rooms' },
+  { id: '5', src: '/pina-vista/03-hillside-cottages.jpg', alt: 'Hillside cottages and lily pond', category: 'Nature' },
+  { id: '6', src: '/pina-vista/01-aerial-site.jpg', alt: 'Pina Vista from the air', category: 'Nature' },
+  { id: '7', src: '/pina-vista/13-garden-driveway.jpg', alt: 'Garden path and driveway', category: 'Garden' },
+  { id: '8', src: '/pina-vista/11-amphitheatre-hill.jpg', alt: 'Brick amphitheatre on the hill', category: 'Garden' },
+  { id: '9', src: '/pina-vista/02-entrance-gate.jpg', alt: 'Entrance gate', category: 'Garden' },
+  { id: '10', src: '/pina-vista/07-lodge-path.jpg', alt: 'Lodge and garden path', category: 'Nature' },
 ];
 
 export const dummyMenu: MenuItem[] = [

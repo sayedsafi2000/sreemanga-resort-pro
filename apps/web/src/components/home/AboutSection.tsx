@@ -7,9 +7,9 @@ import Container from '@/components/ui/Container';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useReveal } from '@/hooks/useReveal';
 import { cn } from '@/lib/utils';
-import aboutMain from '@/assets/484617672_630330766444611_3236540395920013731_n.jpg';
-import aboutAccentA from '@/assets/488846677_644425541701800_5934371764185234027_n.jpg';
-import aboutAccentB from '@/assets/505802308_693720310105656_2079549114860582276_n.jpg';
+import aboutMain from '@public/pina-vista/11-amphitheatre-hill.jpg';
+import aboutAccentA from '@public/pina-vista/09-hill-cottage.jpg';
+import aboutAccentB from '@public/pina-vista/04-brick-villa.jpg';
 
 type Props = {
   aboutShort: string;
