@@ -1,7 +1,7 @@
 # Development stack — Postgres + API + Web + Admin with hot-reload.
 #
 # Local coding only. Do NOT deploy to Coolify/VPS with this file.
-# Coolify: use docker-compose.yml or docker-compose.coolify.yml only.
+# Coolify: use docker-compose.yml (see DEPLOY_COOLIFY.md).
 # Production images on localhost: docker-compose.yml + docker-compose.local.yml.
 #
 # First time (build images once):

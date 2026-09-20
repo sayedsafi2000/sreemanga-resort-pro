@@ -1,101 +1,133 @@
-# Full stack: Postgres + API + public web (Next) + admin (Vite).
+# Pina Vista — production stack for Coolify (Git → "Docker Compose" resource, this file at /docker-compose.yml).
 #
-# Coolify / VPS (no host port conflicts): use this file, or docker-compose.coolify.yml
-# (same stack). Set NEXT_PUBLIC_API_URL, VITE_API_URL, CORS_ORIGIN to real HTTPS URLs.
+# Services: db (Postgres 16) · server (API :8000) · admin (nginx :80) · web (Next.js :3002)
 #
-# Coolify → Domains (per https://coolify.io/docs/knowledge-base/docker/compose ):
-#   Put the INTERNAL port in the domain field so Traefik routes correctly:
-#   - web:   https://your-web-host:3002   (port 3002 is required in the field)
-#   - api:   https://your-api-host:3000   (container PORT; map public URL to host :8000 via proxy)
-#   - admin: https://your-admin-host      (container listens on 80; no extra port)
-#   The :3002 / :8000 suffix tells Coolify the backend port; users still open 80/443 on the URL.
+# Everything that CAN be derived is derived here. Coolify fills the SERVICE_* "magic" variables:
+#   SERVICE_USER_POSTGRES / SERVICE_PASSWORD_POSTGRES  → database credentials (random, persistent)
+#   SERVICE_PASSWORD_64_JWT                            → JWT signing secret (random 64 chars)
+#   SERVICE_URL_SERVER / _ADMIN / _WEB                 → the public https URLs you assign to each service
+# The three domains are set in Coolify's UI (one per service that declares SERVICE_FQDN_*), e.g.
+#   server → https://api.pinavista.com    admin → https://admin.pinavista.com    web → https://pinavista.com
+# Fill in the email (SMTP or Resend/Brevo) variables in Coolify → Environment Variables; everything
+# else has a working default. Full walkthrough: DEPLOY_COOLIFY.md
 #
-# Local with localhost:ports — also pass docker-compose.local.yml:
-#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
-#
-# Then seed (once): docker compose run --rm api npx prisma db seed
-# Login (after seed): admin@pinavista.com / Admin@12345
+# Local run of the same images (needs a .env with the SERVICE_* values — copy .env.compose.example):
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env up --build
 
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: resort
-      POSTGRES_PASSWORD: resort
-      POSTGRES_DB: resort_management
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: ${POSTGRES_DB:-resort_management}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U resort -d resort_management']
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 20s
 
-  api:
+  server:
     build:
       context: ./apps/server
       dockerfile: Dockerfile
     restart: unless-stopped
-    expose:
-      - '3000'
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://resort:resort@db:5432/resort_management?schema=public
-      JWT_SECRET: ${JWT_SECRET:-change-me-use-long-random-string}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3002,http://localhost:3003,http://localhost:8001,http://127.0.0.1:3002,http://127.0.0.1:3003,http://127.0.0.1:8001}
-      # Stripe — set these in the Coolify env vars (no defaults; secrets).
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      # Public web origin for Stripe success/cancel redirects, e.g. https://your-web-host
-      WEB_PUBLIC_URL: ${WEB_PUBLIC_URL}
-      ADMIN_URL: ${ADMIN_URL:-http://localhost:8001}
-      # Email (optional) — set to enable OTP + confirmation emails in production.
-      EMAIL_FROM: ${EMAIL_FROM:-}
-      RESORT_NAME: ${RESORT_NAME:-}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-}
-      SMTP_SECURE: ${SMTP_SECURE:-}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      TRUST_PROXY: ${TRUST_PROXY:-1}
     depends_on:
       db:
         condition: service_healthy
-
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3002}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/public}
-        NEXT_PUBLIC_USE_DUMMY_API: ${NEXT_PUBLIC_USE_DUMMY_API:-false}
-    restart: unless-stopped
-    expose:
-      - '3002'
-    depends_on:
-      - api
+    environment:
+      # Public domain for the API (set/edit it in Coolify → this service → Domains). Port 8000 inside.
+      - SERVICE_FQDN_SERVER_8000
+      - NODE_ENV=production
+      - PORT=8000
+      - DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db:5432/${POSTGRES_DB:-resort_management}?schema=public
+      - JWT_SECRET=${SERVICE_PASSWORD_64_JWT}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      # Browser origins allowed to call the API: the admin and web domains (override to add more).
+      - CORS_ORIGIN=${CORS_ORIGIN:-${SERVICE_URL_ADMIN},${SERVICE_URL_WEB}}
+      # Links embedded in emails / Stripe redirects.
+      - ADMIN_URL=${SERVICE_URL_ADMIN}
+      - WEB_PUBLIC_URL=${SERVICE_URL_WEB}
+      # Coolify's Traefik is one proxy hop in front of the API.
+      - TRUST_PROXY=${TRUST_PROXY:-1}
+      - API_RATE_LIMIT_PER_MIN=${API_RATE_LIMIT_PER_MIN:-600}
+      # First boot on an empty database seeds demo users/rooms/settings (docs/ROLES_AND_USERS.md).
+      - SEED_ON_EMPTY_DB=${SEED_ON_EMPTY_DB:-true}
+      - RUN_SEED=${RUN_SEED:-false}
+      # Email — set ONE transport: SMTP_* (any provider), or RESEND_API_KEY, or BREVO_API_KEY + BREVO_EMAIL.
+      # Without one, OTP / booking / password-reset emails are skipped and guests cannot complete OTP.
+      - RESORT_NAME=${RESORT_NAME:-Pina Vista}
+      - EMAIL_FROM=${EMAIL_FROM:-Pina Vista <noreply@pinavista.com>}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - BREVO_API_KEY=${BREVO_API_KEY:-}
+      - BREVO_EMAIL=${BREVO_EMAIL:-}
+      # Stripe card payments — leave empty to disable. Webhook: POST https://<api-domain>/api/public/stripe/webhook
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   admin:
     build:
       context: ./apps/admin
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
-        VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:-http://localhost:3002}
+        # Build-time fallback only — the container reads API_URL at start (see apps/admin/docker/40-env-js.sh).
+        VITE_API_URL: ${SERVICE_URL_SERVER}/api
+        VITE_PUBLIC_SITE_URL: ${SERVICE_URL_WEB}
     restart: unless-stopped
-    expose:
-      - '80'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
     depends_on:
-      - api
+      - server
+    environment:
+      - SERVICE_FQDN_ADMIN_80
+      - API_URL=${SERVICE_URL_SERVER}/api
+      - PUBLIC_SITE_URL=${SERVICE_URL_WEB}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        # Baked into the client bundle; PUBLIC_API_URL / SITE_URL below override them at runtime.
+        NEXT_PUBLIC_SITE_URL: ${SERVICE_URL_WEB}
+        NEXT_PUBLIC_API_URL: ${SERVICE_URL_SERVER}/api/public
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      - SERVICE_FQDN_WEB_3002
+      - NODE_ENV=production
+      - PORT=3002
+      - HOSTNAME=0.0.0.0
+      - SITE_URL=${SERVICE_URL_WEB}
+      # Browser → API (public domain); SSR → API over the compose network.
+      - PUBLIC_API_URL=${SERVICE_URL_SERVER}/api/public
+      - INTERNAL_API_URL=http://server:8000/api/public
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 40s
 
 volumes:
   pgdata:

@@ -2,6 +2,10 @@
 
 Resort management system with Express API, Admin dashboard (Vite), and public website (Next.js).
 
+## Deploy (Coolify)
+
+`docker-compose.yml` is the production stack (Postgres + API + admin + web). Point a Coolify **Docker Compose** resource at this repo and follow [DEPLOY_COOLIFY.md](DEPLOY_COOLIFY.md) — domains and the email provider are the only things to fill in.
+
 ## Quick start (Docker development)
 
 ### Prerequisites

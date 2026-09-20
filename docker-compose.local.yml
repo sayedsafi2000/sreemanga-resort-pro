@@ -1,28 +1,15 @@
-# Local browser access for the PRODUCTION stack (built images, no hot-reload).
+# Run the PRODUCTION images on your own machine (no Coolify). Adds host ports to docker-compose.yml.
 #
-# Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
-#   podman compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
+#   cp .env.compose.example .env        # local stand-ins for Coolify's SERVICE_* variables
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env up --build -d
 #
-# Publishes production containers to localhost:
-#   api   → http://localhost:8000  (maps host 8000 → container 3000)
-#   web   → http://localhost:3002
-#   admin → http://localhost:3003  (maps host 3003 → container nginx :80)
+#   server → http://localhost:8000   web → http://localhost:3002   admin → http://localhost:3003
 #
-# If ports are taken, override in .env or inline:
-#   RESORT_API_HOST_PORT=18000
-#   RESORT_WEB_HOST_PORT=13002
-#   RESORT_ADMIN_HOST_PORT=13003
-#
-# Do NOT use this file on Coolify/VPS — it binds host ports and conflicts with Traefik.
-# Coolify: use docker-compose.yml or docker-compose.coolify.yml only (not this file).
-#
-# For day-to-day coding with hot-reload, use docker-compose.dev.yml instead.
-
+# Do NOT use this file on Coolify — published host ports bypass Traefik's domain routing.
 services:
-  api:
+  server:
     ports:
-      - '${RESORT_API_HOST_PORT:-8000}:3000'
+      - '${RESORT_API_HOST_PORT:-8000}:8000'
   web:
     ports:
       - '${RESORT_WEB_HOST_PORT:-3002}:3002'

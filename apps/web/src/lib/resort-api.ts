@@ -16,10 +16,15 @@ import type {
 } from '@/types/resort';
 
 function apiBase(): string {
-  const browser = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
-  // Docker SSR: localhost inside the web container is not the API host.
-  const server = (process.env.INTERNAL_API_URL || browser).replace(/\/$/, '');
-  return typeof window === 'undefined' ? server : browser;
+  const buildTime = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/public').replace(/\/$/, '');
+  if (typeof window === 'undefined') {
+    // SSR inside Docker: reach the API over the compose network (INTERNAL_API_URL), never localhost.
+    return (process.env.INTERNAL_API_URL || process.env.PUBLIC_API_URL || buildTime).replace(/\/$/, '');
+  }
+  // Browser: the runtime value the root layout injects (PUBLIC_API_URL at `docker compose up`)
+  // wins over whatever NEXT_PUBLIC_API_URL was when the image was built.
+  const runtime = (window as any).__ENV__?.API_URL as string | undefined;
+  return (runtime?.trim() || buildTime).replace(/\/$/, '');
 }
 
 // Bounded so a dead API can't stall every SSR render. 4s is well under

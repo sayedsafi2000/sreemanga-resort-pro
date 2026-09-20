@@ -63,6 +63,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <head>
+        {/* Runtime browser config: PUBLIC_API_URL is set by docker-compose at start-up, so the
+            public API URL does not have to be known when the image is built (see lib/resort-api). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__ENV__=${JSON.stringify({ API_URL: process.env.PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || '' })};`,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

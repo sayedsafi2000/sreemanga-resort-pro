@@ -1,13 +1,16 @@
 import axios from 'axios';
 
 /**
- * Normalizes VITE_API_URL so requests hit .../api/* (Express mounts routes under /api).
- * Accepts e.g. http://host:8000 or http://host:8000/api
+ * Resolves the API base so requests hit .../api/* (Express mounts routes under /api).
+ * Precedence: runtime `window.__ENV__.API_URL` (written into /env.js by the Docker image from the
+ * API_URL env var) → build-time VITE_API_URL → same origin when served from a real host →
+ * http://localhost:8000 in dev. Accepts e.g. https://api.example.com or https://api.example.com/api.
  */
 export function getApiBaseUrl(): string {
-  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-  const fallback = 'http://localhost:8000';
-  const base = (raw || fallback).replace(/\/+$/, '');
+  const runtime = typeof window !== 'undefined' ? (window as any).__ENV__?.API_URL : undefined;
+  const build = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  const onRealHost = typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(window.location.hostname);
+  const base = ((typeof runtime === 'string' && runtime.trim()) || build || (onRealHost ? window.location.origin : 'http://localhost:8000')).replace(/\/+$/, '');
   if (base.endsWith('/api')) return base;
   return `${base}/api`;
 }

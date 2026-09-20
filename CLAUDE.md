@@ -49,6 +49,10 @@ cd apps/server && npm run db:seed      # seeds demo users (see docs/ROLES_AND_US
 
 Tests: the server has Vitest unit tests in `apps/server/tests/` (pure helpers + middleware, no DB needed) — `npm run test:server` from root or `npm test` in `apps/server`. Admin and web have no tests yet; `docs/plan/08-TESTING.md` describes the intended strategy.
 
+## Deployment (Coolify, Docker Compose)
+
+`docker-compose.yml` at the repo root is the production stack for Coolify (`db` Postgres 16, `server` API :8000, `admin` nginx :80, `web` Next.js :3002), documented step by step in `DEPLOY_COOLIFY.md`. It leans on Coolify's magic variables (`SERVICE_USER/PASSWORD_POSTGRES`, `SERVICE_PASSWORD_64_JWT`, `SERVICE_URL_SERVER/ADMIN/WEB`) so only the email provider has to be configured by hand. Each app has a multi-stage `Dockerfile`; the API image's `docker-entrypoint.sh` runs `prisma db push` on every start and seeds only when the `User` table is empty (`scripts/db-is-empty.cjs`; `RUN_SEED=true` forces it). The frontends resolve the API URL at **runtime**, not build time: admin reads `window.__ENV__` from `/env.js` (written by `apps/admin/docker/40-env-js.sh` from `API_URL`), web reads `PUBLIC_API_URL` (injected by the root layout as `window.__ENV__`) in the browser and `INTERNAL_API_URL` (`http://server:8000/api/public`) for SSR; `SITE_URL` overrides `NEXT_PUBLIC_SITE_URL` server-side. `docker-compose.local.yml` adds host ports for running the production images locally (`.env.compose.example` stands in for the Coolify variables); `docker-compose.dev.yml` is the hot-reload dev stack.
+
 ## Port + URL conventions
 
 Defaults are inconsistent across apps — confirm via env before assuming:
