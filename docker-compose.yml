@@ -2,7 +2,9 @@
 #
 # Services: db (Postgres 16) · server (API :8000) · admin (nginx :80) · web (Next.js :3002)
 #
-# Everything that CAN be derived is derived here. Coolify fills the SERVICE_* "magic" variables:
+# Everything that CAN be derived is derived here. Coolify fills the SERVICE_* "magic" variables
+# (environment blocks are written in map form on purpose — Coolify's parser drops list-form
+# SERVICE_FQDN_* entries and leaves numeric keys behind, which breaks `docker compose build`):
 #   SERVICE_USER_POSTGRES / SERVICE_PASSWORD_POSTGRES  → database credentials (random, persistent)
 #   SERVICE_PASSWORD_64_JWT                            → JWT signing secret (random 64 chars)
 #   SERVICE_URL_SERVER / _ADMIN / _WEB                 → the public https URLs you assign to each service
@@ -41,38 +43,39 @@ services:
         condition: service_healthy
     environment:
       # Public domain for the API (set/edit it in Coolify → this service → Domains). Port 8000 inside.
-      - SERVICE_FQDN_SERVER_8000
-      - NODE_ENV=production
-      - PORT=8000
-      - DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db:5432/${POSTGRES_DB:-resort_management}?schema=public
-      - JWT_SECRET=${SERVICE_PASSWORD_64_JWT}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      SERVICE_FQDN_SERVER_8000: ""
+      NODE_ENV: production
+      PORT: "8000"
+      DATABASE_URL: "postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db:5432/${POSTGRES_DB:-resort_management}?schema=public"
+      JWT_SECRET: "${SERVICE_PASSWORD_64_JWT}"
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-7d}"
       # Browser origins allowed to call the API: the admin and web domains (override to add more).
-      - CORS_ORIGIN=${CORS_ORIGIN:-${SERVICE_URL_ADMIN},${SERVICE_URL_WEB}}
+      CORS_ORIGIN: "${CORS_ORIGIN:-${SERVICE_URL_ADMIN},${SERVICE_URL_WEB}}"
       # Links embedded in emails / Stripe redirects.
-      - ADMIN_URL=${SERVICE_URL_ADMIN}
-      - WEB_PUBLIC_URL=${SERVICE_URL_WEB}
+      ADMIN_URL: "${SERVICE_URL_ADMIN}"
+      WEB_PUBLIC_URL: "${SERVICE_URL_WEB}"
       # Coolify's Traefik is one proxy hop in front of the API.
-      - TRUST_PROXY=${TRUST_PROXY:-1}
-      - API_RATE_LIMIT_PER_MIN=${API_RATE_LIMIT_PER_MIN:-600}
+      TRUST_PROXY: "${TRUST_PROXY:-1}"
+      API_RATE_LIMIT_PER_MIN: "${API_RATE_LIMIT_PER_MIN:-600}"
+      AUTH_RATE_LIMIT_PER_15MIN: "${AUTH_RATE_LIMIT_PER_15MIN:-20}"
       # First boot on an empty database seeds demo users/rooms/settings (docs/ROLES_AND_USERS.md).
-      - SEED_ON_EMPTY_DB=${SEED_ON_EMPTY_DB:-true}
-      - RUN_SEED=${RUN_SEED:-false}
+      SEED_ON_EMPTY_DB: "${SEED_ON_EMPTY_DB:-true}"
+      RUN_SEED: "${RUN_SEED:-false}"
       # Email — set ONE transport: SMTP_* (any provider), or RESEND_API_KEY, or BREVO_API_KEY + BREVO_EMAIL.
       # Without one, OTP / booking / password-reset emails are skipped and guests cannot complete OTP.
-      - RESORT_NAME=${RESORT_NAME:-Pina Vista}
-      - EMAIL_FROM=${EMAIL_FROM:-Pina Vista <noreply@pinavista.com>}
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_SECURE=${SMTP_SECURE:-false}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASS=${SMTP_PASS:-}
-      - RESEND_API_KEY=${RESEND_API_KEY:-}
-      - BREVO_API_KEY=${BREVO_API_KEY:-}
-      - BREVO_EMAIL=${BREVO_EMAIL:-}
+      RESORT_NAME: "${RESORT_NAME:-Pina Vista}"
+      EMAIL_FROM: "${EMAIL_FROM:-Pina Vista <noreply@pinavista.com>}"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_SECURE: "${SMTP_SECURE:-false}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASS: "${SMTP_PASS:-}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      BREVO_API_KEY: "${BREVO_API_KEY:-}"
+      BREVO_EMAIL: "${BREVO_EMAIL:-}"
       # Stripe card payments — leave empty to disable. Webhook: POST https://<api-domain>/api/public/stripe/webhook
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
+      STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET:-}"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -86,15 +89,16 @@ services:
       dockerfile: Dockerfile
       args:
         # Build-time fallback only — the container reads API_URL at start (see apps/admin/docker/40-env-js.sh).
-        VITE_API_URL: ${SERVICE_URL_SERVER}/api
-        VITE_PUBLIC_SITE_URL: ${SERVICE_URL_WEB}
+        VITE_API_URL: "${SERVICE_URL_SERVER}/api"
+        VITE_PUBLIC_SITE_URL: "${SERVICE_URL_WEB}"
     restart: unless-stopped
     depends_on:
       - server
     environment:
-      - SERVICE_FQDN_ADMIN_80
-      - API_URL=${SERVICE_URL_SERVER}/api
-      - PUBLIC_SITE_URL=${SERVICE_URL_WEB}
+      SERVICE_FQDN_ADMIN_80: ""
+      # Read at container start by docker/40-env-js.sh → /env.js (the SPA's API base URL).
+      API_URL: "${SERVICE_URL_SERVER}/api"
+      PUBLIC_SITE_URL: "${SERVICE_URL_WEB}"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
       interval: 30s
@@ -108,20 +112,20 @@ services:
       dockerfile: Dockerfile
       args:
         # Baked into the client bundle; PUBLIC_API_URL / SITE_URL below override them at runtime.
-        NEXT_PUBLIC_SITE_URL: ${SERVICE_URL_WEB}
-        NEXT_PUBLIC_API_URL: ${SERVICE_URL_SERVER}/api/public
+        NEXT_PUBLIC_SITE_URL: "${SERVICE_URL_WEB}"
+        NEXT_PUBLIC_API_URL: "${SERVICE_URL_SERVER}/api/public"
     restart: unless-stopped
     depends_on:
       - server
     environment:
-      - SERVICE_FQDN_WEB_3002
-      - NODE_ENV=production
-      - PORT=3002
-      - HOSTNAME=0.0.0.0
-      - SITE_URL=${SERVICE_URL_WEB}
+      SERVICE_FQDN_WEB_3002: ""
+      NODE_ENV: production
+      PORT: "3002"
+      HOSTNAME: 0.0.0.0
+      SITE_URL: "${SERVICE_URL_WEB}"
       # Browser → API (public domain); SSR → API over the compose network.
-      - PUBLIC_API_URL=${SERVICE_URL_SERVER}/api/public
-      - INTERNAL_API_URL=http://server:8000/api/public
+      PUBLIC_API_URL: "${SERVICE_URL_SERVER}/api/public"
+      INTERNAL_API_URL: http://server:8000/api/public
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
