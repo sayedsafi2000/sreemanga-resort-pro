@@ -96,9 +96,6 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
                 />
                 <div className="absolute inset-0 bg-gradient-to-tr from-forest-950/50 via-forest-900/18 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-950/55 via-transparent to-transparent opacity-90 sm:opacity-100" />
-                <p className="absolute bottom-5 left-5 right-16 max-w-[14rem] font-display text-lg font-semibold leading-snug text-white drop-shadow-md sm:bottom-7 sm:left-7 sm:text-xl">
-                  by the tea garden—your peaceful retreat
-                </p>
               </div>
 
               {/* Top-right accent — delayed */}
@@ -166,6 +163,11 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
               <div className="relative">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-forest-700">{tr('about', 'experience')}</p>
                 <p className="mt-2 font-display text-xl font-semibold text-forest-950 sm:text-2xl">{tr('about', 'teaFeel')}</p>
+                {/* Tagline — used to sit on the photo where the overlapping card hid it. */}
+                <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-forest-50 px-3.5 py-1.5 font-display text-sm font-semibold italic text-forest-800 ring-1 ring-forest-200/70 sm:text-base">
+                  <Leaf className="h-3.5 w-3.5 shrink-0 text-forest-600" aria-hidden />
+                  {tr('about', 'caption')}
+                </p>
                 <div className="mt-6 space-y-4 text-base leading-relaxed text-stone-700">
                   {displayAboutDesc.split('\n\n').map((para, i) => (
                     <p key={i}>{para}</p>

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
+import { formatInvoiceNo } from '../utils/bookingPricing';
 import { requireStripe } from '../utils/stripe';
 import { emailService } from '../utils/emailService';
 import { recordRevenue } from '../utils/accountLedger';
@@ -122,7 +123,7 @@ async function fulfillCheckout(session: CheckoutSessionLike): Promise<void> {
   if (b.guest.email) {
     emailService
       .sendPaymentConfirmationEmail(b.guest.email, {
-        bookingId: b.id,
+        bookingId: formatInvoiceNo(b.invoiceNo),
         guestName: b.guest.name,
         amount: payment.amount,
         method: 'Card (Stripe)',
@@ -132,7 +133,7 @@ async function fulfillCheckout(session: CheckoutSessionLike): Promise<void> {
 
     emailService
       .sendBookingConfirmationEmail(b.guest.email, {
-        bookingId: b.id,
+        bookingId: formatInvoiceNo(b.invoiceNo),
         guestName: b.guest.name,
         roomName: b.room.name,
         checkInDate: fmtDate(b.checkInDate),

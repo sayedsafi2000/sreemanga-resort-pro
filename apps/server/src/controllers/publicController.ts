@@ -7,6 +7,7 @@ import { createCheckoutSessionForBooking } from './stripeController';
 import { emailService } from '../utils/emailService';
 import crypto from 'crypto';
 import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
+import { computeBookingTotal, computeOccupancy, DEFAULT_EXTRA_GUEST_CHARGE, formatInvoiceNo } from '../utils/bookingPricing';
 import {
   assertRoomAvailable,
   isNightBooked,
@@ -27,9 +28,10 @@ setInterval(() => {
 
 export const getPublicRooms = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { type, minPrice, maxPrice } = req.query;
+    const { type, zone, minPrice, maxPrice } = req.query;
     const where: any = {};
     if (type) where.type = type;
+    if (zone) where.zone = zone;
     if (minPrice || maxPrice) {
       where.price = {};
       if (minPrice) where.price.gte = parseFloat(minPrice as string);
@@ -187,14 +189,20 @@ const publicBookingSchema = z.object({
   // would skip verification entirely.
   guestEmail: z.string().trim().email('A valid guest email is required'),
   adults: z.number().int().min(1).max(20).default(1),
+  // `children` = under 8 (free). `childrenOver8` count as additional persons (see computeOccupancy).
   children: z.number().int().min(0).max(20).default(0),
+  childrenOver8: z.number().int().min(0).max(10).default(0),
   // Website bookings are pay-now only: the guest pays via bKash / Nagad / bank
-  // transfer and submits the transaction ID. "Pay later" is not accepted here;
-  // staff can still create pay-later bookings from the admin panel.
+  // transfer and attaches a screenshot of the payment (the transaction ID is
+  // optional — most guests only have the screenshot). "Pay later" is not
+  // accepted here; staff can still create pay-later bookings from the admin panel.
   preferredPaymentTiming: z.literal('INSTANT').default('INSTANT'),
   preferredPaymentMethod: z.enum(['BKASH', 'NAGAD', 'BANK_TRANSFER', 'STRIPE']),
-  paymentTransactionId: z.string().min(4).max(100).optional(),
-  paymentProofImage: z.string().optional(),
+  paymentTransactionId: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().trim().min(4).max(100).optional(),
+  ),
+  paymentProofImage: z.string().max(12_000_000, 'Screenshot too large (max ~8 MB)').optional(),
   guestNid: z.string().optional(),
   guestAddress: z.string().optional(),
   checkInDate: z.string(),
@@ -202,12 +210,12 @@ const publicBookingSchema = z.object({
   notes: z.string().optional(),
   voucherCode: z.string().min(1).optional(),
 }).superRefine((data, ctx) => {
-  // Manual methods (bKash / Nagad / bank) need a transaction ID; Stripe is charged online.
-  if (data.preferredPaymentMethod !== 'STRIPE' && !data.paymentTransactionId) {
+  // Manual methods (bKash / Nagad / bank) need the payment screenshot; Stripe is charged online.
+  if (data.preferredPaymentMethod !== 'STRIPE' && !data.paymentProofImage) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Transaction ID is required',
-      path: ['paymentTransactionId'],
+      message: 'Please attach a screenshot of your payment',
+      path: ['paymentProofImage'],
     });
   }
 });
@@ -237,7 +245,16 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     if (!room) throw new AppError('Room not found', 404);
 
     const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    const grossAmount = room.price * days;
+    // Occupancy: `capacity` guests are included; extra adults / children 8+ pay per night.
+    const occupancy = computeOccupancy({ capacity: room.capacity, adults: data.adults, childrenOver8: data.childrenOver8 });
+    if (!occupancy.ok) throw new AppError(occupancy.message, 400);
+    const pricing = computeBookingTotal({
+      rate: room.price,
+      nights: days,
+      extraPersons: occupancy.extraPersons,
+      extraGuestCharge: room.extraGuestCharge ?? DEFAULT_EXTRA_GUEST_CHARGE,
+    });
+    const grossAmount = pricing.gross;
 
     const result = await prisma.$transaction(async (tx) => {
       // Serialise per room, then check availability inside the transaction so
@@ -278,7 +295,9 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         roomId: data.roomId,
         guestId: guest.id,
         adults: data.adults,
-        children: data.children,
+        children: data.children + data.childrenOver8,
+        extraPersons: occupancy.extraPersons,
+        rate: room.price,
         preferredPaymentTiming: data.preferredPaymentTiming,
         preferredPaymentMethod: data.preferredPaymentMethod,
         paymentTransactionId: data.paymentTransactionId,
@@ -337,7 +356,7 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     // Send pending acknowledgment email to guest (fire-and-forget)
     if (result.guest.email) {
       emailService.sendBookingPendingEmail(result.guest.email, {
-        bookingId: result.id,
+        bookingId: formatInvoiceNo(result.invoiceNo),
         guestName: result.guest.name,
         roomName: result.room.name,
         checkInDate: result.checkInDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),

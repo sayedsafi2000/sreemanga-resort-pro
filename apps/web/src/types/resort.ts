@@ -1,10 +1,13 @@
-export type RoomType = 'STANDARD' | 'DELUXE' | 'SUITE' | 'FAMILY' | 'PRESIDENTIAL';
+export type RoomType = 'STANDARD' | 'COUPLE' | 'DELUXE' | 'SUITE' | 'FAMILY' | 'PRESIDENTIAL';
+/** Where the room sits on the property — the site groups rooms by this. */
+export type RoomZone = 'TOWER' | 'ZONE_1' | 'ZONE_2' | 'ZONE_3';
 
 export interface Room {
   id: string;
   name: string;
   roomCode?: string | null;
   type: RoomType;
+  zone?: RoomZone | null;
   price: number;
   weekendPrice?: number | null;
   seasonalPrice?: number | null;
@@ -91,6 +94,8 @@ export interface PublicBookingInput {
   guestPhone: string;
   guestEmail?: string;
   adults: number;
+  /** Children aged 8+ — counted as extra persons (under-8s go in `children`, free). */
+  childrenOver8?: number;
   children: number;
   preferredPaymentTiming: 'INSTANT' | 'LATER';
   preferredPaymentMethod?: 'BKASH' | 'NAGAD' | 'BANK_TRANSFER' | 'STRIPE';

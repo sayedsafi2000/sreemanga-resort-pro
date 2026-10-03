@@ -1,18 +1,27 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, ArrowRight } from 'lucide-react';
+import { Users, ArrowRight, MapPin } from 'lucide-react';
 import type { Room } from '@/types/resort';
-import { ROOM_TYPE_LABEL } from '@/lib/room-labels';
+import { ROOM_TYPE_LABEL, ROOM_ZONE_LABEL } from '@/lib/room-labels';
+import { fmtMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 import fallbackRoomPhoto from '@public/pina-vista/09-hill-cottage.jpg';
 
 type Props = {
   room: Room;
   className?: string;
+  /** The home-page teaser hides prices; the rooms page and details show them. */
+  showPrice?: boolean;
 };
 
-export default function RoomCard({ room, className }: Props) {
+export default function RoomCard({ room, className, showPrice = true }: Props) {
+  const { t, ta } = useLanguage();
   const img = room.mainImage || room.images[0] || fallbackRoomPhoto.src;
+  const typeLabel = ROOM_TYPE_LABEL[room.type] ?? { en: room.type, bn: room.type };
+  const zoneLabel = room.zone ? ROOM_ZONE_LABEL[room.zone] : null;
 
   return (
     <article
@@ -33,12 +42,11 @@ export default function RoomCard({ room, className }: Props) {
             loading="lazy"
             unoptimized={img.startsWith('http')}
           />
-          {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-stone-900/65 via-stone-900/15 to-transparent" />
 
-          {/* Room type badge */}
+          {/* Room kind badge */}
           <span className="absolute left-3 top-3 rounded-full bg-white/92 px-3 py-1 text-xs font-bold uppercase tracking-wider text-forest-800 shadow-sm backdrop-blur-sm">
-            {ROOM_TYPE_LABEL[room.type]}
+            {t(typeLabel.en, typeLabel.bn)}
           </span>
 
           {/* Capacity badge */}
@@ -47,12 +55,19 @@ export default function RoomCard({ room, className }: Props) {
             {room.capacity}
           </span>
 
-          {/* Price overlaid on image bottom */}
-          <div className="absolute bottom-3 left-3">
-            <span className="font-display text-xl font-semibold text-white drop-shadow-md">
-              ৳{room.price.toLocaleString()}
-            </span>
-            <span className="ml-1 text-sm font-normal text-white/75">/night</span>
+          {/* Bottom-left: price (rooms page) or zone (home teaser) */}
+          <div className="absolute bottom-3 left-3 flex items-baseline gap-1">
+            {showPrice ? (
+              <>
+                <span className="font-display text-xl font-semibold text-white drop-shadow-md">{fmtMoney(room.price)}</span>
+                <span className="text-sm font-normal text-white/75">/{t('night', 'রাত')}</span>
+              </>
+            ) : zoneLabel ? (
+              <span className="flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                <MapPin className="h-3 w-3" aria-hidden />
+                {t(zoneLabel.en, zoneLabel.bn)}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -61,10 +76,16 @@ export default function RoomCard({ room, className }: Props) {
           <h3 className="font-display text-xl font-semibold leading-snug text-stone-900 transition-colors group-hover:text-forest-800">
             {room.name}
           </h3>
+          {zoneLabel && showPrice && (
+            <p className="mt-1 flex items-center gap-1 text-xs font-medium text-forest-700">
+              <MapPin className="h-3 w-3" aria-hidden />
+              {t(zoneLabel.en, zoneLabel.bn)}
+            </p>
+          )}
 
           {room.description && (
             <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-stone-500">
-              {room.description}
+              {ta(room.description)}
             </p>
           )}
 
@@ -72,10 +93,10 @@ export default function RoomCard({ room, className }: Props) {
           <div className="mt-4 flex items-center justify-between border-t border-forest-100/80 pt-4">
             <span className="flex items-center gap-1.5 text-xs font-medium text-stone-400">
               <Users className="h-3.5 w-3.5 text-forest-400" aria-hidden />
-              {room.capacity} {room.capacity === 1 ? 'Guest' : 'Guests'}
+              {room.capacity} {room.capacity === 1 ? t('Guest', 'অতিথি') : t('Guests', 'জন অতিথি')}
             </span>
             <span className="flex items-center gap-1 text-sm font-semibold text-forest-700 transition-all group-hover:gap-2 group-hover:text-forest-800">
-              View details
+              {t('View details', 'বিস্তারিত দেখুন')}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </span>
           </div>

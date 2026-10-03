@@ -16,7 +16,7 @@ type Props = {
 };
 
 function SpotCard({ spot }: { spot: Props['spots'][number] }) {
-  const { t, tr } = useLanguage();
+  const { t, ta } = useLanguage();
   const teaser = spot.bullets[0] ?? spot.bestFor;
 
   return (
@@ -49,29 +49,25 @@ function SpotCard({ spot }: { spot: Props['spots'][number] }) {
         {spot.badge ? (
           <span
             className={cn(
-              'absolute right-2.5 top-2.5 max-w-[9rem] truncate rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide shadow-sm',
+              'absolute right-2.5 top-2.5 max-w-[9rem] truncate rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide shadow-sm',
               spot.badge.toLowerCase().includes('must')
                 ? 'bg-amber-400 text-stone-900'
-                : 'border border-white/45 bg-black/40 text-[0.6rem] font-semibold text-white backdrop-blur-sm'
+                : 'border border-white/45 bg-black/40 font-semibold text-white backdrop-blur-sm'
             )}
           >
-            {spot.badge}
+            {ta(spot.badge)}
           </span>
         ) : null}
         <div className="absolute bottom-0 left-0 right-0 p-3 pt-8">
-          <h3 className="font-display text-[0.95rem] font-semibold leading-snug text-white drop-shadow line-clamp-2 sm:text-base">
-            {spot.title}
+          <h3 className="min-h-[2.75rem] font-display text-base font-semibold leading-snug text-white drop-shadow line-clamp-2">
+            {ta(spot.title)}
           </h3>
-          {spot.distance ? (
-            <p className="mt-0.5 text-[0.65rem] font-medium text-forest-100/95">{spot.distance}</p>
-          ) : null}
+          <p className="mt-0.5 min-h-[1rem] text-xs font-medium text-forest-100/95">{ta(spot.distance) || '\u00a0'}</p>
         </div>
       </div>
       <div className="space-y-2 px-3 pb-3 pt-2.5">
-        {teaser ? (
-          <p className="line-clamp-2 text-[0.7rem] leading-relaxed text-stone-600 sm:text-xs">{teaser}</p>
-        ) : null}
-        <span className="inline-flex items-center gap-0.5 text-[0.7rem] font-semibold text-forest-800 transition group-hover:text-forest-900">
+        <p className="min-h-[2.25rem] line-clamp-2 text-xs leading-relaxed text-stone-600">{ta(teaser) || '\u00a0'}</p>
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-forest-800 transition group-hover:text-forest-900">
           {t('See details', 'বিস্তারিত দেখুন')}
           <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden />
         </span>
@@ -81,8 +77,12 @@ function SpotCard({ spot }: { spot: Props['spots'][number] }) {
 }
 
 export default function NearbySpotsSection({ section, spots }: Props) {
-  const { t, tr } = useLanguage();
+  const { language, tr } = useLanguage();
   if (!spots.length) return null;
+  // Admin writes this section's copy in Bangla; English mode falls back to the built-in strings
+  // so the page is fully English, and Bangla mode shows the admin text (or the built-in Bangla).
+  const bn = language === 'bn';
+  const pick = (admin: string | null | undefined, key: string) => (bn && admin?.trim() ? admin : tr('sections', key));
 
   const loop = [...spots, ...spots];
   const { ref: headRef, visible: headVisible } = useReveal<HTMLDivElement>();
@@ -102,9 +102,9 @@ export default function NearbySpotsSection({ section, spots }: Props) {
       <Container className="relative z-10">
         <div ref={headRef} className={`reveal ${headVisible ? 'visible' : ''}`}>
           <SectionHeading
-            eyebrow={section.eyebrow}
-            title={t(section.title, section.title)}
-            subtitle={t(section.subtitle, section.subtitle)}
+            eyebrow={pick(section.eyebrow, 'exploreEyebrow')}
+            title={pick(section.title, 'exploreTitle')}
+            subtitle={pick(section.subtitle, 'exploreSubtitle')}
             decorate
           />
         </div>
@@ -129,11 +129,9 @@ export default function NearbySpotsSection({ section, spots }: Props) {
         </div>
       </div>
 
-      {section.footnote ? (
-        <Container className="relative z-10 mt-6">
-          <p className="mx-auto max-w-2xl text-center text-xs text-stone-500 sm:text-sm">{section.footnote}</p>
-        </Container>
-      ) : null}
+      <Container className="relative z-10 mt-6">
+        <p className="mx-auto max-w-2xl text-center text-xs text-stone-500 sm:text-sm">{pick(section.footnote, 'exploreFootnote')}</p>
+      </Container>
     </section>
   );
 }

@@ -107,3 +107,34 @@ export function stayNights(checkIn: Date, checkOut: Date): string[] {
   }
   return out;
 }
+
+// ── Occupancy (website bookings) ────────────────────────────────────────────────
+// A room's `capacity` is the number of guests included in the nightly rate (couple room 2,
+// family room 4). Up to MAX_EXTRA_PERSONS additional persons may be added — adults beyond the
+// capacity, or children aged CHILD_FREE_UNDER_AGE and above — at `extraGuestCharge` per person
+// per night (DEFAULT_EXTRA_GUEST_CHARGE when the room has none set). Younger children are free.
+export const DEFAULT_EXTRA_GUEST_CHARGE = 500;
+export const MAX_EXTRA_PERSONS = 2;
+export const CHILD_FREE_UNDER_AGE = 8;
+
+export type OccupancyInput = { capacity: number; adults: number; childrenOver8?: number; maxExtraPersons?: number };
+export type Occupancy = {
+  capacity: number; adults: number; extraAdults: number; childrenOver8: number;
+  extraPersons: number; maxExtraPersons: number; ok: boolean; message: string;
+};
+
+export function computeOccupancy(i: OccupancyInput): Occupancy {
+  const capacity = Math.max(1, Math.floor(i.capacity));
+  const adults = Math.max(1, Math.floor(i.adults));
+  const childrenOver8 = Math.max(0, Math.floor(i.childrenOver8 ?? 0));
+  const maxExtraPersons = Math.max(0, Math.floor(i.maxExtraPersons ?? MAX_EXTRA_PERSONS));
+  const extraAdults = Math.max(0, adults - capacity);
+  const extraPersons = extraAdults + childrenOver8;
+  const ok = extraPersons <= maxExtraPersons;
+  return {
+    capacity, adults, extraAdults, childrenOver8, extraPersons, maxExtraPersons, ok,
+    message: ok
+      ? ''
+      : `This room includes ${capacity} guest${capacity === 1 ? '' : 's'}; at most ${maxExtraPersons} additional person${maxExtraPersons === 1 ? '' : 's'} (extra adults or children aged ${CHILD_FREE_UNDER_AGE}+) can be added.`,
+  };
+}

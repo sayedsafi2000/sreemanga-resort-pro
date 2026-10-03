@@ -4,6 +4,7 @@ import {
   getBooking,
   getRoomAvailability,
   getMonthlyCalendar,
+  getDaySummary,
   createBooking,
   updateBooking,
   deleteBooking,
@@ -19,6 +20,7 @@ const router = Router();
 // Specific paths before the /:id capture.
 router.get('/room-availability', roleCheck([...RB_READ]), getRoomAvailability);
 router.get('/calendar', roleCheck([...RB_READ]), getMonthlyCalendar);
+router.get('/day-summary', roleCheck([...RB_READ]), getDaySummary);
 router.get('/', roleCheck([...RB_READ]), getAllBookings);
 router.get('/:id', roleCheck([...RB_READ]), getBooking);
 router.post('/', roleCheck([...RB]), createBooking);

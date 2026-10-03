@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { fmtMoney } from '@/lib/format';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   submitDayLongBooking,
   sendBookingOtp,
@@ -12,6 +14,7 @@ import {
 type Props = { products: DayLongProduct[] };
 
 export default function DayLongBookingForm({ products }: Props) {
+  const { t } = useLanguage();
   const [productId, setProductId] = useState(products[0]?.id ?? '');
   const [bookingDate, setBookingDate] = useState('');
   const [slotStart, setSlotStart] = useState('09:00');
@@ -94,28 +97,28 @@ export default function DayLongBookingForm({ products }: Props) {
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">Book a Day-Use</h3>
+      <h3 className="mb-4 text-lg font-semibold">{t('Book a Day-Use', 'ডে-ইউজ বুক করুন')}</h3>
 
       {step === 'form' ? (
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium">Package</label>
+            <label className="mb-1 block text-sm font-medium">{t('Package', 'প্যাকেজ')}</label>
             <select className={inputCls} value={productId} onChange={(e) => setProductId(e.target.value)}>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — ৳{p.basePrice}
-                  {p.pricePerPerson ? ` + ৳${p.pricePerPerson}/person` : ''}
+                  {p.name} — {fmtMoney(p.basePrice)}
+                  {p.pricePerPerson ? ` + ${fmtMoney(p.pricePerPerson)}/person` : ''}
                 </option>
               ))}
             </select>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Date</label>
+              <label className="mb-1 block text-sm font-medium">{t('Date', 'তারিখ')}</label>
               <input type="date" className={inputCls} value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">From</label>
+              <label className="mb-1 block text-sm font-medium">{t('From', 'শুরু')}</label>
               <input type="time" className={inputCls} value={slotStart} onChange={(e) => setSlotStart(e.target.value)} />
             </div>
             <div>
@@ -125,34 +128,34 @@ export default function DayLongBookingForm({ products }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Adults</label>
+              <label className="mb-1 block text-sm font-medium">{t('Adults', 'প্রাপ্তবয়স্ক')}</label>
               <input type="number" min={1} className={inputCls} value={adults} onChange={(e) => setAdults(Number(e.target.value))} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Children</label>
+              <label className="mb-1 block text-sm font-medium">{t('Children', 'শিশু')}</label>
               <input type="number" min={0} className={inputCls} value={children} onChange={(e) => setChildren(Number(e.target.value))} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Name</label>
+              <label className="mb-1 block text-sm font-medium">{t('Name', 'নাম')}</label>
               <input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Phone</label>
+              <label className="mb-1 block text-sm font-medium">{t('Phone', 'ফোন')}</label>
               <input className={inputCls} value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Email</label>
+            <label className="mb-1 block text-sm font-medium">{t('Email', 'ইমেইল')}</label>
             <input type="email" className={inputCls} value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Notes (optional)</label>
+            <label className="mb-1 block text-sm font-medium">{t('Notes (optional)', 'নোট (ঐচ্ছিক)')}</label>
             <textarea className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Voucher code (optional)</label>
+            <label className="mb-1 block text-sm font-medium">{t('Voucher code (optional)', 'ভাউচার কোড (ঐচ্ছিক)')}</label>
             <div className="flex gap-2">
               <input
                 className={inputCls}
@@ -161,7 +164,7 @@ export default function DayLongBookingForm({ products }: Props) {
                   setVoucherCode(e.target.value.toUpperCase());
                   setVoucherPreview(null);
                 }}
-                placeholder="Have a code?"
+                placeholder={t('Have a code?', 'কোড আছে?')}
               />
               <button
                 type="button"
@@ -179,7 +182,7 @@ export default function DayLongBookingForm({ products }: Props) {
                     guestEmail: guestEmail || undefined,
                   });
                   if (r.ok) {
-                    setVoucherPreview(`Save ৳${r.discountAmount} — pay ৳${r.netAmount}`);
+                    setVoucherPreview(`Save ${fmtMoney(r.discountAmount)} — pay ${fmtMoney(r.netAmount)}`);
                   } else {
                     setVoucherPreview(null);
                     setMessage({ ok: false, text: r.message });
@@ -194,14 +197,14 @@ export default function DayLongBookingForm({ products }: Props) {
 
           <div className="flex items-center justify-between border-t pt-3">
             <span className="text-sm text-gray-600">
-              Estimated total: <span className="text-base font-semibold text-gray-900">৳{total}</span>
+              Estimated total: <span className="text-base font-semibold text-gray-900">{fmtMoney(total)}</span>
             </span>
             <button
               disabled={!canSubmit || busy}
               onClick={sendOtp}
               className="rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {busy ? 'Sending…' : 'Continue'}
+              {busy ? t('Sending…', 'পাঠানো হচ্ছে…') : t('Continue', 'এগিয়ে যান')}
             </button>
           </div>
           {message && (
@@ -213,7 +216,7 @@ export default function DayLongBookingForm({ products }: Props) {
           <p className="text-sm text-gray-600">We sent a 6-digit code to {guestEmail}. Enter it to confirm.</p>
           <input
             className={inputCls}
-            placeholder="Enter OTP"
+            placeholder={t('Enter OTP', 'OTP দিন')}
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
           />
@@ -232,7 +235,7 @@ export default function DayLongBookingForm({ products }: Props) {
               onClick={confirm}
               className="rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {busy ? 'Confirming…' : 'Confirm Booking'}
+              {busy ? t('Confirming…', 'নিশ্চিত হচ্ছে…') : t('Confirm Booking', 'বুকিং নিশ্চিত করুন')}
             </button>
           </div>
         </div>

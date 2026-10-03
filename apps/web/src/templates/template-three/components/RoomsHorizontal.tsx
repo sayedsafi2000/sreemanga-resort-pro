@@ -6,6 +6,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import type { Room } from '@/types/resort';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { fmtMoney } from '@/lib/format';
 
 export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
   const { t } = useLanguage();
@@ -81,7 +82,7 @@ export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
         <div className="absolute bottom-0 left-0 right-0 p-6 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
           <h3 className="font-display text-2xl text-white">{room.name}</h3>
           {room.price && (
-            <p className="text-[#c8920c] text-sm font-sans mt-1">৳{room.price} / night</p>
+            <p className="text-[#c8920c] text-sm font-sans mt-1">{fmtMoney(room.price)} / night</p>
           )}
           <span className="inline-block mt-3 text-[10px] uppercase tracking-widest text-white/50 font-sans group-hover:text-white/80 transition-colors">
               {t('View Details', 'বিস্তারিত দেখুন')} →
@@ -109,7 +110,7 @@ export default function RoomsHorizontal({ rooms }: { rooms: Room[] }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 <div className="absolute bottom-0 p-4">
                   <h3 className="font-display text-xl text-white">{room.name}</h3>
-                  {room.price && <p className="text-[#c8920c] text-xs font-sans">৳{room.price} / night</p>}
+                  {room.price && <p className="text-[#c8920c] text-xs font-sans">{fmtMoney(room.price)} / night</p>}
                 </div>
               </div>
             </Link>

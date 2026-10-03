@@ -34,6 +34,7 @@ import {
 } from 'recharts';
 import { StatCard } from '@/components/ui/stat-card';
 import { PageHeader } from '@/components/ui/page-header';
+import DaySummary from './DaySummary';
 import { InitialsAvatar } from '@/components/ui/avatar';
 import MyVouchersPanel, { type MineVoucher } from '@/components/MyVouchersPanel';
 
@@ -65,7 +66,9 @@ const EMPTY_STATS: DashboardStats = {
   monthExpenses: 0,
 };
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+// Local calendar date — toISOString() is UTC and reports the wrong "today" for six hours a day in Bangladesh.
+const todayStr = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+const ymdOf = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`; };
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -454,8 +457,8 @@ const Dashboard: React.FC = () => {
           base.totalBookings = bookings.length;
           base.pendingBookings = bookings.filter((b: any) => b.status === 'PENDING').length;
           base.totalGuests = guests.length;
-          base.todayCheckIns = bookings.filter((b: any) => new Date(b.checkInDate).toISOString().split('T')[0] === t).length;
-          base.todayCheckOuts = bookings.filter((b: any) => new Date(b.checkOutDate).toISOString().split('T')[0] === t).length;
+          base.todayCheckIns = bookings.filter((b: any) => ymdOf(b.checkInDate) === t).length;
+          base.todayCheckOuts = bookings.filter((b: any) => ymdOf(b.checkOutDate) === t).length;
 
         } else if (role === 'MANAGER') {
           const [roomsRes, bookingsRes, guestsRes, paymentsRes, expRes] = await Promise.all([
@@ -474,8 +477,8 @@ const Dashboard: React.FC = () => {
           base.totalRevenue = payments
             .filter((p: any) => p.status === 'COMPLETED')
             .reduce((s: number, p: any) => s + (p.amount || 0), 0);
-          base.todayCheckIns = bookings.filter((b: any) => new Date(b.checkInDate).toISOString().split('T')[0] === t).length;
-          base.todayCheckOuts = bookings.filter((b: any) => new Date(b.checkOutDate).toISOString().split('T')[0] === t).length;
+          base.todayCheckIns = bookings.filter((b: any) => ymdOf(b.checkInDate) === t).length;
+          base.todayCheckOuts = bookings.filter((b: any) => ymdOf(b.checkOutDate) === t).length;
           base.monthExpenses = Number((expRes?.data as any)?.stats?.monthTotal ?? 0);
 
         } else {
@@ -495,8 +498,8 @@ const Dashboard: React.FC = () => {
           base.totalRevenue = payments
             .filter((p: any) => p.status === 'COMPLETED')
             .reduce((s: number, p: any) => s + (p.amount || 0), 0);
-          base.todayCheckIns = bookings.filter((b: any) => new Date(b.checkInDate).toISOString().split('T')[0] === t).length;
-          base.todayCheckOuts = bookings.filter((b: any) => new Date(b.checkOutDate).toISOString().split('T')[0] === t).length;
+          base.todayCheckIns = bookings.filter((b: any) => ymdOf(b.checkInDate) === t).length;
+          base.todayCheckOuts = bookings.filter((b: any) => ymdOf(b.checkOutDate) === t).length;
           base.monthExpenses = Number((expRes?.data as any)?.stats?.monthTotal ?? 0);
         }
 
@@ -512,7 +515,7 @@ const Dashboard: React.FC = () => {
   }, [user?.role]);
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(n);
+    `৳${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 
   const occPct = stats.totalRooms > 0 ? Math.round((stats.occupiedRooms / stats.totalRooms) * 100) : 0;
 
@@ -634,6 +637,9 @@ const Dashboard: React.FC = () => {
           </div>
         }
       />
+
+      {/* ── Day summary (front-desk + finance roles) ──────────────────────── */}
+      {!loading && (role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'RECEPTIONIST' || role === 'ACCOUNTANT') && <DaySummary />}
 
       {/* ── Quick actions (first interactive strip) ───────────────────────── */}
       {!loading && showQuickActions && quickActions.length > 0 && (

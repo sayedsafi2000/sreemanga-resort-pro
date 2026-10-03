@@ -4,6 +4,7 @@ import { Users, ArrowRight } from 'lucide-react';
 import type { Room } from '@/types/resort';
 import { ROOM_TYPE_LABEL } from '@/lib/room-labels';
 import fallbackRoomPhoto from '@public/pina-vista/09-hill-cottage.jpg';
+import { fmtMoney } from '@/lib/format';
 
 export default function DarkRoomCard({ room }: { room: Room }) {
   const img = room.mainImage || room.images[0] || fallbackRoomPhoto.src;
@@ -24,7 +25,7 @@ export default function DarkRoomCard({ room }: { room: Room }) {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0a130b]/90 via-transparent to-transparent" />
           <span className="absolute left-3 top-3 border border-earth-400/40 bg-earth-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-300 backdrop-blur-sm">
-            {ROOM_TYPE_LABEL[room.type]}
+            {ROOM_TYPE_LABEL[room.type]?.en ?? room.type}
           </span>
           <span className="absolute right-3 top-3 flex items-center gap-1 bg-black/50 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
             <Users className="h-3 w-3" />
@@ -32,7 +33,7 @@ export default function DarkRoomCard({ room }: { room: Room }) {
           </span>
           <div className="absolute bottom-3 left-3">
             <span className="font-display text-xl font-semibold text-white drop-shadow-md">
-              ৳{room.price.toLocaleString()}
+              {fmtMoney(room.price)}
             </span>
             <span className="ml-1 text-sm font-normal text-white/60">/night</span>
           </div>

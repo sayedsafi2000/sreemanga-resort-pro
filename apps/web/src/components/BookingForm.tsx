@@ -4,12 +4,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
 import { addDays, differenceInCalendarDays, eachDayOfInterval, format, isAfter, isSameDay, startOfDay } from 'date-fns';
-import { BedDouble, CalendarDays, Mail, Phone, UserRound, Users } from 'lucide-react';
+import { BedDouble, CalendarDays, Mail, Minus, Phone, Plus, UserRound, Users } from 'lucide-react';
 import 'react-day-picker/style.css';
 
 import { getRoomAvailabilityCalendar, submitPublicBooking, sendBookingOtp, verifyBookingOtp, validatePublicVoucher, fetchVouchersForEmail, type PublicMineVoucher } from '@/lib/resort-api';
 import type { Room, RoomAvailabilityCalendar } from '@/types/resort';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { fmtMoney } from '@/lib/format';
 
 type Props = {
   rooms: Room[];
@@ -29,10 +31,10 @@ const CALENDAR_DAYS = 90;
 // Online bookings are pay-now only: the guest sends the money first and
 // submits the transaction ID. "Pay later" is not offered on the website.
 type PaymentMethod = 'BKASH' | 'NAGAD' | 'BANK_TRANSFER';
-const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: 'BKASH', label: 'bKash' },
-  { value: 'NAGAD', label: 'Nagad' },
-  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+const PAYMENT_METHODS: { value: PaymentMethod; label: string; bn: string }[] = [
+  { value: 'BKASH', label: 'bKash', bn: 'বিকাশ' },
+  { value: 'NAGAD', label: 'Nagad', bn: 'নগদ' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer', bn: 'ব্যাংক ট্রান্সফার' },
 ];
 
 // Optional build-time fallbacks; values from admin Settings → Payment Accounts
@@ -44,7 +46,11 @@ const ENV_BANK_ACCOUNT_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || '';
 const ENV_BANK_ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '';
 const ENV_BANK_NAME = process.env.NEXT_PUBLIC_BANK_NAME || '';
 const ENV_BANK_BRANCH = process.env.NEXT_PUBLIC_BANK_BRANCH || '';
-const NOT_SET = 'Not set yet — please call us before paying';
+// Occupancy rules (mirrors the server): `capacity` guests are included in the rate; up to
+// MAX_EXTRA_PERSONS more (extra adults, or children aged 8+) at the room's extra-guest charge per
+// night. Children under 8 stay free.
+const MAX_EXTRA_PERSONS = 2;
+const DEFAULT_EXTRA_GUEST_CHARGE = 500;
 
 /**
  * The calendar selects NIGHTS: tapping one date books that night (check-in that
@@ -68,6 +74,8 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
   const sp = useSearchParams();
   const defaultRoom = sp.get('room') || '';
   const isDark = variant === 'dark';
+  const { t } = useLanguage();
+  const NOT_SET = t('Not set yet — please call us before paying', 'এখনো দেওয়া হয়নি — টাকা পাঠানোর আগে আমাদের কল করুন');
 
   const BKASH_NUMBER = paymentAccounts?.bkashNumber?.trim() || ENV_BKASH;
   const NAGAD_NUMBER = paymentAccounts?.nagadNumber?.trim() || ENV_NAGAD;
@@ -81,8 +89,15 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [range, setRange] = useState<DateRange | undefined>(undefined);
-  const [adults, setAdults] = useState(2);
-  const [children, setChildren] = useState(0);
+  const selectedRoom = rooms.find((r) => r.id === roomId) ?? null;
+  const capacity = Math.max(1, selectedRoom?.capacity ?? 2);
+  const extraGuestCharge = selectedRoom?.extraGuestCharge ?? DEFAULT_EXTRA_GUEST_CHARGE;
+  const [adults, setAdults] = useState(capacity);
+  const [childrenUnder8, setChildrenUnder8] = useState(0);
+  const [childrenOver8, setChildrenOver8] = useState(0);
+  const extraAdults = Math.max(0, adults - capacity);
+  const extraPersons = extraAdults + childrenOver8;
+  const extraOk = extraPersons <= MAX_EXTRA_PERSONS;
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>('BKASH');
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
@@ -107,6 +122,19 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     if (!calendar?.availability?.length) return [] as Date[];
     return calendar.availability
       .filter((d) => d.status === 'BOOKED')
+      .map((d) => new Date(`${d.date}T12:00:00`));
+  }, [calendar]);
+  // Pending (unconfirmed) requests still hold the night, but get their own colour.
+  const pendingDates = useMemo(() => {
+    if (!calendar?.availability?.length) return [] as Date[];
+    return calendar.availability
+      .filter((d) => d.status === 'BOOKED' && d.bookingStatus === 'PENDING')
+      .map((d) => new Date(`${d.date}T12:00:00`));
+  }, [calendar]);
+  const confirmedDates = useMemo(() => {
+    if (!calendar?.availability?.length) return [] as Date[];
+    return calendar.availability
+      .filter((d) => d.status === 'BOOKED' && d.bookingStatus !== 'PENDING')
       .map((d) => new Date(`${d.date}T12:00:00`));
   }, [calendar]);
 
@@ -139,7 +167,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
           bookedKeys.has(format(x, 'yyyy-MM-dd'))
         );
         if (crossesBooked) {
-          setCalHint('That stay would cross a booked night — pick a shorter range or a different start date.');
+          setCalHint(t('That stay would cross a booked night — pick a shorter range or a different start date.', 'এই থাকার মাঝে একটি রাত আগে থেকেই বুক করা — ছোট রেঞ্জ বা অন্য শুরুর তারিখ বেছে নিন।'));
           return { from: d, to: d };
         }
         return { from, to: d };
@@ -168,7 +196,11 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
 
   useEffect(() => {
     setRange(undefined);
-  }, [roomId]);
+    // Each room includes a different number of guests — reset the counters to its base.
+    setAdults(capacity);
+    setChildrenUnder8(0);
+    setChildrenOver8(0);
+  }, [roomId, capacity]);
 
   // OTP resend countdown
   useEffect(() => {
@@ -203,7 +235,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
 
   async function handleSendOtp() {
     if (!guestEmail.trim()) {
-      setOtpMessage('Please enter your email first.');
+      setOtpMessage(t('Please enter your email first.', 'আগে আপনার ইমেইল দিন।'));
       return;
     }
     setOtpStep('sending');
@@ -228,7 +260,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     const res = await verifyBookingOtp(guestEmail.trim(), otpValue.trim());
     if (res.ok) {
       setOtpStep('verified');
-      setOtpMessage('✓ Email verified');
+      setOtpMessage('✓ ' + t('Email verified', 'ইমেইল যাচাই হয়েছে'));
     } else {
       setOtpStep('input');
       setOtpMessage(res.message);
@@ -242,7 +274,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     }
     if (!file.type.startsWith('image/')) {
       setStatus('err');
-      setMessage('Please upload an image file for transaction proof.');
+      setMessage(t('Please upload an image file (screenshot) of your payment.', 'পেমেন্টের ছবি (screenshot) আপলোড করুন।'));
       return;
     }
     const url = await new Promise<string>((resolve, reject) => {
@@ -258,31 +290,41 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     e.preventDefault();
     if (!stay) {
       setStatus('err');
-      setMessage('Please select the night(s) of your stay on the calendar.');
+      setMessage(t('Please select the night(s) of your stay on the calendar.', 'ক্যালেন্ডারে আপনার থাকার রাত(গুলো) বেছে নিন।'));
       return;
     }
     // Email is mandatory: the server only accepts bookings from an OTP-verified address.
     if (!guestEmail.trim()) {
       setStatus('err');
-      setMessage('Please enter your email — we send a one-time code to verify it.');
+      setMessage(t('Please enter your email — we send a one-time code to verify it.', 'আপনার ইমেইল দিন — যাচাইয়ের জন্য আমরা একটি one-time code পাঠাই।'));
       return;
     }
     if (otpStep !== 'verified') {
       setStatus('err');
-      setMessage('Please verify your email with OTP before submitting.');
+      setMessage(t('Please verify your email with OTP before submitting.', 'জমা দেওয়ার আগে OTP দিয়ে ইমেইল যাচাই করুন।'));
       return;
     }
     const checkInDate = format(stay.checkIn, 'yyyy-MM-dd');
     const checkOutDate = format(stay.checkOut, 'yyyy-MM-dd');
-    // Pay-now only: the transaction ID is what staff verify against bKash/Nagad/bank.
-    if (paymentTransactionId.trim().length < 4) {
+    // Pay-now only: staff verify the payment screenshot (the transaction ID is optional).
+    if (!paymentProofImage) {
       setStatus('err');
-      setMessage('Please enter a valid transaction ID.');
+      setMessage(t('Please attach a screenshot of your payment.', 'আপনার পেমেন্টের screenshot যুক্ত করুন।'));
+      return;
+    }
+    if (paymentTransactionId.trim() && paymentTransactionId.trim().length < 4) {
+      setStatus('err');
+      setMessage(t('The transaction ID looks too short.', 'Transaction ID টি খুব ছোট মনে হচ্ছে।'));
+      return;
+    }
+    if (!extraOk) {
+      setStatus('err');
+      setMessage(t(`This room includes ${capacity} guests; you can add at most ${MAX_EXTRA_PERSONS} extra persons (adults or children aged 8+).`, `এই রুমে ${capacity} জন অন্তর্ভুক্ত; সর্বোচ্চ ${MAX_EXTRA_PERSONS} জন অতিরিক্ত (প্রাপ্তবয়স্ক বা ৮+ বছরের শিশু) যোগ করা যায়।`));
       return;
     }
     if (guestPhone.replace(/\D/g, '').length < 10) {
       setStatus('err');
-      setMessage('Phone must be at least 10 digits.');
+      setMessage(t('Phone must be at least 10 digits.', 'ফোন নম্বর অন্তত ১০ অঙ্কের হতে হবে।'));
       return;
     }
 
@@ -294,10 +336,11 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
       guestPhone: guestPhone.trim(),
       guestEmail: guestEmail.trim() || undefined,
       adults,
-      children,
+      children: childrenUnder8,
+      childrenOver8,
       preferredPaymentTiming: 'INSTANT',
       preferredPaymentMethod,
-      paymentTransactionId: paymentTransactionId.trim(),
+      paymentTransactionId: paymentTransactionId.trim() || undefined,
       paymentProofImage,
       checkInDate,
       checkOutDate,
@@ -345,7 +388,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
         <label className="sm:col-span-2">
           <span className={labelClass}>
             <BedDouble className={iconClass} />
-            Room
+            {t('Room', 'রুম')}
           </span>
           <select
             required
@@ -355,7 +398,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
           >
             {rooms.map((r) => (
               <option key={r.id} value={r.id} className={isDark ? 'bg-[#0a130b] text-forest-100' : ''}>
-                {r.name} — ৳{r.price.toLocaleString()}/night
+                {r.name} — {fmtMoney(r.price)}/{t('night', 'রাত')} · {r.capacity} {t('guests', 'জন')}
               </option>
             ))}
           </select>
@@ -367,9 +410,9 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
             ? 'border border-forest-900/60 bg-[#0d1a0e]'
             : 'rounded-2xl border border-white/50 bg-white/35 backdrop-blur-sm'
         )}>
-          <p className={cn('text-sm font-semibold', isDark ? 'text-forest-200' : 'text-stone-700')}>Payment</p>
+          <p className={cn('text-sm font-semibold', isDark ? 'text-forest-200' : 'text-stone-700')}>{t('Payment', 'পেমেন্ট')}</p>
           <p className={cn('text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>
-            Pay now via bKash, Nagad or bank transfer, then enter the transaction ID to confirm your booking.
+            {t('Pay now via bKash, Nagad or bank transfer, then attach a screenshot of the payment to confirm your booking.', 'bKash, Nagad বা ব্যাংক ট্রান্সফারে এখনই টাকা পাঠান, তারপর পেমেন্টের screenshot যুক্ত করে বুকিং নিশ্চিত করুন।')}
           </p>
           <div className={cn('flex flex-wrap gap-3 text-sm', isDark ? 'text-forest-200' : '')}>
             {PAYMENT_METHODS.map((m) => (
@@ -386,7 +429,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                   checked={preferredPaymentMethod === m.value}
                   onChange={() => setPreferredPaymentMethod(m.value)}
                 />
-                <span>{m.label}</span>
+                <span>{t(m.label, m.bn)}</span>
               </label>
             ))}
           </div>
@@ -399,26 +442,26 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
             {preferredPaymentMethod === 'BANK_TRANSFER' ? (
               <div className="space-y-1">
                 <p className={cn('font-semibold', isDark ? 'text-forest-100' : 'text-forest-800')}>
-                  Send via Bank Transfer
+                  {t('Send via Bank Transfer', 'ব্যাংক ট্রান্সফারে পাঠান')}
                 </p>
-                <p>Bank: <span className="font-semibold">{BANK_NAME || NOT_SET}</span></p>
-                <p>Branch: <span className="font-semibold">{BANK_BRANCH || NOT_SET}</span></p>
-                <p>A/C Name: <span className="font-semibold">{BANK_ACCOUNT_NAME || NOT_SET}</span></p>
-                <p>A/C Number: <span className="font-semibold">{BANK_ACCOUNT_NUMBER || NOT_SET}</span></p>
+                <p>{t('Bank', 'ব্যাংক')}: <span className="font-semibold">{BANK_NAME || NOT_SET}</span></p>
+                <p>{t('Branch', 'শাখা')}: <span className="font-semibold">{BANK_BRANCH || NOT_SET}</span></p>
+                <p>{t('A/C Name', 'অ্যাকাউন্টের নাম')}: <span className="font-semibold">{BANK_ACCOUNT_NAME || NOT_SET}</span></p>
+                <p>{t('A/C Number', 'অ্যাকাউন্ট নম্বর')}: <span className="font-semibold">{BANK_ACCOUNT_NUMBER || NOT_SET}</span></p>
               </div>
             ) : (
               <div className="space-y-1">
                 <p className={cn('font-semibold', isDark ? 'text-forest-100' : 'text-forest-800')}>
-                  Send via {preferredPaymentMethod === 'NAGAD' ? 'Nagad' : 'bKash'} Personal
+                  {t('Send via', 'পাঠান')} {preferredPaymentMethod === 'NAGAD' ? 'Nagad' : 'bKash'} {t('Personal', 'পার্সোনাল')}
                 </p>
                 <p>
-                  Number:{' '}
+                  {t('Number', 'নম্বর')}:{' '}
                   <span className="font-semibold">
                     {(preferredPaymentMethod === 'NAGAD' ? NAGAD_NUMBER : BKASH_NUMBER) || NOT_SET}
                   </span>
                 </p>
                 <p className={cn('text-xs', isDark ? 'text-forest-400' : 'text-stone-600')}>
-                  Send money, then submit your transaction ID below.
+                  {t('Send the money, then attach the payment screenshot below.', 'টাকা পাঠিয়ে নিচে পেমেন্টের screenshot যুক্ত করুন।')}
                 </p>
               </div>
             )}
@@ -428,14 +471,13 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               'mb-2 block text-xs font-semibold',
               isDark ? 'text-forest-200' : 'text-stone-700'
             )}>
-              Transaction ID
+              {t('Transaction ID', 'Transaction ID')} <span className="font-normal opacity-70">({t('optional', 'ঐচ্ছিক')})</span>
             </span>
             <input
-              required
               value={paymentTransactionId}
               onChange={(e) => setPaymentTransactionId(e.target.value)}
               className={cn('w-full px-3 py-2 text-sm', glassField.replace('rounded-2xl', 'rounded-xl'))}
-              placeholder="Enter transaction ID/reference"
+              placeholder={t('Transaction ID / reference, if you have it', 'Transaction ID / reference (থাকলে)')}
             />
           </label>
           <label className="block">
@@ -443,11 +485,12 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               'mb-2 block text-xs font-semibold',
               isDark ? 'text-forest-200' : 'text-stone-700'
             )}>
-              Transaction Screenshot (optional)
+              {t('Payment screenshot', 'পেমেন্টের screenshot')} <span className="text-rose-600">*</span>
             </span>
             <input
               type="file"
               accept="image/*"
+              required
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 void onProofUpload(file);
@@ -468,13 +511,13 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
         <div className="sm:col-span-2">
           <span className={labelClass}>
             <CalendarDays className={iconClass} />
-            Stay dates
+            {t('Stay dates', 'থাকার তারিখ')}
           </span>
           <p className={cn(
             'mb-3 text-xs',
             isDark ? 'text-forest-400' : 'text-stone-500'
           )}>
-            Tap a date to book that night. Tap a later date to extend your stay. Booked nights are crossed out.
+            {t('Tap a date to book that night. Tap a later date to extend your stay. Booked nights are crossed out.', 'একটি তারিখে চাপলে সেই রাত বুক হবে; পরের কোনো তারিখে চাপলে থাকা বাড়বে। বুক করা রাত কাটা দেখাবে।')}
           </p>
           {calLoading ? (
             <div className={cn(
@@ -493,6 +536,8 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                 selected={range ?? EMPTY_RANGE}
                 onDayClick={handleDayClick}
                 disabled={disabledMatchers}
+                modifiers={{ pending: pendingDates, booked: confirmedDates }}
+                modifiersClassNames={{ pending: 'pv-pending', booked: 'pv-booked' }}
                 numberOfMonths={1}
                 defaultMonth={todayStart}
                 showOutsideDays={false}
@@ -509,56 +554,82 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               isDark ? 'text-forest-200' : 'text-stone-700'
             )}>
               <span>
-                <span className="font-semibold">Check-in</span> {format(stay.checkIn, 'EEE d MMM')}
+                <span className="font-semibold">{t('Check-in', 'চেক-ইন')}</span> {format(stay.checkIn, 'EEE d MMM')}
                 {' · '}
-                <span className="font-semibold">Check-out</span> {format(stay.checkOut, 'EEE d MMM')}
+                <span className="font-semibold">{t('Check-out', 'চেক-আউট')}</span> {format(stay.checkOut, 'EEE d MMM')}
                 {' · '}
-                {stay.nights} {stay.nights === 1 ? 'night' : 'nights'}
+                {stay.nights} {stay.nights === 1 ? t('night', 'রাত') : t('nights', 'রাত')}
               </span>
               <button
                 type="button"
                 onClick={() => { setRange(undefined); setCalHint(''); }}
                 className={cn('text-xs underline underline-offset-2', isDark ? 'text-forest-400 hover:text-forest-200' : 'text-stone-500 hover:text-stone-800')}
               >
-                Clear dates
+                {t('Clear dates', 'তারিখ মুছুন')}
               </button>
             </div>
           )}
         </div>
 
-        <label>
+        {/* Guests: the room's capacity is included; up to 2 extra persons are charged per night. */}
+        <div className="sm:col-span-2">
           <span className={labelClass}>
             <Users className={iconClass} />
-            Adults
+            {t('Guests', 'অতিথি')}
           </span>
-          <input
-            type="number"
-            min={1}
-            max={20}
-            value={adults}
-            onChange={(e) => setAdults(Number(e.target.value))}
-            className={cn('w-full px-4 py-3', glassField)}
-          />
-        </label>
-        <label>
-          <span className={labelClass}>
-            <Users className={iconClass} />
-            Children
-          </span>
-          <input
-            type="number"
-            min={0}
-            max={20}
-            value={children}
-            onChange={(e) => setChildren(Number(e.target.value))}
-            className={cn('w-full px-4 py-3', glassField)}
-          />
-        </label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Counter
+              label={t('Adults', 'প্রাপ্তবয়স্ক')}
+              hint={t(`${capacity} included`, `${capacity} জন অন্তর্ভুক্ত`)}
+              value={adults}
+              min={1}
+              max={capacity + Math.max(0, MAX_EXTRA_PERSONS - childrenOver8)}
+              onChange={setAdults}
+              dark={isDark}
+              field={glassField}
+            />
+            <Counter
+              label={t('Children under 8', '৮ বছরের নিচে শিশু')}
+              hint={t('free', 'ফ্রি')}
+              value={childrenUnder8}
+              min={0}
+              max={6}
+              onChange={setChildrenUnder8}
+              dark={isDark}
+              field={glassField}
+            />
+            <Counter
+              label={t('Children 8+', '৮+ বছরের শিশু')}
+              hint={`${fmtMoney(extraGuestCharge)}/${t('night', 'রাত')}`}
+              value={childrenOver8}
+              min={0}
+              max={Math.max(0, MAX_EXTRA_PERSONS - extraAdults)}
+              onChange={setChildrenOver8}
+              dark={isDark}
+              field={glassField}
+            />
+          </div>
+          <p className={cn('mt-2 text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>
+            {t(
+              `${capacity} guests are included in the room rate. Up to ${MAX_EXTRA_PERSONS} extra persons (adults or children aged 8+) can be added at ${fmtMoney(extraGuestCharge)} per person per night; children under 8 stay free.`,
+              `রুমের ভাড়ায় ${capacity} জন অন্তর্ভুক্ত। সর্বোচ্চ ${MAX_EXTRA_PERSONS} জন অতিরিক্ত (প্রাপ্তবয়স্ক বা ৮+ বছরের শিশু) যোগ করা যায়, জনপ্রতি প্রতি রাতে ${fmtMoney(extraGuestCharge)}; ৮ বছরের নিচে শিশু ফ্রি।`,
+            )}
+          </p>
+          {selectedRoom && stay && (
+            <div className={cn('mt-3 space-y-1 rounded-xl px-4 py-3 text-sm', isDark ? 'border border-forest-900/60 bg-[#0d1a0e] text-forest-200' : 'border border-forest-200/60 bg-forest-50/70 text-stone-700')}>
+              <div className="flex justify-between"><span>{selectedRoom.name} × {stay.nights} {t('night(s)', 'রাত')}</span><span className="font-semibold tabular-nums">{fmtMoney(selectedRoom.price * stay.nights)}</span></div>
+              {extraPersons > 0 && (
+                <div className="flex justify-between"><span>{t('Extra persons', 'অতিরিক্ত ব্যক্তি')} {extraPersons} × {fmtMoney(extraGuestCharge)} × {stay.nights}</span><span className="font-semibold tabular-nums">{fmtMoney(extraPersons * extraGuestCharge * stay.nights)}</span></div>
+              )}
+              <div className={cn('flex justify-between border-t pt-1 font-semibold', isDark ? 'border-forest-900/60' : 'border-forest-200/60')}><span>{t('Estimated total', 'আনুমানিক মোট')}</span><span className="tabular-nums">{fmtMoney(selectedRoom.price * stay.nights + extraPersons * extraGuestCharge * stay.nights)}</span></div>
+            </div>
+          )}
+        </div>
 
         <label className="sm:col-span-2">
           <span className={labelClass}>
             <UserRound className={iconClass} />
-            Full name
+            {t('Full name', 'পুরো নাম')}
           </span>
           <input
             required
@@ -566,14 +637,14 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
             className={cn('w-full px-4 py-3', glassField)}
-            placeholder="Your name"
+            placeholder={t('Your name', 'আপনার নাম')}
           />
         </label>
 
         <label>
           <span className={labelClass}>
             <Phone className={iconClass} />
-            Phone
+            {t('Phone', 'ফোন')}
           </span>
           <input
             required
@@ -587,7 +658,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
         <label>
           <span className={labelClass}>
             <Mail className={iconClass} />
-            Email
+            {t('Email', 'ইমেইল')}
           </span>
           <input
             type="email"
@@ -611,7 +682,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               {otpStep === 'idle' && (
                 <>
                   <p className={cn('text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>
-                    We email a 6-digit code to this address. Verify it once, then request your booking.
+                    {t('We email a 6-digit code to this address. Verify it once, then request your booking.', 'এই ঠিকানায় আমরা ৬ অঙ্কের একটি কোড ইমেইল করি। একবার যাচাই করে বুকিং অনুরোধ করুন।')}
                   </p>
                   <button
                     type="button"
@@ -624,13 +695,13 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                         : 'border border-forest-400 bg-forest-50 text-forest-800 hover:bg-forest-100'
                     )}
                   >
-                    Send OTP to verify email
+                    {t('Send OTP to verify email', 'ইমেইল যাচাইয়ে OTP পাঠান')}
                   </button>
                 </>
               )}
               {otpStep === 'sending' && (
                 <p className={cn('text-xs text-center', isDark ? 'text-forest-400' : 'text-stone-500')}>
-                  Sending OTP…
+                  {t('Sending OTP…', 'OTP পাঠানো হচ্ছে…')}
                 </p>
               )}
               {(otpStep === 'input' || otpStep === 'verifying') && (
@@ -641,7 +712,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                     maxLength={6}
                     value={otpValue}
                     onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter 6-digit OTP"
+                    placeholder={t('Enter 6-digit OTP', '৬ অঙ্কের OTP দিন')}
                     className={cn('w-full px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em]', glassField)}
                   />
                   <div className="flex gap-2">
@@ -656,7 +727,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                           : 'bg-forest-700 text-white hover:bg-forest-800'
                       )}
                     >
-                      {otpStep === 'verifying' ? 'Verifying…' : 'Verify OTP'}
+                      {otpStep === 'verifying' ? t('Verifying…', 'যাচাই হচ্ছে…') : t('Verify OTP', 'OTP যাচাই করুন')}
                     </button>
                     <button
                       type="button"
@@ -669,7 +740,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                           : 'border border-forest-400 text-forest-700 hover:bg-forest-50'
                       )}
                     >
-                      {otpResendTimer > 0 ? `Resend (${otpResendTimer}s)` : 'Resend'}
+                      {otpResendTimer > 0 ? `${t('Resend', 'আবার পাঠান')} (${otpResendTimer}s)` : t('Resend', 'আবার পাঠান')}
                     </button>
                   </div>
                 </div>
@@ -687,7 +758,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
           )}
           {otpStep === 'verified' && (
             <p className={cn('mt-1.5 text-xs font-semibold', isDark ? 'text-forest-300' : 'text-forest-700')}>
-              ✓ Email verified
+              ✓ {t('Email verified', 'ইমেইল যাচাই হয়েছে')}
             </p>
           )}
         </label>
@@ -702,7 +773,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
             )}
           >
             <p className={cn('text-xs font-semibold uppercase tracking-wide', isDark ? 'text-forest-400' : 'text-forest-700')}>
-              Vouchers for you
+              {t('Vouchers for you', 'আপনার জন্য ভাউচার')}
             </p>
             <ul className="space-y-1.5">
               {emailVouchers.map((v) => (
@@ -710,7 +781,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                   <span className={isDark ? 'text-forest-100' : 'text-stone-800'}>
                     {v.name}{' '}
                     <span className="text-xs opacity-70">
-                      ({v.discountType === 'PERCENT' ? `${v.discountValue}%` : `৳${v.discountValue}`})
+                      ({v.discountType === 'PERCENT' ? `${v.discountValue}%` : `${fmtMoney(v.discountValue)}`})
                     </span>
                   </span>
                   <button
@@ -720,11 +791,11 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                       isDark ? 'text-forest-300' : 'text-forest-700'
                     )}
                     onClick={() => {
-                      setMessage(`Your code ends with ${v.codeHint} — enter the full code to apply.`);
+                      setMessage(t(`Your code ends with ${v.codeHint} — enter the full code to apply.`, `আপনার কোড ${v.codeHint} দিয়ে শেষ — পুরো কোড লিখে প্রয়োগ করুন।`));
                       setStatus('idle');
                       setVoucherPreview(null);
                     }}
-                    title="Code ends with this hint — enter the full code to apply"
+                    title={t('Code ends with this hint — enter the full code to apply', 'কোডের শেষ অংশ — পুরো কোড লিখে প্রয়োগ করুন')}
                   >
                     ••••{v.codeHint}
                   </button>
@@ -732,12 +803,12 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               ))}
             </ul>
             <p className={cn('text-[11px]', isDark ? 'text-forest-500' : 'text-stone-500')}>
-              Enter the full code below to apply (hint shown for reference).
+              {t('Enter the full code below to apply (hint shown for reference).', 'প্রয়োগ করতে নিচে পুরো কোডটি লিখুন (ইঙ্গিত শুধু মনে করিয়ে দিতে)।')}
             </p>
           </div>
         )}
         <label>
-          <span className={labelClass}>Voucher code (optional)</span>
+          <span className={labelClass}>{t('Voucher code', 'ভাউচার কোড')} <span className="font-normal opacity-70">({t('optional', 'ঐচ্ছিক')})</span></span>
           <div className="flex gap-2">
             <input
               value={voucherCode}
@@ -746,7 +817,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                 setVoucherPreview(null);
               }}
               className={cn('w-full px-4 py-3', glassField)}
-              placeholder="Have a code?"
+              placeholder={t('Have a code?', 'কোড আছে?')}
             />
             <button
               type="button"
@@ -760,11 +831,11 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                 const room = rooms.find((r) => r.id === roomId);
                 if (!room || !stay || !voucherCode.trim()) return;
                 if (!guestEmail.trim()) {
-                  setMessage('Enter your email so we can check personal vouchers.');
+                  setMessage(t('Enter your email so we can check personal vouchers.', 'ব্যক্তিগত ভাউচার দেখতে আপনার ইমেইল দিন।'));
                   setStatus('err');
                   return;
                 }
-                const gross = room.price * stay.nights;
+                const gross = room.price * stay.nights + extraPersons * extraGuestCharge * stay.nights;
                 const res = await validatePublicVoucher({
                   code: voucherCode.trim(),
                   channel: 'ROOM',
@@ -773,7 +844,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                   guestEmail: guestEmail.trim() || undefined,
                 });
                 if (res.ok) {
-                  setVoucherPreview(`Save ৳${res.discountAmount} — pay ৳${res.netAmount}`);
+                  setVoucherPreview(`${t('Save', 'সাশ্রয়')} ${fmtMoney(res.discountAmount)} — ${t('pay', 'দিতে হবে')} ${fmtMoney(res.netAmount)}`);
                   setStatus('idle');
                   setMessage('');
                 } else {
@@ -783,7 +854,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                 }
               }}
             >
-              Apply
+              {t('Apply', 'প্রয়োগ')}
             </button>
           </div>
         </label>
@@ -802,7 +873,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
             : 'rounded-full border border-forest-600/40 bg-forest-700 text-white shadow-lg shadow-forest-950/30 ring-1 ring-white/15 hover:bg-forest-800 hover:shadow-xl'
         )}
       >
-        {status === 'loading' ? 'Sending…' : 'Request booking'}
+        {status === 'loading' ? t('Sending…', 'পাঠানো হচ্ছে…') : t('Request booking', 'বুকিং অনুরোধ করুন')}
       </button>
 
       {message && (
@@ -829,13 +900,13 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
           'text-sm font-semibold',
           isDark ? 'text-forest-100' : 'text-stone-800'
         )}>
-          Availability preview
+          {t('Availability preview', 'খালি আছে কি না')}
         </h3>
         <p className={cn(
           'mt-1 text-xs',
           isDark ? 'text-forest-400' : 'text-stone-600'
         )}>
-          Green = free · Red = booked/pending (first 30 days shown)
+          {t('Green = free · Amber = pending request · Red = booked (first 30 days shown)', 'সবুজ = খালি · হলুদ = অনুরোধ অপেক্ষমাণ · লাল = বুক করা (প্রথম ৩০ দিন)')}
         </p>
         {calLoading ? (
           <div className={cn(
@@ -851,9 +922,11 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                   'rounded-lg px-2 py-1.5 text-center text-xs font-medium',
                   d.status === 'FREE'
                     ? isDark ? 'bg-forest-900/60 text-forest-200' : 'bg-forest-100 text-forest-800'
-                    : isDark ? 'bg-rose-900/40 text-rose-300' : 'bg-rose-100 text-rose-800'
+                    : d.bookingStatus === 'PENDING'
+                      ? isDark ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-100 text-amber-800'
+                      : isDark ? 'bg-rose-900/40 text-rose-300' : 'bg-rose-100 text-rose-800'
                 )}
-                title={d.bookingStatus ? `Booked (${d.bookingStatus})` : 'Free'}
+                title={d.status === 'FREE' ? t('Free', 'খালি') : d.bookingStatus === 'PENDING' ? t('Pending request', 'অনুরোধ অপেক্ষমাণ') : t('Booked', 'বুক করা')}
               >
                 {new Date(`${d.date}T12:00:00Z`).toLocaleDateString('en-GB', {
                   month: 'short',
@@ -867,7 +940,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
             'mt-3 text-xs',
             isDark ? 'text-forest-500' : 'text-stone-500'
           )}>
-            Availability unavailable right now.
+            {t('Availability unavailable right now.', 'এই মুহূর্তে availability দেখানো যাচ্ছে না।')}
           </p>
         )}
       </div>
@@ -876,3 +949,25 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
   );
 }
 
+/** Small − / + stepper used for the guest counts. */
+function Counter({ label, hint, value, min, max, onChange, dark, field }: {
+  label: string; hint?: string; value: number; min: number; max: number; onChange: (n: number) => void; dark: boolean; field: string;
+}) {
+  const btn = cn(
+    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-35',
+    dark ? 'border-forest-800 bg-forest-900/60 text-forest-100 hover:bg-forest-800' : 'border-forest-300 bg-white text-forest-800 hover:bg-forest-50',
+  );
+  return (
+    <div className={cn('flex items-center justify-between gap-2 px-3 py-2', field)}>
+      <div className="min-w-0">
+        <p className={cn('text-xs font-semibold', dark ? 'text-forest-200' : 'text-stone-700')}>{label}</p>
+        {hint && <p className={cn('text-[11px]', dark ? 'text-forest-400' : 'text-stone-500')}>{hint}</p>}
+      </div>
+      <div className="flex items-center gap-2">
+        <button type="button" aria-label={`${label} −`} className={btn} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}><Minus className="h-4 w-4" /></button>
+        <span className="w-5 text-center text-sm font-bold tabular-nums">{value}</span>
+        <button type="button" aria-label={`${label} +`} className={btn} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}><Plus className="h-4 w-4" /></button>
+      </div>
+    </div>
+  );
+}

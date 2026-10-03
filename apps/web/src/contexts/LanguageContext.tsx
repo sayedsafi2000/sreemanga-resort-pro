@@ -9,6 +9,8 @@ type LanguageContextType = {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (en: string, bn?: string) => string;
+  /** Auto-translate admin-entered content into the current language (Bangla ↔ English), cached. */
+  ta: (text: string | null | undefined) => string;
   tr: (category: TranslationKey, key: string) => string;
   isTranslating: boolean;
 };
@@ -16,12 +18,12 @@ type LanguageContextType = {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 // ── Google Translate (free, no key) ──────────────────────────────────────────
-async function googleTranslate(texts: string[], target = 'bn'): Promise<string[]> {
+async function googleTranslate(texts: string[], target = 'bn', source = 'en'): Promise<string[]> {
   if (texts.length === 0) return [];
   // Batch as a single joined request using separator unlikely to appear in text
   const SEP = '\n⟦SEP⟧\n';
   const joined = texts.join(SEP);
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${target}&dt=t&q=${encodeURIComponent(joined)}`;
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(joined)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Translation failed');
   const json = await res.json();
@@ -31,6 +33,9 @@ async function googleTranslate(texts: string[], target = 'bn'): Promise<string[]
 
 // ── In-memory translation cache ───────────────────────────────────────────────
 const translationCache = new Map<string, string>();
+// Reverse direction (Bangla admin content shown in English mode).
+const reverseCache = new Map<string, string>();
+const hasBangla = (s: string) => /[\u0980-\u09FF]/.test(s);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en');
@@ -38,6 +43,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [isTranslating, setIsTranslating] = useState(false);
   // Queue of English strings needing translation
   const pendingRef = useRef<Set<string>>(new Set());
+  const pendingReverseRef = useRef<Set<string>>(new Set());
   const [, forceUpdate] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -62,24 +68,27 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   }, [language]);
 
-  // Flush pending translations in a batch
+  // Flush pending translations in a batch (en→bn for UI strings, bn→en for admin content)
   const flushPending = useCallback(async () => {
-    if (pendingRef.current.size === 0) return;
-    const batch = Array.from(pendingRef.current).filter(
-      (text) => !translationCache.has(text)
-    );
+    const batch = Array.from(pendingRef.current).filter((text) => !translationCache.has(text));
+    const reverse = Array.from(pendingReverseRef.current).filter((text) => !reverseCache.has(text));
     pendingRef.current.clear();
-    if (batch.length === 0) return;
+    pendingReverseRef.current.clear();
+    if (batch.length === 0 && reverse.length === 0) return;
 
     setIsTranslating(true);
     try {
-      const results = await googleTranslate(batch);
-      batch.forEach((src, i) => {
-        if (results[i]) translationCache.set(src, results[i].trim());
-      });
+      if (batch.length) {
+        const results = await googleTranslate(batch, 'bn', 'en');
+        batch.forEach((src, i) => { if (results[i]) translationCache.set(src, results[i].trim()); });
+      }
+      if (reverse.length) {
+        const results = await googleTranslate(reverse, 'en', 'bn');
+        reverse.forEach((src, i) => { if (results[i]) reverseCache.set(src, results[i].trim()); });
+      }
       forceUpdate((n) => n + 1);
     } catch {
-      // fail silently — will show English
+      // fail silently — will show the original text
     } finally {
       setIsTranslating(false);
     }
@@ -100,6 +109,21 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
     return en; // show English while translating
   }, [mounted, language, flushPending]);
+
+  // ta(text) — content typed in admin (any language) shown in the selected language.
+  const ta = useCallback((text: string | null | undefined): string => {
+    const src = (text ?? '').trim();
+    if (!src || !mounted) return src;
+    if (language === 'bn') return hasBangla(src) ? src : t(src);
+    if (!hasBangla(src)) return src;
+    if (reverseCache.has(src)) return reverseCache.get(src)!;
+    if (!pendingReverseRef.current.has(src)) {
+      pendingReverseRef.current.add(src);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(flushPending, 80);
+    }
+    return src;
+  }, [mounted, language, t, flushPending]);
 
   const tr = useCallback((category: TranslationKey, key: string): string => {
     if (!mounted) {
@@ -124,7 +148,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [language, mounted]);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, tr, isTranslating }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, ta, tr, isTranslating }}>
       {children}
     </LanguageContext.Provider>
   );

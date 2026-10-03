@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import GuestPicker, { type GuestPick } from '@/components/GuestPicker';
 import { Users, Save, Loader2, ArrowLeft, Check, Star, Crown, Globe2, X, Wallet, Info, Handshake, BedDouble, CalendarDays, Mail } from 'lucide-react';
 import {
-  type Booking, type Room, type CellState, STATE_META, TYPE_LABEL, PAY_METHODS, METHOD_LABEL,
+  type Booking, type Room, type CellState, STATE_META, TYPE_LABEL, ZONE_LABEL, PAY_METHODS, METHOD_LABEL,
   fmt, fmtDate, todayYmd, addDaysYmd, nightsBetween, facilitiesOf, errMsg,
 } from './shared';
 
@@ -110,8 +110,10 @@ const NewBooking: React.FC = () => {
     return () => { cancelled = true; };
   }, [checkIn, checkOut, datesValid, editId]);
 
-  const types = useMemo(() => ['ALL', ...Array.from(new Set(rooms.map((r) => r.type)))], [rooms]);
-  const visibleRooms = rooms.filter((r) => tab === 'ALL' || r.type === tab);
+  // Tabs follow the property layout (Tower Building / Zone 1-3); rooms without a zone fall under "Other".
+  const types = useMemo(() => ['ALL', ...Array.from(new Set(rooms.map((r) => r.zone || 'OTHER')))], [rooms]);
+  const visibleRooms = rooms.filter((r) => tab === 'ALL' || (r.zone || 'OTHER') === tab);
+  const tabLabel = (t: string) => (t === 'ALL' ? 'All rooms' : t === 'OTHER' ? 'Other' : ZONE_LABEL[t] ?? t);
   const selectedRooms = selected.map((id) => rooms.find((r) => r.id === id)).filter((r): r is AvailRoom => Boolean(r));
   const facilityRoom = rooms.find((r) => r.id === facilityRoomId) ?? selectedRooms[selectedRooms.length - 1] ?? null;
 
@@ -219,17 +221,17 @@ const NewBooking: React.FC = () => {
     const meta = STATE_META[state];
     return (
       <button type="button" onClick={() => toggleRoom(r)} disabled={disabled && !own}
-        className={`relative flex min-h-[104px] flex-col rounded-xl border-2 p-3 text-left transition ${meta.card} ${disabled ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'} ${facilityRoomId === r.id && !isSel ? 'ring-2 ring-primary/40' : ''}`}>
+        className={`relative flex h-[132px] flex-col rounded-xl border-2 p-3 text-left transition ${meta.card} ${disabled ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'} ${facilityRoomId === r.id && !isSel ? 'ring-2 ring-primary/40' : ''}`}>
         {isSel && <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-emerald-600"><Check className="h-3.5 w-3.5" /></span>}
-        <div className="pr-6 text-sm font-bold leading-tight">{r.name}</div>
-        <div className={`text-[11px] ${isSel || r.state !== 'AVAILABLE' ? 'opacity-90' : 'text-muted-foreground'}`}>{TYPE_LABEL[r.type] ?? r.type}</div>
-        <div className="mt-auto flex items-center justify-between pt-2 text-xs">
-          <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{r.capacity}</span>
-          <span className="font-semibold">{fmt(r.price)}<span className="font-normal opacity-80">/night</span></span>
+        <div className="line-clamp-2 pr-6 text-sm font-bold leading-tight" title={r.name}>{r.name}</div>
+        <div className={`mt-0.5 truncate text-[11px] ${isSel || r.state !== 'AVAILABLE' ? 'opacity-90' : 'text-muted-foreground'}`}>{TYPE_LABEL[r.type] ?? r.type}{tab === 'ALL' && r.zone ? ` · ${ZONE_LABEL[r.zone] ?? r.zone}` : ''}</div>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-xs">
+          <span className="flex shrink-0 items-center gap-1" title={`${r.capacity} guests included`}><Users className="h-3.5 w-3.5" />{r.capacity}</span>
+          <span className="whitespace-nowrap font-semibold" title="per night">{fmt(r.price)}</span>
         </div>
-        {r.state !== 'AVAILABLE' && !own && (
-          <div className="mt-1 truncate text-[10px] font-semibold uppercase tracking-wide opacity-90">{meta.label}{r.conflicts[0] ? ` · ${r.conflicts[0].guestName}` : ''}</div>
-        )}
+        <div className="mt-1 h-[14px] truncate text-[10px] font-semibold uppercase tracking-wide opacity-90">
+          {r.state !== 'AVAILABLE' && !own ? `${meta.label}${r.conflicts[0] ? ` · ${r.conflicts[0].guestName}` : ''}` : ''}
+        </div>
       </button>
     );
   };
@@ -262,7 +264,7 @@ const NewBooking: React.FC = () => {
               {(['AVAILABLE', 'SELECTED', 'RESERVED', 'BOOKED', 'BLOCKED'] as CellState[]).map((s) => <span key={s} className={`rounded-md px-2 py-1 font-semibold ${STATE_META[s].chip}`}>{STATE_META[s].label}</span>)}
             </div>
             <div className="flex flex-wrap gap-1 border-b">
-              {types.map((t) => <button key={t} type="button" onClick={() => setTab(t)} className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{t === 'ALL' ? 'All rooms' : TYPE_LABEL[t] ?? t}</button>)}
+              {types.map((t) => <button key={t} type="button" onClick={() => setTab(t)} className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{tabLabel(t)}</button>)}
             </div>
             {availError && <p className="text-sm text-rose-700">{availError}</p>}
             {availLoading ? (
@@ -270,7 +272,7 @@ const NewBooking: React.FC = () => {
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {visibleRooms.map((r) => <RoomCard key={r.id} r={r} />)}
-                {visibleRooms.length === 0 && <p className="col-span-full py-6 text-center text-sm text-muted-foreground">No rooms in this category.</p>}
+                {visibleRooms.length === 0 && <p className="col-span-full py-6 text-center text-sm text-muted-foreground">No rooms in this zone.</p>}
               </div>
             )}
           </CardContent></Card>
@@ -374,16 +376,16 @@ const NewBooking: React.FC = () => {
                     )}
                   </div>
                 )}
+                <div><Label>Guest name *</Label><Input value={gName} onChange={(e) => setGName(e.target.value)} placeholder="Full name" /></div>
                 <div><Label>Mobile no *</Label><Input value={gPhone} onChange={(e) => setGPhone(e.target.value)} placeholder="01XXXXXXXXX" inputMode="tel" /></div>
-                <div><Label>Guest name *</Label><Input value={gName} onChange={(e) => setGName(e.target.value)} /></div>
                 <div className="flex flex-wrap gap-4 text-sm">
                   <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={isVip} onChange={(e) => setIsVip(e.target.checked)} /><Crown className="h-4 w-4 text-yellow-500" /> VIP booking</label>
                   <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={isForeigner} onChange={(e) => setIsForeigner(e.target.checked)} /><Globe2 className="h-4 w-4 text-sky-600" /> Foreigner guest</label>
                 </div>
                 <div><Label>Email{!isEdit && sendEmail ? ' *' : ''}</Label><Input type="email" value={gEmail} onChange={(e) => setGEmail(e.target.value)} placeholder="guest@example.com" /></div>
+                <div><Label>NID / Passport</Label><Input value={gNid} onChange={(e) => setGNid(e.target.value)} placeholder="NID or passport number" inputMode="numeric" /></div>
                 <div><Label>Address</Label><Textarea rows={2} value={gAddress} onChange={(e) => setGAddress(e.target.value)} /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label>NID / Passport</Label><Input value={gNid} onChange={(e) => setGNid(e.target.value)} /></div>
                   <div>
                     <Label>Gender</Label>
                     <Select value={gGender || 'none'} onValueChange={(v) => setGGender(v === 'none' ? '' : v)}>
@@ -391,8 +393,8 @@ const NewBooking: React.FC = () => {
                       <SelectContent><SelectItem value="none">—</SelectItem>{GENDERS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
+                  <div className="min-w-0"><Label>Birth date</Label><Input className="min-w-0" type="date" value={gDob} onChange={(e) => setGDob(e.target.value)} /></div>
                 </div>
-                <div className="min-w-0"><Label>Birth date</Label><Input className="min-w-0" type="date" value={gDob} onChange={(e) => setGDob(e.target.value)} /></div>
               </div>
             </CardContent></Card>
 

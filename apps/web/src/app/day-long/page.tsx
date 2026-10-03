@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { getDayLongProducts } from '@/lib/resort-api';
 import DayLongBookingForm from '@/components/day-long/DayLongBookingForm';
+import { fmtMoney } from '@/lib/format';
+import T from '@/components/T';
 
 export const metadata: Metadata = {
   title: 'Day Long',
@@ -28,14 +30,14 @@ export default async function DayLongPage() {
       <div className="bg-green-800 py-14 text-center text-white">
         <h1 className="text-3xl font-bold sm:text-4xl">Day Long Packages</h1>
         <p className="mx-auto mt-3 max-w-2xl px-4 text-green-100">
-          Enjoy the resort for a day — pool, cottages, conference room, events and picnics. No overnight stay needed.
+          <T en="Enjoy the resort for a day — pool, cottages, conference room, events and picnics. No overnight stay needed." bn="একদিনের জন্য রিসোর্ট উপভোগ করুন — পুল, কটেজ, কনফারেন্স রুম, ইভেন্ট ও পিকনিক। রাত থাকা লাগবে না।" />
         </p>
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         {products.length === 0 ? (
           <p className="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-500">
-            Day-long packages are being updated. Please check back soon or call us.
+            <T en="Day-long packages are being updated. Please check back soon or call us." bn="ডে-লং প্যাকেজ আপডেট হচ্ছে। একটু পরে দেখুন বা কল করুন।" />
           </p>
         ) : (
           <div className="grid gap-10 lg:grid-cols-[1.6fr_1fr]">
@@ -59,9 +61,9 @@ export default async function DayLongPage() {
                           <p className="mt-2 text-sm text-gray-600 line-clamp-3">{p.description}</p>
                         )}
                         <div className="mt-3 text-sm text-gray-700">
-                          <span className="text-lg font-bold text-gray-900">৳{p.basePrice}</span>
+                          <span className="text-lg font-bold text-gray-900">{fmtMoney(p.basePrice)}</span>
                           {p.pricePerPerson ? (
-                            <span className="text-gray-500"> + ৳{p.pricePerPerson}/person</span>
+                            <span className="text-gray-500"> + {fmtMoney(p.pricePerPerson)}/person</span>
                           ) : null}
                         </div>
                         {p.maxCapacity != null && (

@@ -5,9 +5,11 @@ import ImageCarousel from '@/components/ImageCarousel';
 import JsonLd from '@/components/seo/JsonLd';
 import Container from '@/components/ui/Container';
 import { getRoomById, getSettings } from '@/lib/resort-api';
-import { ROOM_TYPE_LABEL } from '@/lib/room-labels';
+import { ROOM_TYPE_LABEL, ROOM_ZONE_LABEL } from '@/lib/room-labels';
+import T from '@/components/T';
 import { siteUrl } from '@/lib/site';
 import { Users, Check } from 'lucide-react';
+import { fmtMoney } from '@/lib/format';
 
 type Props = { params: { id: string } };
 
@@ -17,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const settings = await getSettings();
   return {
     title: room.name,
-    description: room.description || `Stay in ${room.name} at ${settings.resortName}. From $${room.price} per night.`,
+    description: room.description || `Stay in ${room.name} at ${settings.resortName}. From ${fmtMoney(room.price)} per night.`,
     openGraph: {
       title: `${room.name} | ${settings.resortName}`,
       description: room.description || undefined,
@@ -78,13 +80,13 @@ export default async function RoomDetailPage({ params }: Props) {
           <div>
             <ImageCarousel images={room.images} alt={room.name} />
             <p className="mt-4 text-xs text-stone-500">
-              Images shown for illustration; assignment may vary by season.
+              <T en="Images shown for illustration; assignment may vary by season." bn="ছবি শুধু ধারণার জন্য; মৌসুম অনুযায়ী রুম বরাদ্দ বদলাতে পারে।" />
             </p>
           </div>
 
           <div>
             <span className="inline-block rounded-full bg-forest-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-forest-800">
-              {ROOM_TYPE_LABEL[room.type]}
+              <T en={ROOM_TYPE_LABEL[room.type]?.en ?? room.type} bn={ROOM_TYPE_LABEL[room.type]?.bn} />{room.zone ? <> · <T en={ROOM_ZONE_LABEL[room.zone].en} bn={ROOM_ZONE_LABEL[room.zone].bn} /></> : null}
             </span>
             <h1 className="mt-3 font-display text-3xl font-semibold text-stone-900 sm:text-4xl">
               {room.name}
@@ -96,11 +98,11 @@ export default async function RoomDetailPage({ params }: Props) {
             <div className="mt-6 flex flex-wrap items-center gap-4 text-stone-600">
               <span className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 shadow-card">
                 <Users className="h-5 w-5 text-forest-700" />
-                Up to {maxAdults} adults{maxChildren ? ` + ${maxChildren} children` : ''}
+                <T en={`Up to ${maxAdults} adults${maxChildren ? ` + ${maxChildren} children` : ''}`} bn={`সর্বোচ্চ ${maxAdults} জন প্রাপ্তবয়স্ক${maxChildren ? ` + ${maxChildren} শিশু` : ''}`} />
               </span>
 <span className="text-2xl font-semibold text-forest-800">
-                  ${room.price.toLocaleString()}
-                  <span className="text-base font-normal text-stone-500"> / night</span>
+                  {fmtMoney(room.price)}
+                  <span className="text-base font-normal text-stone-500"> / <T en="night" bn="রাত" /></span>
                 </span>
             </div>
 
@@ -125,9 +127,9 @@ export default async function RoomDetailPage({ params }: Props) {
             {(room.weekendPrice || room.seasonalPrice || room.extraGuestCharge) && (
               <div className="mt-4 rounded-xl bg-white p-4 shadow-card space-y-2 text-sm text-stone-700">
                 <h3 className="font-semibold text-stone-800">Pricing Details</h3>
-                {room.weekendPrice && <p><span className="font-medium">Weekend:</span> ${Number(room.weekendPrice).toLocaleString()} / night</p>}
-                {room.seasonalPrice && <p><span className="font-medium">Seasonal:</span> ${Number(room.seasonalPrice).toLocaleString()} / night</p>}
-                {room.extraGuestCharge && <p><span className="font-medium">Extra Guest:</span> ${Number(room.extraGuestCharge).toLocaleString()}</p>}
+                {room.weekendPrice && <p><span className="font-medium">Weekend:</span> {fmtMoney(room.weekendPrice)} / night</p>}
+                {room.seasonalPrice && <p><span className="font-medium">Seasonal:</span> {fmtMoney(room.seasonalPrice)} / night</p>}
+                {room.extraGuestCharge && <p><span className="font-medium">Extra Guest:</span> {fmtMoney(room.extraGuestCharge)}</p>}
               </div>
             )}
             {featureChips.length > 0 && (
@@ -156,14 +158,14 @@ export default async function RoomDetailPage({ params }: Props) {
                 <h3 className="font-semibold text-stone-800 mb-2">Available Add-ons</h3>
                 <ul className="space-y-1 text-sm text-stone-700">
                   {room.addOns.map((a) => (
-                    <li key={`${a.name}-${a.price}`}>{a.name} - ${Number(a.price).toLocaleString()}{a.description ? ` (${a.description})` : ''}</li>
+                    <li key={`${a.name}-${a.price}`}>{a.name} - {fmtMoney(a.price)}{a.description ? ` (${a.description})` : ''}</li>
                   ))}
                 </ul>
               </div>
             )}
             {(bookingRules.checkInTime || bookingRules.checkOutTime || bookingRules.cancellationPolicy || bookingRules.refundPolicy) && (
               <div className="mt-6 rounded-xl bg-white p-4 shadow-card">
-                <h3 className="font-semibold text-stone-800 mb-2">Booking Rules</h3>
+                <h3 className="font-semibold text-stone-800 mb-2"><T en="Booking Rules" bn="বুকিং নিয়ম" /></h3>
                 <ul className="space-y-1 text-sm text-stone-700">
                   {bookingRules.checkInTime && <li><span className="font-medium">Check-in:</span> {String(bookingRules.checkInTime)}</li>}
                   {bookingRules.checkOutTime && <li><span className="font-medium">Check-out:</span> {String(bookingRules.checkOutTime)}</li>}
@@ -177,10 +179,10 @@ export default async function RoomDetailPage({ params }: Props) {
               href={`/booking?room=${room.id}`}
               className="mt-10 inline-flex w-full justify-center rounded-full bg-forest-700 py-4 text-center font-semibold text-white shadow-md transition hover:bg-forest-800 sm:w-auto sm:px-12"
             >
-              Book this room
+              <T en="Book this room" bn="এই রুম বুক করুন" />
             </Link>
             <p className="mt-4 text-xs text-stone-500">
-              Need help? Call us or use the contact form—we reply within one business day.
+              <T en="Need help? Call us or use the contact form — we reply within one business day." bn="সাহায্য লাগবে? কল করুন বা contact form ব্যবহার করুন — এক কর্মদিবসের মধ্যে উত্তর দিই।" />
             </p>
           </div>
         </div>

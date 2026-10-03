@@ -95,6 +95,65 @@ function parseStay(checkInRaw: string, checkOutRaw: string) {
   return { checkIn, checkOut };
 }
 
+// ── Day summary (dashboard widget) ─────────────────────────────────────────────
+// For one calendar date: rooms occupied / free that night, arrivals, departures, bookings
+// created, advance collected and due outstanding, plus the month's web-vs-front-desk split.
+// Stay dates live at UTC midnight (yyyy-mm-dd input); createdAt comparisons use the server's
+// local day (TZ=Asia/Dhaka in production).
+export const getDaySummary = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const q = typeof req.query.date === 'string' ? req.query.date : '';
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const night = new Date(Date.UTC(y, m - 1, d));
+    const nightEnd = new Date(Date.UTC(y, m - 1, d + 1));
+    const localDayStart = new Date(y, m - 1, d);
+    const localDayEnd = new Date(y, m - 1, d + 1);
+    const monthStart = new Date(y, m - 1, 1);
+    const monthEnd = new Date(y, m, 1);
+    const live = { notIn: ['CANCELLED'] as any };
+
+    const [totalRooms, staying, arrivals, departures, created, payments, monthRows] = await Promise.all([
+      prisma.room.count(),
+      prisma.booking.findMany({
+        where: { status: live, ...overlappingStayWhere(night, nightEnd) },
+        select: { id: true, roomId: true, status: true, totalAmount: true, payments: { select: { amount: true, status: true } } },
+      }),
+      prisma.booking.count({ where: { status: live, checkInDate: { gte: night, lt: nightEnd } } }),
+      prisma.booking.count({ where: { status: live, checkOutDate: { gte: night, lt: nightEnd } } }),
+      prisma.booking.count({ where: { status: live, createdAt: { gte: localDayStart, lt: localDayEnd } } }),
+      prisma.payment.aggregate({ _sum: { amount: true }, _count: true, where: { status: 'COMPLETED', createdAt: { gte: localDayStart, lt: localDayEnd } } }),
+      prisma.booking.findMany({ where: { status: live, createdAt: { gte: monthStart, lt: monthEnd } }, select: { staffId: true } }),
+    ]);
+
+    const occupiedRoomIds = new Set(staying.filter((b) => b.status !== 'PENDING').map((b) => b.roomId));
+    const pendingRoomIds = new Set(staying.filter((b) => b.status === 'PENDING').map((b) => b.roomId));
+    const dueOutstanding = staying.reduce((sum, b) => sum + paidAndDue(b.totalAmount, b.payments).due, 0);
+    const web = monthRows.filter((b) => !b.staffId).length;
+
+    res.json({
+      success: true,
+      date: dateStr,
+      totalRooms,
+      occupiedRooms: occupiedRoomIds.size,
+      reservedRooms: pendingRoomIds.size,
+      availableRooms: Math.max(0, totalRooms - occupiedRoomIds.size - pendingRoomIds.size),
+      stayingBookings: staying.length,
+      checkIns: arrivals,
+      checkOuts: departures,
+      newBookings: created,
+      advanceCollected: Math.round((payments._sum.amount ?? 0) * 100) / 100,
+      paymentsCount: payments._count,
+      dueOutstanding: Math.round(dueOutstanding * 100) / 100,
+      month: { label: `${y}-${pad(m)}`, total: monthRows.length, web, admin: monthRows.length - web },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ── List ──────────────────────────────────────────────────────────────────
 export const getAllBookings = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -484,7 +543,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
 
     if (data.sendEmail && booking.guest.email) {
       const payload = {
-        bookingId: booking.id,
+        bookingId: formatInvoiceNo(booking.invoiceNo),
         guestName: booking.guest.name,
         roomName: booking.room.name,
         checkInDate: booking.checkInDate.toLocaleDateString('en-GB'),
@@ -615,7 +674,7 @@ export const updateBooking = async (req: Request, res: Response, next: NextFunct
     if (data.status === 'CONFIRMED' && existing.status !== 'CONFIRMED' && booking.guest.email) {
       emailService
         .sendBookingConfirmationEmail(booking.guest.email, {
-          bookingId: booking.id,
+          bookingId: formatInvoiceNo(booking.invoiceNo),
           guestName: booking.guest.name,
           roomName: booking.room.name,
           checkInDate: booking.checkInDate.toLocaleDateString('en-GB'),

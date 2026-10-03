@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, BedDouble, Users } from 'lucide-react';
 import { useReveal } from '@/hooks/useReveal';
 import type { Room } from '@/types/resort';
+import { fmtMoney } from '@/lib/format';
 
 type Props = { rooms: Room[] };
 
@@ -78,7 +79,7 @@ function RoomSplitCard({ room, index }: { room: Room; index: number }) {
           <div>
             <p className="text-[10px] uppercase tracking-widest text-forest-500">From</p>
             <p className="font-display text-3xl font-semibold text-white">
-              ৳{priceLabel}
+              {fmtMoney(priceLabel)}
               <span className="ml-1 text-sm font-normal text-forest-400">/night</span>
             </p>
           </div>

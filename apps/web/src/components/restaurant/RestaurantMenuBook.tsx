@@ -2,6 +2,8 @@ import type { MenuItem } from '@/types/resort';
 import { getMenuCategoryMeta, sortCategories } from '@/lib/restaurant-menu-meta';
 import SpotCoverImage from '@/components/explore/SpotCoverImage';
 import { cn } from '@/lib/utils';
+import { fmtMoney } from '@/lib/format';
+import T from '@/components/T';
 
 type Props = {
   items: MenuItem[];
@@ -70,22 +72,22 @@ export default function RestaurantMenuBook({ items }: Props) {
                   <span className="h-px w-10 bg-gradient-to-l from-transparent to-amber-800/50 sm:w-14" />
                 </div>
                 <p className="font-display text-xs font-semibold uppercase tracking-[0.38em] text-forest-800 sm:text-sm">
-                  Pina Vista · Mountain kitchen
+                  <T en="Pina Vista · Mountain kitchen" bn="পিনা ভিস্তা · পাহাড়ের রান্নাঘর" />
                 </p>
                 <h2 className="mt-3 font-display text-[2.1rem] font-semibold leading-[1.08] tracking-tight text-stone-900 sm:text-5xl md:text-[3.1rem]">
-                  Menu Book
+                  <T en="Menu Book" bn="মেনু বুক" />
                 </h2>
                 <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-stone-600 sm:text-base">
-Organized below by section—<strong className="font-semibold text-stone-800">Set Menu</strong> provides a full dining experience, <strong className="font-semibold text-stone-800">A la Carte</strong> is priced separately with clear descriptions. Menu is updated from admin.
+<T en="Organised by section — Set Menus give a full dining experience, À la Carte dishes are priced separately with clear descriptions." bn="বিভাগ অনুযায়ী সাজানো — সেট মেনুতে পুরো ভোজের অভিজ্ঞতা, আ লা কার্ট পদগুলোর দাম আলাদা, বর্ণনাসহ।" />
                 </p>
 
                 <div className="mx-auto mt-6 flex flex-wrap justify-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-forest-900/85">
                   <span className="rounded-full border border-forest-200/90 bg-white/90 px-3 py-1.5 shadow-sm">
-Local ingredients
+<T en="Local ingredients" bn="স্থানীয় উপকরণ" />
 
-                  Allergens—please ask
+                  <T en="Allergens — please ask" bn="অ্যালার্জি — জিজ্ঞেস করুন" />
 
-                  Seasonal menu changes
+                  <T en="Seasonal menu changes" bn="মৌসুম অনুযায়ী মেনু বদলায়" />
                   </span>
                 </div>
 
@@ -168,10 +170,10 @@ Local ingredients
 
               <footer className="relative z-[1] mt-16 border-t border-amber-900/18 pt-9 text-center">
                 <p className="mx-auto max-w-2xl text-xs leading-relaxed text-stone-500 sm:text-sm">
-                  Service charge & tax apply where indicated. Please inform us of any dietary restrictions or specific ingredients to avoid—we'll try our best to accommodate.
+                  <T en="Service charge & tax apply where indicated. Please tell us about any dietary restrictions or ingredients to avoid — we'll do our best to accommodate." bn="যেখানে উল্লেখ আছে সেখানে সার্ভিস চার্জ ও ট্যাক্স প্রযোজ্য। খাবারে কোনো বিধিনিষেধ বা এড়িয়ে চলার উপকরণ থাকলে জানান — আমরা যথাসাধ্য চেষ্টা করব।" />
                 </p>
                 <p className="mt-4 font-display text-xs font-semibold uppercase tracking-[0.35em] text-amber-900/50">
-                  Thank you · Enjoy your meal
+                  <T en="Thank you · Enjoy your meal" bn="ধন্যবাদ · খাবার উপভোগ করুন" />
                 </p>
               </footer>
             </div>
@@ -194,7 +196,7 @@ function SetMenuCard({ item }: { item: MenuItem }) {
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-amber-900/18 bg-gradient-to-b from-[#fffdf9] to-[#faf6ee] shadow-[0_20px_50px_-28px_rgba(45,31,22,0.35),inset_0_1px_0_rgba(255,255,255,0.9)] ring-1 ring-white/80 transition hover:border-forest-700/22 hover:shadow-[0_28px_60px_-30px_rgba(27,94,32,0.18)] md:min-h-[240px]">
       <span className="absolute left-4 top-4 z-[2] rounded-full border border-amber-800/20 bg-amber-100/95 px-2.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-amber-950 shadow-sm">
-        Set menu
+        <T en="Set menu" bn="সেট মেনু" />
       </span>
       {hasImage ? (
         <div className="relative aspect-[2.1/1] w-full overflow-hidden bg-stone-200 md:aspect-[2.2/1]">
@@ -217,7 +219,7 @@ function SetMenuCard({ item }: { item: MenuItem }) {
             {item.name}
           </h4>
           <span className="rounded-md bg-forest-900/5 px-2 py-0.5 font-display text-lg font-semibold tabular-nums text-forest-900 sm:text-xl">
-            ${Number(item.price).toLocaleString()}
+            {fmtMoney(item.price)}
           </span>
         </div>
 
@@ -242,7 +244,7 @@ function SetMenuCard({ item }: { item: MenuItem }) {
         ) : item.description ? (
           <p className="mt-4 flex-1 text-sm leading-relaxed text-stone-700">{item.description}</p>
         ) : (
-          <p className="mt-4 flex-1 text-sm italic text-stone-400">Description coming soon.</p>
+          <p className="mt-4 flex-1 text-sm italic text-stone-400"><T en="Description coming soon." bn="বর্ণনা শীঘ্রই আসছে।" /></p>
         )}
       </div>
     </article>
@@ -278,7 +280,7 @@ function ALaCarteRow({ item }: { item: MenuItem }) {
             aria-hidden
           />
           <span className="shrink-0 font-display text-base font-semibold tabular-nums text-forest-900 sm:text-lg">
-            ${Number(item.price).toLocaleString()}
+            {fmtMoney(item.price)}
           </span>
         </div>
 

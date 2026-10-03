@@ -5,6 +5,7 @@ import Container from '@/components/ui/Container';
 import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getSettings } from '@/lib/resort-api';
 import { MapPin, Phone, Mail } from 'lucide-react';
+import T from '@/components/T';
 
 export const metadata: Metadata = {
   title: 'Contact',
@@ -21,16 +22,16 @@ export default async function ContactPage() {
     return (
       <div className="min-h-screen bg-[#060e07] pb-24">
         <DarkPageHeader
-          eyebrow="Get in Touch"
-          title="Contact & Location"
-          subtitle="We respond within one business day — urgent travel-day questions? Call us directly."
+          eyebrow={<T en="Get in Touch" bn="যোগাযোগ করুন" />}
+          title={<T en="Contact & Location" bn="যোগাযোগ ও অবস্থান" />}
+          subtitle={<T en="We respond within one business day — urgent travel-day questions? Call us directly." bn="এক কর্মদিবসের মধ্যে উত্তর দিই — জরুরি হলে সরাসরি কল করুন।" />}
         />
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Contact info + form */}
             <div className="space-y-5">
               <div className="border border-forest-900/60 bg-[#0a130b] p-6 sm:p-8">
-                <h2 className="font-display text-xl font-semibold text-white">Resort</h2>
+                <h2 className="font-display text-xl font-semibold text-white"><T en="Resort" bn="রিসোর্ট" /></h2>
                 <ul className="mt-5 space-y-4 text-sm text-forest-300/70">
                   <li className="flex gap-3">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-earth-500" />
@@ -59,7 +60,7 @@ export default async function ContactPage() {
 
               {/* ContactForm inside dark card — form elements keep their own styling */}
               <div className="border border-forest-900/60 bg-[#0a130b] p-6 sm:p-8">
-                <h2 className="mb-5 font-display text-xl font-semibold text-white">Send a message</h2>
+                <h2 className="mb-5 font-display text-xl font-semibold text-white"><T en="Send a message" bn="বার্তা পাঠান" /></h2>
                 <ContactForm />
               </div>
             </div>
@@ -94,13 +95,13 @@ export default async function ContactPage() {
     <div className="bg-cream pb-20 pt-10 sm:pt-14">
       <Container>
         <SectionHeading
-          title="Contact & location"
-          subtitle="We respond within one business day—urgent travel-day questions? Call us directly."
+          title={<T en="Contact & location" bn="যোগাযোগ ও অবস্থান" />}
+          subtitle={<T en="We respond within one business day — urgent travel-day questions? Call us directly." bn="এক কর্মদিবসের মধ্যে উত্তর দিই — জরুরি হলে সরাসরি কল করুন।" />}
         />
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="space-y-6">
             <div className="rounded-2xl bg-white p-6 shadow-card sm:p-8">
-              <h2 className="font-display text-xl font-semibold text-stone-900">Resort</h2>
+              <h2 className="font-display text-xl font-semibold text-stone-900"><T en="Resort" bn="রিসোর্ট" /></h2>
               <ul className="mt-4 space-y-4 text-stone-700">
                 <li className="flex gap-3">
                   <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-forest-700" />
@@ -135,7 +136,7 @@ export default async function ContactPage() {
             ) : (
               <div className="flex h-[min(420px,70vh)] flex-col items-center justify-center bg-forest-100 p-6 text-center text-stone-600">
                 <MapPin className="mb-2 h-10 w-10 text-forest-700" />
-                <p>Add a Google Maps embed URL in admin settings to show the map here.</p>
+                <p><T en="Map coming soon." bn="ম্যাপ শীঘ্রই আসছে।" /></p>
               </div>
             )}
           </div>

@@ -1,9 +1,10 @@
+import type React from 'react';
 import { cn } from '@/lib/utils';
 
 type Props = {
-  eyebrow?: string;
-  title: string;
-  subtitle?: string;
+  eyebrow?: React.ReactNode;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
   align?: 'left' | 'center';
   dark?: boolean;
   /** Adds a short botanical accent bar under the title */

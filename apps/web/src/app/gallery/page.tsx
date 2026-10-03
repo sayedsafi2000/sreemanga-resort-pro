@@ -6,6 +6,7 @@ import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getGallery, getSettings } from '@/lib/resort-api';
 import Image from 'next/image';
 import type { GalleryItem } from '@/types/resort';
+import T from '@/components/T';
 
 export const metadata: Metadata = {
   title: 'Gallery',
@@ -54,9 +55,9 @@ export default async function GalleryPage() {
     return (
       <div className="min-h-screen bg-[#060e07] pb-24">
         <DarkPageHeader
-          eyebrow="Visual Journal"
-          title="Through the Lens"
-          subtitle="Light through the leaves, still water, and tables set for slow evenings."
+          eyebrow={<T en="Visual Journal" bn="ছবির জার্নাল" />}
+          title={<T en="Through the Lens" bn="লেন্সের চোখে" />}
+          subtitle={<T en="Light through the leaves, still water, and tables set for slow evenings." bn="পাতার ফাঁকে আলো, স্থির জল আর ধীর সন্ধ্যার জন্য সাজানো টেবিল।" />}
         />
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           <DarkGalleryFull items={gallery} />
@@ -70,9 +71,9 @@ export default async function GalleryPage() {
       <div className="pointer-events-none fixed inset-0 grain opacity-20" aria-hidden />
       <Container className="relative z-10">
         <SectionHeading
-          eyebrow="Gallery · Moments in Green"
-          title="Through the Lens"
-          subtitle="Light through the leaves, still water, and tables set for slow evenings."
+          eyebrow={<T en="Gallery · Moments in Green" bn="গ্যালারি · সবুজ মুহূর্ত" />}
+          title={<T en="Through the Lens" bn="লেন্সের চোখে" />}
+          subtitle={<T en="Light through the leaves, still water, and tables set for slow evenings." bn="পাতার ফাঁকে আলো, স্থির জল আর ধীর সন্ধ্যার জন্য সাজানো টেবিল।" />}
           decorate
         />
         <GalleryGrid items={gallery} />

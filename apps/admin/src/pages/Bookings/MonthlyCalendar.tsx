@@ -22,7 +22,7 @@ type Calendar = { month: string; days: Day[]; rooms: CalRoom[]; cells: Record<st
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const monthLabel = (ym: string) => new Date(`${ym}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 const shiftMonth = (ym: string, n: number) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
-const bdt = (n: number) => `${n.toLocaleString()} BDT`;
+const bdt = (n: number) => fmt(n);
 
 const MonthlyCalendar: React.FC = () => {
   const navigate = useNavigate();

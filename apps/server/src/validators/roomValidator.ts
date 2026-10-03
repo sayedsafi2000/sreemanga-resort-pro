@@ -9,7 +9,8 @@ const addOnSchema = z.object({
 export const roomSchema = z.object({
   name: z.string().min(2, 'Room name must be at least 2 characters'),
   roomCode: z.string().optional(),
-  type: z.enum(['STANDARD', 'DELUXE', 'SUITE', 'FAMILY', 'PRESIDENTIAL']),
+  type: z.enum(['STANDARD', 'COUPLE', 'DELUXE', 'SUITE', 'FAMILY', 'PRESIDENTIAL']),
+  zone: z.enum(['TOWER', 'ZONE_1', 'ZONE_2', 'ZONE_3']).optional().nullable(),
   price: z.number().positive('Price must be positive'),
   weekendPrice: z.number().nonnegative().optional(),
   seasonalPrice: z.number().nonnegative().optional(),

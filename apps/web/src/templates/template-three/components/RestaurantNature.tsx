@@ -3,6 +3,7 @@
 import { useReveal } from '@/hooks/useReveal';
 import Link from 'next/link';
 import type { MenuItem } from '@/types/resort';
+import { fmtMoney } from '@/lib/format';
 
 interface Props {
   teaser?: string;
@@ -57,7 +58,7 @@ export default function RestaurantNature({ teaser, highlights = [] }: Props) {
                 className="flex justify-between items-center py-3 border-b border-[#1a3a1e]"
               >
                 <span className="text-white text-sm font-sans">{item.name}</span>
-                <span className="text-[#c8920c] text-sm font-sans">৳{item.price}</span>
+                <span className="text-[#c8920c] text-sm font-sans">{fmtMoney(item.price)}</span>
               </div>
             ))}
 

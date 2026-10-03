@@ -22,8 +22,14 @@ type NotifItem = {
   time: string;
 };
 
+// "Seen" is tracked per role in localStorage as a signature of the current items, so the red dot
+// only lights up when something new appears (not forever while a pending booking exists).
+const seenKey = (role: string | undefined) => `pv-notif-seen:${role ?? 'anon'}`;
+const notifSignature = (items: NotifItem[]) => items.map((i) => `${i.id}|${i.title}`).join(';');
+
 function useNotifications(role: string | undefined) {
   const [items, setItems] = useState<NotifItem[]>([]);
+  const [seenSig, setSeenSig] = useState<string>(() => { try { return localStorage.getItem(seenKey(role)) ?? ''; } catch { return ''; } });
   const [loading, setLoading] = useState(false);
 
   const fetch = async () => {
@@ -147,7 +153,16 @@ function useNotifications(role: string | undefined) {
     return () => clearInterval(t);
   }, [role]);
 
-  return { items, loading, refetch: fetch };
+  useEffect(() => { try { setSeenSig(localStorage.getItem(seenKey(role)) ?? ''); } catch { /* ignore */ } }, [role]);
+
+  const markSeen = () => {
+    const sig = notifSignature(items);
+    setSeenSig(sig);
+    try { localStorage.setItem(seenKey(role), sig); } catch { /* ignore */ }
+  };
+  const unseen = items.length > 0 && notifSignature(items) !== seenSig;
+
+  return { items, loading, refetch: fetch, unseen, markSeen };
 }
 
 // ── Role badge styling ────────────────────────────────────────────────────────
@@ -314,7 +329,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { items: notifItems, loading: notifLoading, refetch: refetchNotifs } = useNotifications(user?.role);
+  const { items: notifItems, loading: notifLoading, refetch: refetchNotifs, unseen: notifUnseen, markSeen: markNotifsSeen } = useNotifications(user?.role);
 
   // Close notif panel on outside click
   useEffect(() => {
@@ -549,14 +564,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <button
                 type="button"
                 title="Notifications"
-                onClick={() => { setNotifOpen(v => !v); if (!notifOpen) refetchNotifs(); }}
+                onClick={() => { setNotifOpen(v => !v); if (!notifOpen) { refetchNotifs(); markNotifsSeen(); } }}
                 className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
                 <Bell className="h-[18px] w-[18px]" />
-                {notifItems.length > 0 && (
+                {notifUnseen && (
                   <span className="absolute right-1.5 top-1.5 flex h-2 w-2 items-center justify-center rounded-full bg-red-500">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                   </span>
+                )}
+                {!notifUnseen && notifItems.length > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-[1rem] rounded-full bg-primary px-1 text-center text-[9px] font-bold leading-4 text-white">{notifItems.length}</span>
                 )}
               </button>
 
@@ -572,13 +590,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{notifItems.length}</span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setNotifOpen(false)}
-                      className="rounded-md p-1 text-muted-foreground hover:bg-muted"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => { refetchNotifs(); }} className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted" title="Refresh">Refresh</button>
+                      <button
+                        type="button"
+                        onClick={() => setNotifOpen(false)}
+                        className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Body */}

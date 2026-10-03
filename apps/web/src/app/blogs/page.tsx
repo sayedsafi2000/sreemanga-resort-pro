@@ -6,6 +6,7 @@ import Container from '@/components/ui/Container';
 import SectionHeading from '@/components/SectionHeading';
 import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getBlogs, getSettings } from '@/lib/resort-api';
+import T from '@/components/T';
 
 export const metadata: Metadata = {
   title: 'Travel Blog — Stories from Sreemangal',
@@ -21,14 +22,14 @@ export default async function BlogsPage() {
     return (
       <div className="min-h-screen bg-[#060e07] pb-24">
         <DarkPageHeader
-          eyebrow="Journal"
-          title="Stories from Sreemangal"
-          subtitle="Discover nature trails, tea garden tours, local flavors, and hidden gems around the tea capital of Bangladesh."
+          eyebrow={<T en="Journal" bn="জার্নাল" />}
+          title={<T en="Stories from Sreemangal" bn="শ্রীমঙ্গলের গল্প" />}
+          subtitle={<T en="Discover nature trails, tea garden tours, local flavors, and hidden gems around the tea capital of Bangladesh." bn="বাংলাদেশের চা-রাজধানীর প্রকৃতির ট্রেইল, চা বাগান ভ্রমণ, স্থানীয় স্বাদ আর লুকানো রত্ন আবিষ্কার করুন।" />}
         />
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           {blogs.length === 0 ? (
             <p className="border border-forest-900/60 bg-[#0a130b] p-16 text-center text-forest-500">
-              No blog posts yet. Check back soon!
+              <T en="No blog posts yet. Check back soon!" bn="এখনো কোনো ব্লগ নেই। শীঘ্রই আসছে!" />
             </p>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -49,7 +50,7 @@ export default async function BlogsPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0a130b]/80 via-transparent to-transparent" />
                       {blog.isFeatured && (
                         <span className="absolute left-3 top-3 border border-earth-400/40 bg-earth-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-earth-300 backdrop-blur-sm">
-                          Featured
+                          <T en="Featured" bn="বিশেষ" />
                         </span>
                       )}
                     </div>
@@ -98,9 +99,9 @@ export default async function BlogsPage() {
       <div className="pointer-events-none fixed inset-0 grain opacity-20" aria-hidden />
       <Container className="relative z-10">
         <SectionHeading
-          eyebrow="Travel Guide · Blog"
-          title="Stories from Sreemangal"
-          subtitle="Discover nature trails, tea garden tours, local flavors, and hidden gems around the tea capital of Bangladesh."
+          eyebrow={<T en="Travel Guide · Blog" bn="ট্রাভেল গাইড · ব্লগ" />}
+          title={<T en="Stories from Sreemangal" bn="শ্রীমঙ্গলের গল্প" />}
+          subtitle={<T en="Discover nature trails, tea garden tours, local flavors, and hidden gems around the tea capital of Bangladesh." bn="বাংলাদেশের চা-রাজধানীর প্রকৃতির ট্রেইল, চা বাগান ভ্রমণ, স্থানীয় স্বাদ আর লুকানো রত্ন আবিষ্কার করুন।" />}
           decorate
         />
         {blogs.length === 0 ? (
@@ -124,7 +125,7 @@ export default async function BlogsPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-forest-950/45 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                     {blog.isFeatured && (
                       <span className="absolute left-3 top-3 rounded-full bg-forest-800/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                        Featured
+                        <T en="Featured" bn="বিশেষ" />
                       </span>
                     )}
                   </div>

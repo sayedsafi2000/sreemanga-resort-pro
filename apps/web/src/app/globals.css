@@ -434,3 +434,11 @@ p {
   color: #c7d7c7;
 }
 .pv-cal-dark .rdp-chevron { fill: #a6c2a6; }
+
+/* Availability colours inside the booking calendar: pending requests (amber) vs confirmed (rose).
+   Both are disabled days, so lift the disabled opacity to keep the colour readable. */
+.pv-cal .rdp-day.pv-pending, .pv-cal .rdp-day.pv-booked { opacity: 1; }
+.pv-cal .rdp-day.pv-pending .rdp-day_button { background: #fef3c7; color: #92400e; border-radius: 9999px; }
+.pv-cal .rdp-day.pv-booked .rdp-day_button { background: #ffe4e6; color: #9f1239; border-radius: 9999px; }
+.pv-cal-dark .rdp-day.pv-pending .rdp-day_button { background: rgba(120, 53, 15, 0.45); color: #fde68a; }
+.pv-cal-dark .rdp-day.pv-booked .rdp-day_button { background: rgba(136, 19, 55, 0.45); color: #fda4af; }

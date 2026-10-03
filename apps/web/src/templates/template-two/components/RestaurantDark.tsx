@@ -6,6 +6,7 @@ import { useReveal, useRevealGroup } from '@/hooks/useReveal';
 import type { MenuItem } from '@/types/resort';
 import Image from 'next/image';
 import restaurantBg from '@public/pina-vista/07-lodge-path.jpg';
+import { fmtMoney } from '@/lib/format';
 
 type Props = {
   teaser: string;
@@ -88,7 +89,7 @@ export default function RestaurantDark({ teaser, highlights }: Props) {
                     </div>
                   </div>
                   <span className="shrink-0 font-display text-lg font-semibold text-earth-400">
-                    ৳{item.price}
+                    {fmtMoney(item.price)}
                   </span>
                 </div>
               ))}

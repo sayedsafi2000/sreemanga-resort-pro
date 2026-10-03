@@ -4,7 +4,7 @@ export type Payment = {
   id: string; amount: number; method: string; status: string; transactionId?: string | null; notes?: string | null; createdAt: string;
 };
 export type Room = {
-  id: string; name: string; type: string; price: number; weekendPrice?: number | null; extraGuestCharge?: number | null;
+  id: string; name: string; type: string; zone?: string | null; price: number; weekendPrice?: number | null; extraGuestCharge?: number | null;
   capacity: number; maxAdults?: number | null; maxChildren?: number | null; status: string; mainImage?: string | null;
   facilities?: unknown; description?: string | null; bedType?: string | null;
 };
@@ -29,7 +29,13 @@ export const PAY_METHODS = ['CASH', 'BKASH', 'NAGAD', 'BANK_TRANSFER', 'CARD', '
 export const METHOD_LABEL: Record<string, string> = {
   CASH: 'Cash', BKASH: 'bKash', NAGAD: 'Nagad', BANK_TRANSFER: 'Bank transfer', CARD: 'Card', MOBILE_BANKING: 'Mobile banking', STRIPE: 'Card (Stripe)',
 };
+export const ZONE_LABEL: Record<string, string> = {
+  TOWER: 'Tower Building', ZONE_1: 'Zone 1', ZONE_2: 'Zone 2', ZONE_3: 'Zone 3',
+};
+export const ZONES = ['TOWER', 'ZONE_1', 'ZONE_2', 'ZONE_3'] as const;
+
 export const TYPE_LABEL: Record<string, string> = {
+  COUPLE: 'Couple',
   STANDARD: 'Standard', DELUXE: 'Deluxe', SUITE: 'Suite', FAMILY: 'Family', PRESIDENTIAL: 'Presidential',
 };
 

@@ -18,49 +18,34 @@ async function main() {
   });
 
   /**
-   * Four rooms; `images` / `mainImage` are paths under the web app's `public/pina-vista/`
-   * (the Pina Vista architectural renders). Real photos are uploaded per room from admin.
+   * Room inventory as it exists on the property: Tower Building (6 rooms) and three cottage
+   * zones. Couple rooms include 2 guests, family rooms 4; up to 2 extra persons at ৳500/night.
+   * `images` are paths under the web app's `public/pina-vista/`; real photos are uploaded per
+   * room from admin. Prices are placeholders — set the real tariff in admin → Rooms.
    */
-  const roomCatalog: Array<{
-    name: string;
-    type: 'STANDARD' | 'DELUXE' | 'FAMILY' | 'SUITE';
-    price: number;
-    capacity: number;
-    description: string;
-    images: string[];
-  }> = [
-    {
-      name: 'Garden View 101',
-      type: 'STANDARD',
-      price: 2500,
-      capacity: 2,
-      description: 'Cozy standard room with garden outlook.',
-      images: ['/pina-vista/09-hill-cottage.jpg'],
-    },
-    {
-      name: 'Deluxe Suite 201',
-      type: 'DELUXE',
-      price: 4500,
-      capacity: 3,
-      description: 'Spacious deluxe with natural light.',
-      images: ['/pina-vista/04-brick-villa.jpg'],
-    },
-    {
-      name: 'Family Room 301',
-      type: 'FAMILY',
-      price: 6000,
-      capacity: 5,
-      description: 'Ideal for families—space to spread out.',
-      images: ['/pina-vista/05-cottage-row.jpg'],
-    },
-    {
-      name: 'Tea Vista 401',
-      type: 'SUITE',
-      price: 7200,
-      capacity: 2,
-      description: 'Corner suite with tea-garden views.',
-      images: ['/pina-vista/12-aerial-pool.jpg'],
-    },
+  type SeedZone = 'TOWER' | 'ZONE_1' | 'ZONE_2' | 'ZONE_3';
+  const couple = (name: string, zone: SeedZone, image: string) => ({
+    name, zone, type: 'COUPLE' as const, price: 3500, capacity: 2, maxAdults: 4, maxChildren: 2,
+    description: 'Couple room for two — one double bed, garden outlook.', images: [image],
+  });
+  const family = (name: string, zone: SeedZone, image: string) => ({
+    name, zone, type: 'FAMILY' as const, price: 6000, capacity: 4, maxAdults: 6, maxChildren: 2,
+    description: 'Family room for four — space to spread out, tea-garden views.', images: [image],
+  });
+  const roomCatalog = [
+    couple('Tower 101', 'TOWER', '/pina-vista/09-hill-cottage.jpg'),
+    couple('Tower 102', 'TOWER', '/pina-vista/04-brick-villa.jpg'),
+    couple('Tower 103', 'TOWER', '/pina-vista/05-cottage-row.jpg'),
+    couple('Tower 104', 'TOWER', '/pina-vista/12-aerial-pool.jpg'),
+    family('Tower 105', 'TOWER', '/pina-vista/08-aerial-villa.jpg'),
+    family('Tower 106', 'TOWER', '/pina-vista/03-hillside-cottages.jpg'),
+    couple('Zone 1 · Cottage A', 'ZONE_1', '/pina-vista/09-hill-cottage.jpg'),
+    family('Zone 1 · Cottage B', 'ZONE_1', '/pina-vista/05-cottage-row.jpg'),
+    couple('Zone 2 · Villa A', 'ZONE_2', '/pina-vista/04-brick-villa.jpg'),
+    family('Zone 2 · Villa B', 'ZONE_2', '/pina-vista/08-aerial-villa.jpg'),
+    couple('Zone 3 · Hill Cottage 1', 'ZONE_3', '/pina-vista/11-amphitheatre-hill.jpg'),
+    couple('Zone 3 · Hill Cottage 2', 'ZONE_3', '/pina-vista/03-hillside-cottages.jpg'),
+    family('Zone 3 · Hill Cottage 3', 'ZONE_3', '/pina-vista/13-garden-driveway.jpg'),
   ];
 
   for (const r of roomCatalog) {
@@ -70,8 +55,12 @@ async function main() {
         where: { id: rm.id },
         data: {
           type: r.type,
+          zone: r.zone,
           price: r.price,
           capacity: r.capacity,
+          maxAdults: r.maxAdults,
+          maxChildren: r.maxChildren,
+          extraGuestCharge: 500,
           description: r.description,
           images: r.images,
           mainImage: r.images[0],
@@ -82,8 +71,12 @@ async function main() {
         data: {
           name: r.name,
           type: r.type,
+          zone: r.zone,
           price: r.price,
           capacity: r.capacity,
+          maxAdults: r.maxAdults,
+          maxChildren: r.maxChildren,
+          extraGuestCharge: 500,
           status: 'AVAILABLE',
           description: r.description,
           images: r.images,
@@ -102,7 +95,7 @@ async function main() {
     });
   }
 
-  const room = await prisma.room.findFirst({ where: { name: 'Garden View 101' } });
+  const room = await prisma.room.findFirst({ where: { name: 'Tower 101' } });
   const guest = await prisma.guest.findFirst({ where: { phone: '01700000001' } });
 
   if (room && guest && (await prisma.booking.count()) === 0) {
@@ -427,7 +420,7 @@ async function main() {
   const demoMenu = await prisma.restaurantMenu.findFirst({
     where: { name: { contains: 'Tea Garden Lunch' } },
   });
-  const demoRoom = await prisma.room.findFirst({ where: { name: 'Garden View 101' } });
+  const demoRoom = await prisma.room.findFirst({ where: { name: 'Tower 101' } });
 
   if (demoMenu && demoRoom && (await prisma.restaurantOrder.count()) === 0) {
     await prisma.restaurantOrder.create({

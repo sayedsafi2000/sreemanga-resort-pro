@@ -45,7 +45,7 @@ export default function RoomsPreview({ rooms }: Props) {
               className={`reveal ${gridVisible ? 'visible' : ''}`}
               style={{ transitionDelay: `${i * 90}ms` }}
             >
-              <RoomCard room={room} />
+              <RoomCard room={room} showPrice={false} />
             </div>
           ))}
         </div>

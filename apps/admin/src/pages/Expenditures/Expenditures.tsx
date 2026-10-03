@@ -839,7 +839,7 @@ export default function Expenditures() {
   }, [activePendingPayments]);
 
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT' }).format(amount);
+    `৳${amount.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

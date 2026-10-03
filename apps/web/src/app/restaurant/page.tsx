@@ -9,6 +9,8 @@ import restCollageA from '@public/pina-vista/07-lodge-path.jpg';
 import restCollageB from '@public/pina-vista/10-amphitheatre.jpg';
 import restCollageC from '@public/pina-vista/05-cottage-row.jpg';
 import Link from 'next/link';
+import { fmtMoney } from '@/lib/format';
+import T from '@/components/T';
 
 export const metadata: Metadata = {
   title: 'Restaurant',
@@ -26,9 +28,9 @@ export default async function RestaurantPage() {
     return (
       <div className="min-h-screen bg-[#09100a] pb-24">
         <DarkPageHeader
-          eyebrow="Dining"
-          title="Restaurant & Garden Tables"
-          subtitle="Morning tea with leaf conversations, fresh lunch, and dinner by candlelight. Farm-fresh seasonal cuisine every day."
+          eyebrow={<T en="Dining" bn="খাবার" />}
+          title={<T en="Restaurant & Garden Tables" bn="রেস্তোরাঁ ও বাগানের টেবিল" />}
+          subtitle={<T en="Morning tea with leaf conversations, fresh lunch, and dinner by candlelight. Farm-fresh seasonal cuisine every day." bn="সকালের চা, দুপুরের তাজা খাবার আর মোমের আলোয় রাতের ভোজ। প্রতিদিন খামার-তাজা মৌসুমি রান্না।" />}
         />
 
         {/* Image strip */}
@@ -47,7 +49,7 @@ export default async function RestaurantPage() {
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
           {menu.length === 0 ? (
             <p className="border border-forest-900/60 bg-[#0a130b] p-12 text-center text-forest-500">
-              Menu is being updated. Try again later or call us to confirm.
+              <T en="Menu is being updated. Try again later or call us to confirm." bn="মেনু আপডেট হচ্ছে। পরে আবার দেখুন বা কল করে নিশ্চিত হোন।" />
             </p>
           ) : (
             <div className="space-y-14">
@@ -80,7 +82,7 @@ export default async function RestaurantPage() {
                             </div>
                           </div>
                           <span className="shrink-0 font-display text-xl font-semibold text-earth-400">
-                            ৳{item.price}
+                            {fmtMoney(item.price)}
                           </span>
                         </div>
                       ))}
@@ -93,7 +95,7 @@ export default async function RestaurantPage() {
 
           <div className="mt-12 flex flex-col items-center gap-4 border-t border-forest-900/50 pt-10 text-center">
             <p className="text-sm text-forest-400/60">
-              Set menus available for breakfast, lunch & dinner. Seven Layer Tea available all day.
+              <T en="Set menus available for breakfast, lunch & dinner. Seven Layer Tea available all day." bn="সকাল, দুপুর ও রাতের জন্য সেট মেনু। সাত রঙের চা সারাদিন পাওয়া যায়।" />
             </p>
             <Link
               href="/booking"
@@ -120,10 +122,10 @@ export default async function RestaurantPage() {
               Dining · In the tea garden area
             </p>
             <h1 className="mt-3 font-display text-4xl font-semibold leading-[1.1] tracking-tight text-stone-900 sm:text-5xl lg:text-[3.35rem]">
-              Restaurant & Garden Tables—curated from the menu
+              <T en="Restaurant & Garden Tables — curated from the menu" bn="রেস্তোরাঁ ও বাগানের টেবিল — মেনু থেকে বাছাই" />
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-stone-700 sm:text-lg">
-              Morning tea with leaf conversations, fresh lunch, and dinner by candlelight.
+              <T en="Morning tea with leaf conversations, fresh lunch, and dinner by candlelight." bn="সকালের চা, দুপুরের তাজা খাবার আর মোমের আলোয় রাতের ভোজ।" />
             </p>
             <div className="mt-8 grid max-w-xl grid-cols-2 gap-3 text-[0.8rem] font-semibold text-forest-900 sm:flex sm:flex-wrap">
               <span className="rounded-full border border-forest-200/90 bg-white/85 px-3 py-2 shadow-sm backdrop-blur-sm">Set BF / LU / DN</span>
@@ -155,7 +157,7 @@ export default async function RestaurantPage() {
         {menu.length === 0 ? (
           <Container>
             <p className="rounded-3xl bg-white/90 p-12 text-center text-stone-600 shadow-xl">
-              Menu is being updated. Try again later or call us to confirm.
+              <T en="Menu is being updated. Try again later or call us to confirm." bn="মেনু আপডেট হচ্ছে। পরে আবার দেখুন বা কল করে নিশ্চিত হোন।" />
             </p>
           </Container>
         ) : (

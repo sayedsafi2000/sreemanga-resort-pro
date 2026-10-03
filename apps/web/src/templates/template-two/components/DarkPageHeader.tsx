@@ -1,7 +1,8 @@
+import type React from 'react';
 type Props = {
-  eyebrow: string;
-  title: string;
-  subtitle?: string;
+  eyebrow: React.ReactNode;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
 };
 
 export default function DarkPageHeader({ eyebrow, title, subtitle }: Props) {

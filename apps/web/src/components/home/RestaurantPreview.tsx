@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import SectionHeading from '@/components/SectionHeading';
 import Container from '@/components/ui/Container';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -74,7 +75,8 @@ export default function RestaurantPreview({ teaser, highlights }: Props) {
                 style={{ transitionDelay: `${i * 80}ms` }}
               >
                 <span className="font-medium">{item.name}</span>
-                <span className="shrink-0 text-forest-200">৳{item.price.toLocaleString()}</span>
+                {/* Prices are intentionally not shown on the home teaser — see the menu book. */}
+                <ArrowRight className="h-4 w-4 shrink-0 text-forest-300/80 transition group-hover:translate-x-0.5" aria-hidden />
               </li>
             ))}
           </ul>

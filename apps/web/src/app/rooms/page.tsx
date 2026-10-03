@@ -6,8 +6,8 @@ import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import SectionHeading from '@/components/SectionHeading';
 import Container from '@/components/ui/Container';
 import { getRooms, getSettings } from '@/lib/resort-api';
-import { ROOM_TYPE_LABEL, ROOM_TYPES } from '@/lib/room-labels';
-import type { RoomType } from '@/types/resort';
+import T from '@/components/T';
+import { ROOM_ZONE_LABEL, ROOM_ZONES, isRoomZone } from '@/lib/room-labels';
 
 export const metadata: Metadata = {
   title: 'Rooms',
@@ -15,18 +15,15 @@ export const metadata: Metadata = {
     'Explore deluxe suites, family rooms, and garden villas at our Sreemangal nature resort. Filter by room type and book your stay.',
 };
 
-function isRoomType(v: string | undefined): v is RoomType {
-  return !!v && (ROOM_TYPES as string[]).includes(v);
-}
-
 export default async function RoomsPage({
   searchParams,
 }: {
-  searchParams: { type?: string };
+  searchParams: { zone?: string };
 }) {
-  const filter = isRoomType(searchParams?.type) ? searchParams.type : undefined;
+  // Rooms are grouped by where they are on the property (Tower Building, Zone 1–3).
+  const filter = isRoomZone(searchParams?.zone) ? searchParams.zone : undefined;
   const [roomsResult, settings] = await Promise.all([
-    getRooms(filter ? { type: filter } : undefined),
+    getRooms(filter ? { zone: filter } : undefined),
     getSettings(),
   ]);
   const rooms = roomsResult.rooms;
@@ -43,19 +40,19 @@ export default async function RoomsPage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           {/* Filter chips */}
           <div className="mb-10 flex flex-wrap gap-2">
-            <DarkFilterChip href="/rooms" active={!filter}>All</DarkFilterChip>
-            {ROOM_TYPES.map((t) => (
-              <DarkFilterChip key={t} href={`/rooms?type=${t}`} active={filter === t}>
-                {ROOM_TYPE_LABEL[t]}
+            <DarkFilterChip href="/rooms" active={!filter}><T en="All rooms" bn="সব রুম" /></DarkFilterChip>
+            {ROOM_ZONES.map((z) => (
+              <DarkFilterChip key={z} href={`/rooms?zone=${z}`} active={filter === z}>
+                <T en={ROOM_ZONE_LABEL[z].en} bn={ROOM_ZONE_LABEL[z].bn} />
               </DarkFilterChip>
             ))}
           </div>
 
           {rooms.length === 0 ? (
             <p className="border border-forest-900/60 bg-[#0a130b] p-8 text-center text-forest-400">
-              No rooms in this category right now.{' '}
+              <T en="No rooms in this zone right now." bn="এই জোনে এখন কোনো রুম নেই।" />{' '}
               <Link href="/rooms" className="font-semibold text-earth-400 underline">
-                Clear filter
+                <T en="Clear filter" bn="ফিল্টার সরান" />
               </Link>
             </p>
           ) : (
@@ -75,23 +72,23 @@ export default async function RoomsPage({
       <Container>
         <SectionHeading
           align="left"
-          eyebrow="Rooms"
-          title="Find your rhythm"
-          subtitle="Every room opens to greenery—choose a category, then view details."
+          eyebrow={<T en="Rooms" bn="রুম" />}
+          title={<T en="Find your rhythm" bn="আপনার ছন্দ খুঁজে নিন" />}
+          subtitle={<T en="Every room opens to greenery — pick a building or zone, then view details." bn="প্রতিটি রুম থেকেই সবুজের দেখা — বিল্ডিং বা জোন বেছে নিয়ে বিস্তারিত দেখুন।" />}
         />
         <div className="mb-10 flex flex-wrap gap-2">
-          <FilterChip href="/rooms" active={!filter}>All</FilterChip>
-          {ROOM_TYPES.map((t) => (
-            <FilterChip key={t} href={`/rooms?type=${t}`} active={filter === t}>
-              {ROOM_TYPE_LABEL[t]}
+          <FilterChip href="/rooms" active={!filter}><T en="All rooms" bn="সব রুম" /></FilterChip>
+          {ROOM_ZONES.map((z) => (
+            <FilterChip key={z} href={`/rooms?zone=${z}`} active={filter === z}>
+              <T en={ROOM_ZONE_LABEL[z].en} bn={ROOM_ZONE_LABEL[z].bn} />
             </FilterChip>
           ))}
         </div>
         {rooms.length === 0 ? (
           <p className="rounded-2xl bg-white p-8 text-center text-stone-600 shadow-card">
-            No rooms in this category right now.{' '}
+            <T en="No rooms in this zone right now." bn="এই জোনে এখন কোনো রুম নেই।" />{' '}
             <Link href="/rooms" className="font-semibold text-forest-800 underline">
-              Clear filter
+              <T en="Clear filter" bn="ফিল্টার সরান" />
             </Link>
           </p>
         ) : (

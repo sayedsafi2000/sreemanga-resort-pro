@@ -6,6 +6,7 @@ import Container from '@/components/ui/Container';
 import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getNearbyExplore, getSettings } from '@/lib/resort-api';
 import type { Metadata } from 'next';
+import T from '@/components/T';
 
 export const metadata: Metadata = {
   title: 'Explore around Sreemangal',
@@ -30,7 +31,7 @@ export default async function ExploreIndexPage() {
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           {spots.length === 0 ? (
             <p className="border border-forest-900/60 bg-[#0a130b] p-6 text-sm text-forest-500">
-              No explore spots are published yet. Check back soon.
+              <T en="No explore spots are published yet. Check back soon." bn="এখনো কোনো ঘোরার জায়গা প্রকাশিত হয়নি। শীঘ্রই আসছে।" />
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -126,7 +127,7 @@ export default async function ExploreIndexPage() {
         </ul>
         {spots.length === 0 && (
           <p className="mt-10 rounded-xl border border-stone-200 bg-white/60 p-6 text-sm text-stone-600">
-            No explore spots are published yet. Check back soon.
+            <T en="No explore spots are published yet. Check back soon." bn="এখনো কোনো ঘোরার জায়গা প্রকাশিত হয়নি। শীঘ্রই আসছে।" />
           </p>
         )}
       </Container>

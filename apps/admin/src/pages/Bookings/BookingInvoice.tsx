@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '@/lib/api';
 import logoMark from '@/assets/logo-mark.png';
 import { Button } from '@/components/ui/button';
-import { Printer, Copy, Check, ArrowLeft, Pencil, Wallet, Loader2, MapPin, Phone, Mail, User, CalendarCheck, LogIn, LogOut, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Printer, Copy, Check, ArrowLeft, Pencil, Wallet, Loader2, MapPin, Phone, Mail, User, CalendarCheck, LogIn, LogOut, ShieldCheck, AlertTriangle, FileDown } from 'lucide-react';
 import DueCollectDialog from './DueCollectDialog';
 import { type Booking, STATUS_META, METHOD_LABEL, fmt, fmtDate, fmtDateTime, copyText, errMsg } from './shared';
 
@@ -18,6 +18,8 @@ const BookingInvoice: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [dueOpen, setDueOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const load = async () => {
     try {
@@ -47,6 +49,29 @@ const BookingInvoice: React.FC = () => {
   const completed = b.payments.filter((x) => x.status === 'COMPLETED');
 
   const copyLink = async () => { if (await copyText(window.location.href)) { setCopied(true); window.setTimeout(() => setCopied(false), 1500); } };
+  // Client-side PDF of the invoice sheet (A4, same markup as print). Library is loaded on demand.
+  const downloadPdf = async () => {
+    if (!sheetRef.current || !b) return;
+    setPdfBusy(true);
+    try {
+      const { default: html2pdf } = await import('html2pdf.js');
+      await html2pdf()
+        .set({
+          margin: [8, 8, 8, 8],
+          filename: `${b.invoiceLabel}-${(b.guest?.name || 'guest').replace(/[^\w-]+/g, '_')}.pdf`,
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'] },
+        })
+        .from(sheetRef.current)
+        .save();
+    } catch (e) {
+      setError(errMsg(e, 'Could not generate the PDF — use Print → Save as PDF instead'));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 print:max-w-none print:space-y-2">
@@ -58,11 +83,12 @@ const BookingInvoice: React.FC = () => {
           <Button variant="outline" onClick={() => navigate(`/bookings/${b.id}/edit`)}><Pencil className="mr-1 h-4 w-4" /> Edit</Button>
           {b.due > 0 && b.status !== 'CANCELLED' && <Button variant="expense" onClick={() => setDueOpen(true)}><Wallet className="mr-1 h-4 w-4" /> Collect due {fmt(b.due)}</Button>}
           <Button variant="outline" onClick={copyLink}>{copied ? <Check className="mr-1 h-4 w-4 text-emerald-600" /> : <Copy className="mr-1 h-4 w-4" />} Copy link</Button>
+          <Button variant="outline" onClick={downloadPdf} disabled={pdfBusy}>{pdfBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileDown className="mr-1 h-4 w-4" />} Download PDF</Button>
           <Button variant="ink" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" /> Print</Button>
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-white p-6 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-8">
+      <div ref={sheetRef} className="rounded-2xl border bg-white p-6 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-8">
         {/* Header */}
         <div className="flex flex-col gap-6 border-b pb-6 md:flex-row md:items-start md:justify-between">
           <div className="flex items-start gap-4">

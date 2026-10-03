@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
+import { formatInvoiceNo } from '../utils/bookingPricing';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
 import { backfillMissingBookingPayments } from '../utils/bookingPayment';
@@ -173,7 +174,7 @@ export const createPayment = async (
     const cBooking = payment.booking;
     if (cBooking?.guest?.email) {
       emailService.sendPaymentConfirmationEmail(cBooking.guest.email, {
-        bookingId: cBooking.id,
+        bookingId: formatInvoiceNo(cBooking.invoiceNo),
         guestName: cBooking.guest.name,
         amount: payment.amount,
         method: payment.method,
@@ -254,7 +255,7 @@ export const updatePayment = async (
     const uBooking = payment.booking;
     if (status === 'COMPLETED' && uBooking?.guest?.email) {
       emailService.sendPaymentConfirmationEmail(uBooking.guest.email, {
-        bookingId: uBooking.id,
+        bookingId: formatInvoiceNo(uBooking.invoiceNo),
         guestName: uBooking.guest.name,
         amount: payment.amount,
         method: payment.method,

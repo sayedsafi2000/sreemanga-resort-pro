@@ -46,6 +46,8 @@ services:
       SERVICE_FQDN_SERVER_8000: ""
       NODE_ENV: production
       PORT: "8000"
+      # Resort-local clock for "today" logic (day summary, reports, reminders).
+      TZ: ${TZ:-Asia/Dhaka}
       DATABASE_URL: "postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db:5432/${POSTGRES_DB:-resort_management}?schema=public"
       JWT_SECRET: "${SERVICE_PASSWORD_64_JWT}"
       JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-7d}"
@@ -121,6 +123,7 @@ services:
       SERVICE_FQDN_WEB_3002: ""
       NODE_ENV: production
       PORT: "3002"
+      TZ: ${TZ:-Asia/Dhaka}
       HOSTNAME: 0.0.0.0
       SITE_URL: "${SERVICE_URL_WEB}"
       # Browser → API (public domain); SSR → API over the compose network.

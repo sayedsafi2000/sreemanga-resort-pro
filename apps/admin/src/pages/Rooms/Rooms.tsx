@@ -14,11 +14,19 @@ import { Plus, Pencil, Trash2, X, Download, BedDouble, Sparkles, Wrench, Leaf } 
 import { PageHeader } from '@/components/ui/page-header';
 
 const roomTypeOptions = [
-  { value: 'STANDARD', label: 'Single (Standard)' },
-  { value: 'DELUXE', label: 'Double (Deluxe)' },
+  { value: 'COUPLE', label: 'Couple (2 guests)' },
+  { value: 'FAMILY', label: 'Family (4 guests)' },
+  { value: 'STANDARD', label: 'Standard' },
+  { value: 'DELUXE', label: 'Deluxe' },
   { value: 'SUITE', label: 'Suite' },
-  { value: 'FAMILY', label: 'Family' },
   { value: 'PRESIDENTIAL', label: 'Presidential' },
+];
+// Where the room is on the property — the public site groups rooms by this.
+const roomZoneOptions = [
+  { value: 'TOWER', label: 'Tower Building' },
+  { value: 'ZONE_1', label: 'Zone 1' },
+  { value: 'ZONE_2', label: 'Zone 2' },
+  { value: 'ZONE_3', label: 'Zone 3' },
 ];
 const roomStatuses = ['AVAILABLE', 'BOOKED', 'CLEANING', 'MAINTENANCE'];
 const bedTypes = ['SINGLE', 'DOUBLE', 'KING', 'TWIN'];
@@ -39,6 +47,7 @@ type RoomForm = {
   name: string;
   roomCode: string;
   type: string;
+  zone: string;
   description: string;
   floorBuilding: string;
   price: string;
@@ -69,7 +78,8 @@ type RoomForm = {
 const defaultForm = (): RoomForm => ({
   name: '',
   roomCode: '',
-  type: 'STANDARD',
+  type: 'COUPLE',
+  zone: '',
   description: '',
   floorBuilding: '',
   price: '',
@@ -155,6 +165,7 @@ const Rooms: React.FC = () => {
       name: room.name,
       roomCode: room.roomCode || '',
       type: room.type,
+      zone: room.zone || '',
       price: String(room.price),
       capacity: String(room.capacity ?? ''),
       weekendPrice: room.weekendPrice ? String(room.weekendPrice) : '',
@@ -204,6 +215,7 @@ const Rooms: React.FC = () => {
       name: form.name,
       roomCode: form.roomCode,
       type: form.type,
+      zone: form.zone || null,
       description: form.description,
       floorBuilding: form.floorBuilding,
       price: toNumber(form.price),
@@ -465,7 +477,8 @@ const Rooms: React.FC = () => {
                     <div className="space-y-2"><Label>Room Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
                     <div className="space-y-2"><Label>Room Code</Label><Input value={form.roomCode} onChange={(e) => setForm({ ...form, roomCode: e.target.value })} /></div>
                     <div className="space-y-2"><Label>Room Type</Label><Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{roomTypeOptions.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
-                    <div className="space-y-2"><Label>Floor / Building</Label><Input value={form.floorBuilding} onChange={(e) => setForm({ ...form, floorBuilding: e.target.value })} /></div>
+                    <div className="space-y-2"><Label>Zone / Building</Label><Select value={form.zone || 'none'} onValueChange={(v) => setForm({ ...form, zone: v === 'none' ? '' : v })}><SelectTrigger><SelectValue placeholder="Select zone" /></SelectTrigger><SelectContent><SelectItem value="none">— Not set —</SelectItem>{roomZoneOptions.map((z) => <SelectItem key={z.value} value={z.value}>{z.label}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="space-y-2"><Label>Floor / Building note</Label><Input value={form.floorBuilding} onChange={(e) => setForm({ ...form, floorBuilding: e.target.value })} placeholder="e.g. 2nd floor" /></div>
                   </div>
                   <div className="space-y-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
                 </div>

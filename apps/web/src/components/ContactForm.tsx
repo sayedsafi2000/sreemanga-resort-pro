@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { submitContactForm } from '@/lib/resort-api';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function ContactForm() {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -29,7 +31,7 @@ export default function ContactForm() {
   return (
     <form onSubmit={onSubmit} className="rounded-2xl bg-white p-6 shadow-card sm:p-8">
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-stone-700">Name</span>
+        <span className="mb-1.5 block text-sm font-medium text-stone-700">{t('Name', 'নাম')}</span>
         <input
           required
           value={name}
@@ -38,7 +40,7 @@ export default function ContactForm() {
         />
       </label>
       <label className="mt-4 block">
-        <span className="mb-1.5 block text-sm font-medium text-stone-700">Email</span>
+        <span className="mb-1.5 block text-sm font-medium text-stone-700">{t('Email', 'ইমেইল')}</span>
         <input
           required
           type="email"
@@ -48,7 +50,7 @@ export default function ContactForm() {
         />
       </label>
       <label className="mt-4 block">
-        <span className="mb-1.5 block text-sm font-medium text-stone-700">Phone</span>
+        <span className="mb-1.5 block text-sm font-medium text-stone-700">{t('Phone', 'ফোন')}</span>
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
@@ -56,7 +58,7 @@ export default function ContactForm() {
         />
       </label>
       <label className="mt-4 block">
-        <span className="mb-1.5 block text-sm font-medium text-stone-700">Message</span>
+        <span className="mb-1.5 block text-sm font-medium text-stone-700">{t('Message', 'বার্তা')}</span>
         <textarea
           required
           rows={4}
@@ -70,7 +72,7 @@ export default function ContactForm() {
         disabled={status === 'loading'}
         className="mt-6 w-full rounded-full bg-forest-700 py-3.5 font-semibold text-white shadow-md hover:bg-forest-800 disabled:opacity-60"
       >
-        {status === 'loading' ? 'Sending…' : 'Send message'}
+        {status === 'loading' ? t('Sending…', 'পাঠানো হচ্ছে…') : t('Send message', 'বার্তা পাঠান')}
       </button>
       {feedback && (
         <p className={cn('mt-3 text-center text-sm', status === 'done' ? 'text-forest-800' : 'text-red-700')}>

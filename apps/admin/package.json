@@ -27,6 +27,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "html2pdf.js": "^0.10.3",
     "lucide-react": "^0.359.0",
     "marked": "^18.0.3",
     "react": "^18.3.1",

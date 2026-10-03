@@ -104,12 +104,13 @@ async function getSettingsUncached(): Promise<ResortSettings> {
 
 export const getSettings = cache(getSettingsUncached);
 
-async function getRoomsUncached(filters?: { type?: RoomType | string }): Promise<{
+async function getRoomsUncached(filters?: { type?: RoomType | string; zone?: string }): Promise<{
   rooms: Room[];
   ok: boolean;
 }> {
   const q = new URLSearchParams();
   if (filters?.type) q.set('type', filters.type);
+  if (filters?.zone) q.set('zone', filters.zone);
   const url = `${apiBase()}/rooms${q.toString() ? `?${q}` : ''}`;
   const data = await safeFetch<{ success: boolean; rooms: Room[] }>(url, {
     next: { revalidate: 15 },

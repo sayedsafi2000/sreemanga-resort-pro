@@ -3,12 +3,14 @@
 import { useMemo, useState } from 'react';
 import type { GalleryItem } from '@/types/resort';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type Props = {
   items: GalleryItem[];
 };
 
 export default function GalleryGrid({ items }: Props) {
+  const { t } = useLanguage();
   const categories = useMemo(() => {
     const s = new Set(items.map((g) => g.category));
     return ['All', ...Array.from(s)];
@@ -62,7 +64,7 @@ export default function GalleryGrid({ items }: Props) {
       </div>
       {filteredItems.length === 0 && (
         <p className="rounded-2xl bg-white p-6 text-center text-sm text-stone-600 shadow-card">
-          No photos yet. Super Admin can add images under <strong>Site gallery</strong> in the admin panel (category and sort order optional).
+          {t('Photos are coming soon.', 'ছবি শীঘ্রই আসছে।')}
         </p>
       )}
     </>

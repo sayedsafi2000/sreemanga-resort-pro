@@ -194,7 +194,7 @@ class EmailService {
       </p>
 
       ${detailTable([
-        ['Booking ID',  booking.bookingId],
+        ['Invoice No',  booking.bookingId],
         ['Room',        booking.roomName],
         ['Check-in',    `${booking.checkInDate} &nbsp; (from 2:00 PM)`],
         ['Check-out',   `${booking.checkOutDate} &nbsp; (by 12:00 PM)`],
@@ -219,7 +219,7 @@ class EmailService {
       to: email,
       subject: `Booking Confirmed ✓ — ${booking.bookingId} | ${BRAND_NAME}`,
       html,
-      text: `Booking Confirmed!\n\nID: ${booking.bookingId}\nRoom: ${booking.roomName}\nCheck-in: ${booking.checkInDate}\nCheck-out: ${booking.checkOutDate}\nGuests: ${guestCount}\nTotal: ৳${booking.totalAmount}\n\nWe look forward to welcoming you!`,
+      text: `Booking Confirmed!\n\nInvoice: ${booking.bookingId}\nRoom: ${booking.roomName}\nCheck-in: ${booking.checkInDate}\nCheck-out: ${booking.checkOutDate}\nGuests: ${guestCount}\nTotal: ৳${booking.totalAmount}\n\nWe look forward to welcoming you!`,
     });
   }
 
@@ -244,7 +244,7 @@ class EmailService {
       </p>
 
       ${detailTable([
-        ['Booking ID',  booking.bookingId],
+        ['Invoice No',  booking.bookingId],
         ['Room',        booking.roomName],
         ['Check-in',    booking.checkInDate],
         ['Check-out',   booking.checkOutDate],
@@ -264,7 +264,7 @@ class EmailService {
       to: email,
       subject: `Booking Request Received — ${booking.bookingId} | ${BRAND_NAME}`,
       html,
-      text: `Dear ${booking.guestName},\n\nYour booking request (ID: ${booking.bookingId}) has been received and is pending confirmation.\n\nRoom: ${booking.roomName}\nCheck-in: ${booking.checkInDate}\nCheck-out: ${booking.checkOutDate}\n\nWe will contact you shortly.`,
+      text: `Dear ${booking.guestName},\n\nYour booking request (Invoice ${booking.bookingId}) has been received and is pending confirmation.\n\nRoom: ${booking.roomName}\nCheck-in: ${booking.checkInDate}\nCheck-out: ${booking.checkOutDate}\n\nWe will contact you shortly.`,
     });
   }
 
@@ -280,7 +280,7 @@ class EmailService {
     }
   ): Promise<boolean> {
     const rows: [string, string][] = [
-      ['Booking ID', payment.bookingId],
+      ['Invoice No', payment.bookingId],
       ['Amount',     `৳${payment.amount.toLocaleString()}`],
       ['Method',     payment.method],
     ];
@@ -309,7 +309,7 @@ class EmailService {
       to: email,
       subject: `Payment Confirmed — ৳${payment.amount.toLocaleString()} | ${BRAND_NAME}`,
       html,
-      text: `Payment Received!\n\nBooking ID: ${payment.bookingId}\nAmount: ৳${payment.amount}\nMethod: ${payment.method}${payment.transactionId ? `\nTransaction: ${payment.transactionId}` : ''}\n\nThank you!`,
+      text: `Payment Received!\n\nInvoice: ${payment.bookingId}\nAmount: ৳${payment.amount}\nMethod: ${payment.method}${payment.transactionId ? `\nTransaction: ${payment.transactionId}` : ''}\n\nThank you!`,
     });
   }
 
@@ -334,7 +334,7 @@ class EmailService {
       ${detailTable([
         ['Check-in Date', reminder.checkInDate],
         ['Room',          reminder.roomName],
-        ['Booking ID',    reminder.bookingId],
+        ['Invoice No',    reminder.bookingId],
         ['Check-in Time', 'From 2:00 PM'],
       ])}
 
