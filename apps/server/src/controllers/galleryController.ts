@@ -7,6 +7,8 @@ const createSchema = z.object({
   imageUrl: z.string().min(1, 'Image is required'),
   alt: z.string().optional(),
   category: z.string().optional(),
+  altBn: z.string().max(300).optional().nullable(),
+  categoryBn: z.string().max(80).optional().nullable(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
 });
@@ -17,6 +19,8 @@ const updateSchema = z.object({
   category: z.string().optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
+  altBn: z.string().max(300).optional().nullable(),
+  categoryBn: z.string().max(80).optional().nullable(),
 });
 
 export const getPublicGallery = async (_req: Request, res: Response, next: NextFunction) => {
@@ -59,6 +63,8 @@ export const createGalleryItem = async (req: Request, res: Response, next: NextF
         imageUrl: body.imageUrl,
         alt: (body.alt ?? '').trim(),
         category: (body.category ?? 'General').trim() || 'General',
+        altBn: body.altBn?.trim() || null,
+        categoryBn: body.categoryBn?.trim() || null,
         sortOrder: body.sortOrder ?? 0,
         isActive: body.isActive ?? true,
       },
@@ -79,12 +85,16 @@ export const updateGalleryItem = async (req: Request, res: Response, next: NextF
       imageUrl?: string;
       alt?: string;
       category?: string;
+      altBn?: string | null;
+      categoryBn?: string | null;
       sortOrder?: number;
       isActive?: boolean;
     } = {};
     if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl;
     if (body.alt !== undefined) data.alt = body.alt.trim();
     if (body.category !== undefined) data.category = String(body.category).trim() || 'General';
+    if (body.altBn !== undefined) data.altBn = body.altBn?.trim() || null;
+    if (body.categoryBn !== undefined) data.categoryBn = body.categoryBn?.trim() || null;
     if (body.sortOrder !== undefined) data.sortOrder = body.sortOrder;
     if (body.isActive !== undefined) data.isActive = body.isActive;
     if (Object.keys(data).length === 0) throw new AppError('No fields to update', 400);

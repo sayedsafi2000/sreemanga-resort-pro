@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 type Props = {
   resortName: string;
+  resortNameBn?: string;
   tagline: string;
   taglineBn?: string;
   heroImages: string[];
@@ -17,14 +18,15 @@ type Props = {
 const AUTO_SLIDE_MS = 5000;
 
 const natureBadges = [
-  { icon: Leaf,  label: 'Eco Stay'    },
-  { icon: Trees, label: 'Tea Gardens' },
-  { icon: Wind,  label: 'Fresh Air'   },
+  { icon: Leaf,  label: 'Eco Stay',    bn: 'ইকো স্টে' },
+  { icon: Trees, label: 'Tea Gardens', bn: 'চা বাগান' },
+  { icon: Wind,  label: 'Fresh Air',   bn: 'তাজা বাতাস' },
 ];
 
-export default function HeroSection({ resortName, tagline, taglineBn = '', heroImages }: Props) {
-  const { t, tr } = useLanguage();
-  const displayTagline = taglineBn ? t(tagline, taglineBn) : tagline;
+export default function HeroSection({ resortName, resortNameBn = '', tagline, taglineBn = '', heroImages }: Props) {
+  const { t, tr, lx } = useLanguage();
+  const displayTagline = lx(tagline, taglineBn);
+  const displayName = lx(resortName, resortNameBn);
   const slides = heroImages.length ? heroImages : [];
   const [activeIndex, setActiveIndex]   = useState(0);
   const [mounted,     setMounted]       = useState(false);
@@ -78,14 +80,14 @@ export default function HeroSection({ resortName, tagline, taglineBn = '', heroI
 
         {/* Nature badges — staggered fade-up */}
         <div className="mb-6 flex flex-wrap gap-2">
-          {natureBadges.map(({ icon: Icon, label }, i) => (
+          {natureBadges.map(({ icon: Icon, label, bn }, i) => (
             <span
               key={label}
               className="nature-tag-dark animate-fade-up"
               style={{ animationDelay: `${i * 120}ms` }}
             >
               <Icon className="h-3.5 w-3.5 text-forest-300" aria-hidden />
-              {label}
+              {t(label, bn)}
             </span>
           ))}
         </div>
@@ -104,7 +106,7 @@ export default function HeroSection({ resortName, tagline, taglineBn = '', heroI
           style={{ animationDelay: '320ms' }}
         >
           <span className="bg-gradient-to-br from-white via-forest-100 to-forest-300 bg-clip-text text-transparent">
-            {resortName}
+            {displayName}
           </span>
         </h1>
 

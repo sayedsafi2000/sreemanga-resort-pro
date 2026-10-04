@@ -23,6 +23,9 @@ export const roomSchema = z.object({
   bedType: z.enum(['SINGLE', 'DOUBLE', 'KING', 'TWIN']).optional(),
   status: z.enum(['AVAILABLE', 'BOOKED', 'CLEANING', 'MAINTENANCE']).optional(),
   description: z.string().optional(),
+  // Bangla copies shown when the public site is switched to বাংলা.
+  nameBn: z.string().max(200).optional().nullable(),
+  descriptionBn: z.string().max(5000).optional().nullable(),
   mainImage: z.string().optional(),
   images: z.array(z.string()).optional(),
   facilities: z.record(z.boolean()).optional(),

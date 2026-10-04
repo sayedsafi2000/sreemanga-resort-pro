@@ -26,6 +26,7 @@ export default function TemplateOneHome({
         resortName={settings.resortName}
         tagline={settings.tagline}
         taglineBn={settings.taglineBn}
+        resortNameBn={settings.resortNameBn}
         heroImages={heroImages}
       />
       <RoomsPreview rooms={rooms} />

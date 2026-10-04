@@ -6,6 +6,7 @@ import { canManageRooms } from '@/config/rbac';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BiField } from '@/components/ui/bi-field';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,6 +45,8 @@ type FoodOptionsForm = {
 };
 
 type RoomForm = {
+  nameBn: string;
+  descriptionBn: string;
   name: string;
   roomCode: string;
   type: string;
@@ -81,6 +84,8 @@ const defaultForm = (): RoomForm => ({
   type: 'COUPLE',
   zone: '',
   description: '',
+  nameBn: '',
+  descriptionBn: '',
   floorBuilding: '',
   price: '',
   weekendPrice: '',
@@ -177,6 +182,8 @@ const Rooms: React.FC = () => {
       bedType: room.bedType || '',
       floorBuilding: room.floorBuilding || '',
       description: room.description || '',
+      nameBn: room.nameBn || '',
+      descriptionBn: room.descriptionBn || '',
       status: room.status,
       mainImage: room.mainImage || '',
       images: Array.isArray(room.images) ? room.images : [],
@@ -217,6 +224,8 @@ const Rooms: React.FC = () => {
       type: form.type,
       zone: form.zone || null,
       description: form.description,
+      nameBn: form.nameBn.trim() || null,
+      descriptionBn: form.descriptionBn.trim() || null,
       floorBuilding: form.floorBuilding,
       price: toNumber(form.price),
       weekendPrice: toNumber(form.weekendPrice),
@@ -474,13 +483,13 @@ const Rooms: React.FC = () => {
                 <div className="rounded-xl border p-4 space-y-3">
                   <h3 className="font-semibold">1. Basic Info</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Room Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                    <div className="md:col-span-2"><BiField label="Room Name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} bn={form.nameBn} onChangeBn={(v) => setForm({ ...form, nameBn: v })} placeholder="Tower 101" placeholderBn="টাওয়ার ১০১" /></div>
                     <div className="space-y-2"><Label>Room Code</Label><Input value={form.roomCode} onChange={(e) => setForm({ ...form, roomCode: e.target.value })} /></div>
                     <div className="space-y-2"><Label>Room Type</Label><Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{roomTypeOptions.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
                     <div className="space-y-2"><Label>Zone / Building</Label><Select value={form.zone || 'none'} onValueChange={(v) => setForm({ ...form, zone: v === 'none' ? '' : v })}><SelectTrigger><SelectValue placeholder="Select zone" /></SelectTrigger><SelectContent><SelectItem value="none">— Not set —</SelectItem>{roomZoneOptions.map((z) => <SelectItem key={z.value} value={z.value}>{z.label}</SelectItem>)}</SelectContent></Select></div>
                     <div className="space-y-2"><Label>Floor / Building note</Label><Input value={form.floorBuilding} onChange={(e) => setForm({ ...form, floorBuilding: e.target.value })} placeholder="e.g. 2nd floor" /></div>
                   </div>
-                  <div className="space-y-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                  <BiField label="Description" textarea rows={2} value={form.description} onChange={(v) => setForm({ ...form, description: v })} bn={form.descriptionBn} onChangeBn={(v) => setForm({ ...form, descriptionBn: v })} hint="Shown on the room card and detail page. Leave Bangla empty to show English on both languages." />
                 </div>
 
                 <div className="rounded-xl border p-4 space-y-3">

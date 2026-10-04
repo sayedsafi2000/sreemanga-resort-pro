@@ -10,7 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useReveal, useRevealGroup } from '@/hooks/useReveal';
 
 export default function BlogsSection({ blogs }: { blogs: BlogListItem[] }) {
-  const { tr } = useLanguage();
+  const { tr, lx, t } = useLanguage();
   if (!blogs.length) return null;
 
   const featured = blogs.filter((b) => b.isFeatured).slice(0, 3);
@@ -58,7 +58,7 @@ export default function BlogsSection({ blogs }: { blogs: BlogListItem[] }) {
                     <div className="absolute inset-0 bg-gradient-to-t from-forest-950/50 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                     {blog.isFeatured && (
                       <span className="absolute left-3 top-3 rounded-full bg-forest-800/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                        Featured
+                        {t('Featured', 'বিশেষ')}
                       </span>
                     )}
                   </div>
@@ -67,16 +67,16 @@ export default function BlogsSection({ blogs }: { blogs: BlogListItem[] }) {
                   <div className="p-5">
                     <div className="mb-3 flex items-center gap-2">
                       <span className="rounded-full bg-forest-100 px-2.5 py-0.5 text-xs font-semibold text-forest-800">
-                        {blog.category}
+                        {lx(blog.category, blog.categoryBn)}
                       </span>
                     </div>
 
                     <h3 className="font-display text-lg font-semibold leading-snug text-stone-900 transition-colors group-hover:text-forest-800 line-clamp-2">
-                      {blog.title}
+                      {lx(blog.title, blog.titleBn)}
                     </h3>
 
                     <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-stone-500">
-                      {blog.summary}
+                      {lx(blog.summary, blog.summaryBn)}
                     </p>
 
                     <div className="mt-4 flex items-center justify-between border-t border-forest-100/70 pt-4">

@@ -6,6 +6,7 @@ import { ArrowLeft, CalendarDays, User, Tag } from 'lucide-react';
 import Container from '@/components/ui/Container';
 import { getBlogBySlug } from '@/lib/resort-api';
 import { siteUrl } from '@/lib/site';
+import L, { LParagraphs } from '@/components/L';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -66,7 +67,7 @@ export default async function BlogPage({ params }: Props) {
             {/* Category + tags */}
             <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
               <span className="rounded-full bg-forest-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-forest-800">
-                {blog.category}
+                <L en={blog.category} bn={blog.categoryBn} />
               </span>
               {blog.tags.map((tag) => (
                 <span
@@ -80,11 +81,11 @@ export default async function BlogPage({ params }: Props) {
             </div>
 
             <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight text-stone-900 sm:text-4xl lg:text-5xl">
-              {blog.title}
+              <L en={blog.title} bn={blog.titleBn} />
             </h1>
 
             <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-stone-500">
-              {blog.summary}
+              <L en={blog.summary} bn={blog.summaryBn} />
             </p>
 
             {/* Meta row */}
@@ -126,9 +127,7 @@ export default async function BlogPage({ params }: Props) {
               prose-code:text-forest-800 prose-code:bg-forest-50 prose-code:px-1 prose-code:rounded
               prose-img:rounded-xl prose-img:shadow-card
             ">
-              {blog.content.split('\n\n').map((paragraph, idx) => (
-                <p key={idx}>{paragraph}</p>
-              ))}
+              <LParagraphs en={blog.content} bn={blog.contentBn} />
             </div>
           </div>
 

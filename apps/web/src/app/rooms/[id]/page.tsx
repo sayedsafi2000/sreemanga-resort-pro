@@ -10,6 +10,7 @@ import T from '@/components/T';
 import { siteUrl } from '@/lib/site';
 import { Users, Check } from 'lucide-react';
 import { fmtMoney } from '@/lib/format';
+import L from '@/components/L';
 
 type Props = { params: { id: string } };
 
@@ -89,10 +90,10 @@ export default async function RoomDetailPage({ params }: Props) {
               <T en={ROOM_TYPE_LABEL[room.type]?.en ?? room.type} bn={ROOM_TYPE_LABEL[room.type]?.bn} />{room.zone ? <> · <T en={ROOM_ZONE_LABEL[room.zone].en} bn={ROOM_ZONE_LABEL[room.zone].bn} /></> : null}
             </span>
             <h1 className="mt-3 font-display text-3xl font-semibold text-stone-900 sm:text-4xl">
-              {room.name}
+              <L en={room.name} bn={room.nameBn} />
             </h1>
             {room.description && (
-              <p className="mt-4 text-lg leading-relaxed text-stone-600">{room.description}</p>
+              <p className="mt-4 text-lg leading-relaxed text-stone-600"><L en={room.description} bn={room.descriptionBn} /></p>
             )}
 
             <div className="mt-6 flex flex-wrap items-center gap-4 text-stone-600">

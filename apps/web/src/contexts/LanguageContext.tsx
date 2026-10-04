@@ -11,6 +11,8 @@ type LanguageContextType = {
   t: (en: string, bn?: string) => string;
   /** Auto-translate admin-entered content into the current language (Bangla ↔ English), cached. */
   ta: (text: string | null | undefined) => string;
+  /** Pick the admin-entered copy for the current language: `bn` in বাংলা (else auto-translated `en`), `en` in English. */
+  lx: (en: string | null | undefined, bn?: string | null) => string;
   tr: (category: TranslationKey, key: string) => string;
   isTranslating: boolean;
 };
@@ -37,8 +39,15 @@ const translationCache = new Map<string, string>();
 const reverseCache = new Map<string, string>();
 const hasBangla = (s: string) => /[\u0980-\u09FF]/.test(s);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>('en');
+const LANG_COOKIE = 'pv_lang';
+const writeLangCookie = (lang: Language) => {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${LANG_COOKIE}=${lang}; path=/; max-age=31536000; samesite=lax`;
+};
+
+export function LanguageProvider({ children, initialLanguage = 'en' }: { children: ReactNode; initialLanguage?: Language }) {
+  // The server reads the cookie and passes it in, so SSR and the first client render agree.
+  const [language, setLanguageState] = useState<Language>(initialLanguage);
   const [mounted, setMounted] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   // Queue of English strings needing translation
@@ -48,14 +57,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Older visitors only have the localStorage preference — adopt it once and set the cookie.
+    const hasCookie = typeof document !== 'undefined' && document.cookie.split(';').some((c) => c.trim().startsWith(`${LANG_COOKIE}=`));
     const saved = localStorage.getItem('language') as Language | null;
-    if (saved) setLanguageState(saved);
+    if (!hasCookie && saved && saved !== language) { setLanguageState(saved); writeLangCookie(saved); }
+    else if (!hasCookie) writeLangCookie(language);
     setMounted(true);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('language', lang);
+    writeLangCookie(lang);
     // Apply Bengali font class to body
     if (typeof document !== 'undefined') {
       document.documentElement.classList.toggle('lang-bn', lang === 'bn');
@@ -96,9 +109,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // t(en, bn?) — if bn provided use it directly; otherwise auto-translate
   const t = useCallback((en: string, bn?: string): string => {
-    if (!mounted || language === 'en') return en;
-    // Provided Bengali string — use it
+    if (language === 'en') return en;
+    // Provided Bengali string — use it (also during server rendering)
     if (bn && bn.trim()) return bn;
+    if (!mounted) return en;
     // Check cache
     if (translationCache.has(en)) return translationCache.get(en)!;
     // Queue for translation
@@ -125,11 +139,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return src;
   }, [mounted, language, t, flushPending]);
 
+  const lx = useCallback((en: string | null | undefined, bn?: string | null): string => {
+    const e = (en ?? '').trim();
+    const b = (bn ?? '').trim();
+    if (language === 'bn') return b || (e && mounted ? ta(e) : e);
+    // English mode: use the English copy; if admin only typed Bangla there, translate it.
+    if (e && !hasBangla(e)) return e;
+    if (!mounted) return e || b;
+    return e ? ta(e) : b ? ta(b) : '';
+  }, [language, ta, mounted]);
+
   const tr = useCallback((category: TranslationKey, key: string): string => {
-    if (!mounted) {
-      const cat = translations[category];
-      return (cat as Record<string, { en: string; bn: string }>)?.[key]?.en || key;
-    }
     if (language === 'en') return getTranslation(category, key, 'en');
     // Check if we have a hardcoded Bengali translation
     const hardcoded = getTranslation(category, key, 'bn');
@@ -148,7 +168,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [language, mounted]);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, ta, tr, isTranslating }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, ta, lx, tr, isTranslating }}>
       {children}
     </LanguageContext.Provider>
   );

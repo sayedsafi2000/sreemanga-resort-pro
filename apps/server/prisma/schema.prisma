@@ -165,6 +165,9 @@ model Room {
   maxChildren        Int?
   bedType            String?
   description        String?
+  /// Bangla copies shown when the public site is switched to বাংলা
+  nameBn             String?
+  descriptionBn      String?
   mainImage          String?
   images             String[]
   facilities         Json?
@@ -282,6 +285,9 @@ model RestaurantMenu {
   price       Float
   category    String
   description String?
+  /// Bangla copies (public site language toggle)
+  nameBn        String?
+  descriptionBn String?
   image       String?
   isAvailable Boolean  @default(true)
   // Display order inside category (then name). Lower = earlier in menu book.
@@ -343,6 +349,9 @@ model SiteGalleryItem {
   imageUrl  String
   alt       String   @default("")
   category  String   @default("General")
+  /// Bangla copies (public site language toggle)
+  altBn      String?
+  categoryBn String?
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -365,6 +374,13 @@ model SiteNearbySpot {
   imageUrl  String
   imageAlt  String   @default("")
   body      String   @db.Text
+  /// Bangla copies (public site language toggle)
+  titleBn    String?
+  badgeBn    String?
+  distanceBn String?
+  bulletsBn  String[] @default([])
+  bestForBn  String?
+  bodyBn     String?  @db.Text
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -383,6 +399,11 @@ model SiteBlog {
   imageUrl   String
   imageAlt   String   @default("")
   category   String   @default("General")
+  /// Bangla copies (public site language toggle)
+  titleBn    String?
+  summaryBn  String?  @db.Text
+  contentBn  String?  @db.Text
+  categoryBn String?
   authorName String   @default("Pina Vista")
   tags       String[] @default([])
   sortOrder  Int      @default(0)
@@ -531,6 +552,9 @@ model DayLongProduct {
   name           String
   category       DayLongCategory
   description    String?
+  /// Bangla copies (public site language toggle)
+  nameBn         String?
+  descriptionBn  String?
   images         String[]
   basePrice      Float // per-slot / base rate
   pricePerPerson Float? // optional per-person charge

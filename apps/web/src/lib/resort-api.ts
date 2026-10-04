@@ -86,10 +86,13 @@ function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
     bankAccountNumber: raw.bankAccountNumber || undefined,
     bankName: raw.bankName || undefined,
     bankBranch: raw.bankBranch || undefined,
-    resortNameBn: raw.site_name_bn || '',
+    // বাংলা copies saved by admin → Settings (`<key>_bn`); older installs used site_name_bn.
+    resortNameBn: raw.resortName_bn || raw.site_name_bn || '',
     taglineBn: raw.tagline_bn || '',
     aboutShortBn: raw.aboutShort_bn || '',
     aboutLongBn: raw.aboutLong_bn || '',
+    addressBn: raw.resortAddress_bn || '',
+    restaurantTeaserBn: raw.restaurantTeaser_bn || '',
     activeTemplate: raw.activeTemplate || 'template-one',
   };
 }
@@ -201,6 +204,8 @@ export const getRestaurantMenu = cache(getRestaurantMenuUncached);
 
 // ── Day Long ────────────────────────────────────────────────────────────────
 export interface DayLongProduct {
+  nameBn?: string | null;
+  descriptionBn?: string | null;
   id: string;
   name: string;
   category: 'POOL' | 'COTTAGE' | 'CONFERENCE' | 'EVENT' | 'PICNIC';
@@ -358,6 +363,9 @@ export async function getTestimonials(): Promise<Testimonial[]> {
       quote: raw[`testimonial${n}Quote`] || '',
       author: raw[`testimonial${n}Author`] || '',
       role: raw[`testimonial${n}Role`] || undefined,
+      quoteBn: raw[`testimonial${n}Quote_bn`] || undefined,
+      authorBn: raw[`testimonial${n}Author_bn`] || undefined,
+      roleBn: raw[`testimonial${n}Role_bn`] || undefined,
     }))
     .filter((t) => t.quote && t.author);
 }

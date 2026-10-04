@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default function GalleryGrid({ items }: Props) {
-  const { t } = useLanguage();
+  const { t, lx } = useLanguage();
   const categories = useMemo(() => {
     const s = new Set(items.map((g) => g.category));
     return ['All', ...Array.from(s)];
@@ -51,13 +51,13 @@ export default function GalleryGrid({ items }: Props) {
             {/* Use native img — works with data: URLs and any http/https src */}
             <img
               src={g.src}
-              alt={g.alt}
+              alt={lx(g.alt, g.altBn)}
               className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900/55 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
             <span className="absolute bottom-3 left-3 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
-              {g.category}
+              {lx(g.category, g.categoryBn)}
             </span>
           </div>
         ))}

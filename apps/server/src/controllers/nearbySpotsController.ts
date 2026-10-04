@@ -17,6 +17,11 @@ const listSelect = {
   bestFor: true,
   imageUrl: true,
   imageAlt: true,
+  titleBn: true,
+  badgeBn: true,
+  distanceBn: true,
+  bulletsBn: true,
+  bestForBn: true,
   sortOrder: true,
 } as const;
 
@@ -31,6 +36,13 @@ const createSchema = z.object({
   imageUrl: z.string().min(1),
   imageAlt: z.string().max(300).optional(),
   body: z.string().max(50000).optional(),
+  // Bangla copies — optional; the site falls back to the English text when empty.
+  titleBn: z.string().max(200).optional().nullable(),
+  badgeBn: z.string().max(80).optional().nullable(),
+  distanceBn: z.string().max(120).optional().nullable(),
+  bulletsBn: z.array(z.string().max(500)).max(20).optional().nullable(),
+  bestForBn: z.string().max(300).optional().nullable(),
+  bodyBn: z.string().max(50000).optional().nullable(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
 });
@@ -57,6 +69,10 @@ export const getPublicNearbyExplore = async (_req: Request, res: Response, next:
               'nearbySectionTitle',
               'nearbySectionSubtitle',
               'nearbySectionFootnote',
+              'nearbySectionEyebrow_bn',
+              'nearbySectionTitle_bn',
+              'nearbySectionSubtitle_bn',
+              'nearbySectionFootnote_bn',
             ],
           },
         },
@@ -75,6 +91,10 @@ export const getPublicNearbyExplore = async (_req: Request, res: Response, next:
         title: map.nearbySectionTitle ?? '',
         subtitle: map.nearbySectionSubtitle ?? '',
         footnote: map.nearbySectionFootnote ?? '',
+        eyebrowBn: map.nearbySectionEyebrow_bn ?? '',
+        titleBn: map.nearbySectionTitle_bn ?? '',
+        subtitleBn: map.nearbySectionSubtitle_bn ?? '',
+        footnoteBn: map.nearbySectionFootnote_bn ?? '',
       },
       spots,
     });
@@ -105,6 +125,12 @@ export const getPublicNearbySpotBySlug = async (req: Request, res: Response, nex
         imageUrl: row.imageUrl,
         imageAlt: row.imageAlt,
         body: row.body,
+        titleBn: row.titleBn,
+        badgeBn: row.badgeBn,
+        distanceBn: row.distanceBn,
+        bulletsBn: row.bulletsBn,
+        bestForBn: row.bestForBn,
+        bodyBn: row.bodyBn,
         sortOrder: row.sortOrder,
       },
     });
@@ -140,6 +166,12 @@ export const createNearbySpot = async (req: Request, res: Response, next: NextFu
         imageUrl: body.imageUrl.trim(),
         imageAlt: (body.imageAlt ?? '').trim(),
         body: (body.body ?? '').trim(),
+        titleBn: body.titleBn?.trim() || null,
+        badgeBn: body.badgeBn?.trim() || null,
+        distanceBn: body.distanceBn?.trim() || null,
+        bulletsBn: normalizeBullets(body.bulletsBn),
+        bestForBn: body.bestForBn?.trim() || null,
+        bodyBn: body.bodyBn?.trim() || null,
         sortOrder: body.sortOrder ?? 0,
         isActive: body.isActive ?? true,
       },
@@ -169,6 +201,12 @@ export const updateNearbySpot = async (req: Request, res: Response, next: NextFu
     if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl.trim();
     if (body.imageAlt !== undefined) data.imageAlt = body.imageAlt.trim();
     if (body.body !== undefined) data.body = body.body.trim();
+    if (body.titleBn !== undefined) data.titleBn = body.titleBn?.trim() || null;
+    if (body.badgeBn !== undefined) data.badgeBn = body.badgeBn?.trim() || null;
+    if (body.distanceBn !== undefined) data.distanceBn = body.distanceBn?.trim() || null;
+    if (body.bulletsBn !== undefined) data.bulletsBn = normalizeBullets(body.bulletsBn);
+    if (body.bestForBn !== undefined) data.bestForBn = body.bestForBn?.trim() || null;
+    if (body.bodyBn !== undefined) data.bodyBn = body.bodyBn?.trim() || null;
     if (body.sortOrder !== undefined) data.sortOrder = body.sortOrder;
     if (body.isActive !== undefined) data.isActive = body.isActive;
 

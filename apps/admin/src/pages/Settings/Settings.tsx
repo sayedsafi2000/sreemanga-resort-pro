@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BiField } from '@/components/ui/bi-field';
 import { Save, Building2, Phone, Clock, BookOpen, UtensilsCrossed, Map, CreditCard, Share2, MessageSquareQuote, CheckCircle2, AlertCircle, ChevronDown, Loader2, Globe, FileText } from 'lucide-react';
 
 type FieldType = 'text' | 'textarea' | 'url' | 'email' | 'time' | 'tel';
@@ -14,6 +15,8 @@ type Field = {
   placeholder?: string;
   hint?: string;
   icon?: React.ReactNode;
+  /** Text shown on the public website — also collects a বাংলা version (saved as `<key>_bn`). */
+  bn?: boolean;
 };
 
 type Section = {
@@ -33,8 +36,8 @@ const SECTIONS: Section[] = [
     icon: <Building2 className="h-4 w-4" />,
     color: 'bg-violet-100 text-violet-600',
     fields: [
-      { key: 'resortName', label: 'Resort Name', placeholder: "Pina Vista" },
-      { key: 'tagline', label: 'Tagline', placeholder: 'Nature retreat in Sreemangal' },
+      { key: 'resortName', label: 'Resort Name', bn: true, placeholder: "Pina Vista" },
+      { key: 'tagline', label: 'Tagline', bn: true, placeholder: 'Nature retreat in Sreemangal' },
       { key: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'https://…/logo.png', hint: 'Public URL to header logo image.' },
       { key: 'heroImage', label: 'Hero Image URL', type: 'url', placeholder: 'https://…/hero.jpg', hint: 'Used as homepage hero / OG share image.' },
     ],
@@ -46,7 +49,7 @@ const SECTIONS: Section[] = [
     icon: <Phone className="h-4 w-4" />,
     color: 'bg-emerald-100 text-emerald-600',
     fields: [
-      { key: 'resortAddress', label: 'Address', placeholder: 'Sreemangal, Moulvibazar, Bangladesh' },
+      { key: 'resortAddress', label: 'Address', bn: true, placeholder: 'Sreemangal, Moulvibazar, Bangladesh' },
       { key: 'resortPhone', label: 'Phone', type: 'tel', placeholder: '+880 17XX-XXXXXX' },
       { key: 'resortEmail', label: 'Email', type: 'email', placeholder: 'info@yourresort.com' },
     ],
@@ -81,8 +84,8 @@ const SECTIONS: Section[] = [
     color: 'bg-amber-100 text-amber-600',
     fields: [
       { key: 'resortDescription', label: 'Short Description (admin only)', type: 'textarea', placeholder: 'Internal note about the resort…' },
-      { key: 'aboutShort', label: 'About — Short (homepage)', type: 'textarea', placeholder: 'One or two sentences for the homepage hero…' },
-      { key: 'aboutLong', label: 'About — Long (about page)', type: 'textarea', placeholder: 'Full story of your resort, what makes it special…' },
+      { key: 'aboutShort', label: 'About — Short (homepage)', bn: true, type: 'textarea', placeholder: 'One or two sentences for the homepage hero…' },
+      { key: 'aboutLong', label: 'About — Long (about page)', bn: true, type: 'textarea', placeholder: 'Full story of your resort, what makes it special…' },
     ],
   },
   {
@@ -92,7 +95,7 @@ const SECTIONS: Section[] = [
     icon: <UtensilsCrossed className="h-4 w-4" />,
     color: 'bg-orange-100 text-orange-600',
     fields: [
-      { key: 'restaurantTeaser', label: 'Restaurant Teaser', type: 'textarea', placeholder: 'Seasonal dishes with local ingredients served fresh every day.' },
+      { key: 'restaurantTeaser', label: 'Restaurant Teaser', bn: true, type: 'textarea', placeholder: 'Seasonal dishes with local ingredients served fresh every day.' },
     ],
   },
   {
@@ -139,20 +142,20 @@ const SECTIONS: Section[] = [
     icon: <MessageSquareQuote className="h-4 w-4" />,
     color: 'bg-teal-100 text-teal-600',
     fields: [
-      { key: 'testimonial1Quote', label: 'Quote 1', type: 'textarea', placeholder: 'An amazing escape into nature...' },
-      { key: 'testimonial1Author', label: 'Author 1', placeholder: 'Sarah Johnson' },
-      { key: 'testimonial1Role', label: 'Role / Location 1 (optional)', placeholder: 'Traveler from Dhaka' },
-      { key: 'testimonial2Quote', label: 'Quote 2', type: 'textarea', placeholder: 'The most peaceful stay we have ever had...' },
-      { key: 'testimonial2Author', label: 'Author 2', placeholder: 'Rafiq Ahmed' },
-      { key: 'testimonial2Role', label: 'Role / Location 2 (optional)', placeholder: 'Family from Chittagong' },
-      { key: 'testimonial3Quote', label: 'Quote 3', type: 'textarea', placeholder: 'Highly recommended for nature lovers...' },
-      { key: 'testimonial3Author', label: 'Author 3', placeholder: 'Mina Roy' },
-      { key: 'testimonial3Role', label: 'Role / Location 3 (optional)', placeholder: 'Solo traveler' },
+      { key: 'testimonial1Quote', label: 'Quote 1', bn: true, type: 'textarea', placeholder: 'An amazing escape into nature...' },
+      { key: 'testimonial1Author', label: 'Author 1', bn: true, placeholder: 'Sarah Johnson' },
+      { key: 'testimonial1Role', label: 'Role / Location 1 (optional)', bn: true, placeholder: 'Traveler from Dhaka' },
+      { key: 'testimonial2Quote', label: 'Quote 2', bn: true, type: 'textarea', placeholder: 'The most peaceful stay we have ever had...' },
+      { key: 'testimonial2Author', label: 'Author 2', bn: true, placeholder: 'Rafiq Ahmed' },
+      { key: 'testimonial2Role', label: 'Role / Location 2 (optional)', bn: true, placeholder: 'Family from Chittagong' },
+      { key: 'testimonial3Quote', label: 'Quote 3', bn: true, type: 'textarea', placeholder: 'Highly recommended for nature lovers...' },
+      { key: 'testimonial3Author', label: 'Author 3', bn: true, placeholder: 'Mina Roy' },
+      { key: 'testimonial3Role', label: 'Role / Location 3 (optional)', bn: true, placeholder: 'Solo traveler' },
     ],
   },
 ];
 
-const ALL_KEYS: string[] = SECTIONS.flatMap((s) => s.fields.map((f) => f.key));
+const ALL_KEYS: string[] = SECTIONS.flatMap((s) => s.fields.flatMap((f) => (f.bn ? [f.key, `${f.key}_bn`] : [f.key])));
 
 function emptySettingsRecord(): Record<string, string> {
   return ALL_KEYS.reduce<Record<string, string>>((acc, k) => { acc[k] = ''; return acc; }, {});
@@ -265,7 +268,7 @@ const SectionCard: React.FC<SectionCardProps> = ({ section, settings, onChange, 
             /* Hours: side-by-side */
             <div className="grid grid-cols-2 gap-4">
               {section.fields.map((field) => (
-                <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} onChange={onChange} />
+                <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} bnValue={settings[`${field.key}_bn`] ?? ''} onChange={onChange} />
               ))}
             </div>
           ) : section.id === 'social' ? (
@@ -297,10 +300,10 @@ const SectionCard: React.FC<SectionCardProps> = ({ section, settings, onChange, 
           ) : section.id === 'contact' ? (
             /* Contact: 1+2 grid */
             <div className="space-y-4">
-              <FieldRow field={section.fields[0]} value={settings[section.fields[0].key] ?? ''} onChange={onChange} />
+              <FieldRow field={section.fields[0]} value={settings[section.fields[0].key] ?? ''} bnValue={settings[`${section.fields[0].key}_bn`] ?? ''} onChange={onChange} />
               <div className="grid grid-cols-2 gap-4">
                 {section.fields.slice(1).map((field) => (
-                  <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} onChange={onChange} />
+                  <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} bnValue={settings[`${field.key}_bn`] ?? ''} onChange={onChange} />
                 ))}
               </div>
             </div>
@@ -309,12 +312,12 @@ const SectionCard: React.FC<SectionCardProps> = ({ section, settings, onChange, 
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 {section.fields.slice(0, 2).map((field) => (
-                  <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} onChange={onChange} />
+                  <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} bnValue={settings[`${field.key}_bn`] ?? ''} onChange={onChange} />
                 ))}
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {section.fields.slice(2).map((field) => (
-                  <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} onChange={onChange} />
+                  <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} bnValue={settings[`${field.key}_bn`] ?? ''} onChange={onChange} />
                 ))}
               </div>
             </div>
@@ -322,7 +325,7 @@ const SectionCard: React.FC<SectionCardProps> = ({ section, settings, onChange, 
             /* Default: stacked */
             <div className="space-y-4">
               {section.fields.map((field) => (
-                <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} onChange={onChange} />
+                <FieldRow key={field.key} field={field} value={settings[field.key] ?? ''} bnValue={settings[`${field.key}_bn`] ?? ''} onChange={onChange} />
               ))}
             </div>
           )}
@@ -336,13 +339,30 @@ const SectionCard: React.FC<SectionCardProps> = ({ section, settings, onChange, 
 function FieldRow({
   field,
   value,
+  bnValue = '',
   onChange,
 }: {
   field: Field;
   value: string;
+  bnValue?: string;
   onChange: (key: string, val: string) => void;
 }) {
   const isFilled = value.trim().length > 0;
+  if (field.bn) {
+    return (
+      <BiField
+        label={<span className="inline-flex items-center gap-1.5">{field.label}{isFilled && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}</span>}
+        textarea={field.type === 'textarea'}
+        rows={3}
+        value={value}
+        onChange={(v) => onChange(field.key, v)}
+        bn={bnValue}
+        onChangeBn={(v) => onChange(`${field.key}_bn`, v)}
+        placeholder={field.placeholder}
+        hint={field.hint}
+      />
+    );
+  }
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">

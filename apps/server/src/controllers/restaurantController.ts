@@ -22,6 +22,9 @@ const menuSchema = z.object({
   price: z.number().positive('Price must be positive'),
   category: z.string(),
   description: z.string().optional(),
+  // Bangla copies — optional; the site falls back to English when empty.
+  nameBn: z.string().max(200).optional().nullable(),
+  descriptionBn: z.string().max(5000).optional().nullable(),
   /** URL, site path, or data URL — or `null` on update to remove. */
   image: z.union([z.string().max(12_000_000), z.null()]).optional(),
   isAvailable: z.boolean().optional(),

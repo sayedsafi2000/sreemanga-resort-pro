@@ -15,7 +15,7 @@ type Props = {
 };
 
 export default function RestaurantPreview({ teaser, highlights }: Props) {
-  const { t, tr } = useLanguage();
+  const { t, tr, lx } = useLanguage();
   const displayTeaser = teaser.includes('Seasonal') ? tr('restaurant', 'teaser') : t(teaser, teaser);
 
   const { ref: headRef,  visible: headVisible  } = useReveal<HTMLDivElement>();
@@ -74,7 +74,7 @@ export default function RestaurantPreview({ teaser, highlights }: Props) {
                 )}
                 style={{ transitionDelay: `${i * 80}ms` }}
               >
-                <span className="font-medium">{item.name}</span>
+                <span className="font-medium">{lx(item.name, item.nameBn)}</span>
                 {/* Prices are intentionally not shown on the home teaser — see the menu book. */}
                 <ArrowRight className="h-4 w-4 shrink-0 text-forest-300/80 transition group-hover:translate-x-0.5" aria-hidden />
               </li>

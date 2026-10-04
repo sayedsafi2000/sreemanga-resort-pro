@@ -8,6 +8,9 @@ export interface Room {
   roomCode?: string | null;
   type: RoomType;
   zone?: RoomZone | null;
+  /** বাংলা copies entered in admin (optional) */
+  nameBn?: string | null;
+  descriptionBn?: string | null;
   price: number;
   weekendPrice?: number | null;
   seasonalPrice?: number | null;
@@ -31,6 +34,9 @@ export interface Room {
 }
 
 export interface GalleryItem {
+  /** বাংলা copies entered in admin (optional) */
+  altBn?: string | null;
+  categoryBn?: string | null;
   id: string;
   src: string;
   alt: string;
@@ -38,6 +44,9 @@ export interface GalleryItem {
 }
 
 export interface MenuItem {
+  /** বাংলা copies entered in admin (optional) */
+  nameBn?: string | null;
+  descriptionBn?: string | null;
   id: string;
   name: string;
   price: number;
@@ -77,6 +86,8 @@ export interface ResortSettings {
   taglineBn?: string;
   aboutShortBn?: string;
   aboutLongBn?: string;
+  addressBn?: string;
+  restaurantTeaserBn?: string;
   /** Active frontend template key */
   activeTemplate?: string;
 }
@@ -86,6 +97,9 @@ export interface Testimonial {
   quote: string;
   author: string;
   role?: string;
+  quoteBn?: string;
+  authorBn?: string;
+  roleBn?: string;
 }
 
 export interface PublicBookingInput {
@@ -129,6 +143,12 @@ export interface RoomAvailabilityCalendar {
 
 /** Public home carousel — no `body` (loaded on detail page). */
 export interface NearbySpotListItem {
+  /** বাংলা copies entered in admin (optional) */
+  titleBn?: string | null;
+  badgeBn?: string | null;
+  distanceBn?: string | null;
+  bulletsBn?: string[] | null;
+  bestForBn?: string | null;
   id: string;
   slug: string;
   title: string;
@@ -143,6 +163,7 @@ export interface NearbySpotListItem {
 }
 
 export interface NearbySpotDetail extends NearbySpotListItem {
+  bodyBn?: string | null;
   body: string;
 }
 
@@ -152,11 +173,19 @@ export interface NearbyExplorePayload {
     title: string;
     subtitle: string;
     footnote: string;
+    eyebrowBn?: string;
+    titleBn?: string;
+    subtitleBn?: string;
+    footnoteBn?: string;
   };
   spots: NearbySpotListItem[];
 }
 
 export interface BlogListItem {
+  /** বাংলা copies entered in admin (optional) */
+  titleBn?: string | null;
+  summaryBn?: string | null;
+  categoryBn?: string | null;
   id: string;
   slug: string;
   title: string;
@@ -171,5 +200,6 @@ export interface BlogListItem {
 }
 
 export interface BlogDetail extends BlogListItem {
+  contentBn?: string | null;
   content: string;
 }

@@ -12,7 +12,7 @@ type Props = {
 };
 
 export default function TestimonialsSection({ items }: Props) {
-  const { t, tr } = useLanguage();
+  const { t, tr, lx } = useLanguage();
 
   const { ref: headRef,  visible: headVisible  } = useReveal<HTMLDivElement>();
   const { ref: cardsRef, visible: cardsVisible } = useRevealGroup<HTMLDivElement>();
@@ -55,11 +55,11 @@ export default function TestimonialsSection({ items }: Props) {
                     .slice(0, 2)}
                 </span>
               </div>
-              <p className="mt-4 flex-1 leading-relaxed text-stone-700">&ldquo;{testimonial.quote}&rdquo;</p>
+              <p className="mt-4 flex-1 leading-relaxed text-stone-700">&ldquo;{lx(testimonial.quote, testimonial.quoteBn)}&rdquo;</p>
               <footer className="mt-6 text-sm font-semibold text-forest-900">
-                {testimonial.author}
+                {lx(testimonial.author, testimonial.authorBn)}
                 {testimonial.role && (
-                  <span className="block font-normal text-stone-500">{testimonial.role}</span>
+                  <span className="block font-normal text-stone-500">{lx(testimonial.role, testimonial.roleBn)}</span>
                 )}
               </footer>
             </blockquote>

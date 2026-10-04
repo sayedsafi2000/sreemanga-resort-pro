@@ -35,6 +35,11 @@ const createSchema = z.object({
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
+  // Bangla copies — optional; the site falls back to English when empty.
+  titleBn: z.string().max(200).optional().nullable(),
+  summaryBn: z.string().max(500).optional().nullable(),
+  contentBn: z.string().max(50000).optional().nullable(),
+  categoryBn: z.string().max(80).optional().nullable(),
 });
 
 const updateSchema = createSchema.partial().extend({
@@ -124,6 +129,10 @@ export const createBlog = async (req: Request, res: Response, next: NextFunction
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
         isFeatured: data.isFeatured ?? false,
+        titleBn: data.titleBn?.trim() || null,
+        summaryBn: data.summaryBn?.trim() || null,
+        contentBn: data.contentBn?.trim() || null,
+        categoryBn: data.categoryBn?.trim() || null,
       },
     });
 
@@ -157,6 +166,10 @@ export const updateBlog = async (req: Request, res: Response, next: NextFunction
       ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
       ...(data.isFeatured !== undefined && { isFeatured: data.isFeatured }),
+      ...(data.titleBn !== undefined && { titleBn: data.titleBn?.trim() || null }),
+      ...(data.summaryBn !== undefined && { summaryBn: data.summaryBn?.trim() || null }),
+      ...(data.contentBn !== undefined && { contentBn: data.contentBn?.trim() || null }),
+      ...(data.categoryBn !== undefined && { categoryBn: data.categoryBn?.trim() || null }),
     };
 
     const blog = await prisma.siteBlog.update({

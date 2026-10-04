@@ -16,8 +16,8 @@ type Props = {
 };
 
 function SpotCard({ spot }: { spot: Props['spots'][number] }) {
-  const { t, ta } = useLanguage();
-  const teaser = spot.bullets[0] ?? spot.bestFor;
+  const { t, lx } = useLanguage();
+  const teaser = lx(spot.bullets[0] ?? spot.bestFor, spot.bulletsBn?.[0] ?? spot.bestForBn);
 
   return (
     <Link
@@ -55,18 +55,18 @@ function SpotCard({ spot }: { spot: Props['spots'][number] }) {
                 : 'border border-white/45 bg-black/40 font-semibold text-white backdrop-blur-sm'
             )}
           >
-            {ta(spot.badge)}
+            {lx(spot.badge, spot.badgeBn)}
           </span>
         ) : null}
         <div className="absolute bottom-0 left-0 right-0 p-3 pt-8">
           <h3 className="min-h-[2.75rem] font-display text-base font-semibold leading-snug text-white drop-shadow line-clamp-2">
-            {ta(spot.title)}
+            {lx(spot.title, spot.titleBn)}
           </h3>
-          <p className="mt-0.5 min-h-[1rem] text-xs font-medium text-forest-100/95">{ta(spot.distance) || '\u00a0'}</p>
+          <p className="mt-0.5 min-h-[1rem] text-xs font-medium text-forest-100/95">{lx(spot.distance, spot.distanceBn) || '\u00a0'}</p>
         </div>
       </div>
       <div className="space-y-2 px-3 pb-3 pt-2.5">
-        <p className="min-h-[2.25rem] line-clamp-2 text-xs leading-relaxed text-stone-600">{ta(teaser) || '\u00a0'}</p>
+        <p className="min-h-[2.25rem] line-clamp-2 text-xs leading-relaxed text-stone-600">{teaser || '\u00a0'}</p>
         <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-forest-800 transition group-hover:text-forest-900">
           {t('See details', 'বিস্তারিত দেখুন')}
           <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden />
@@ -82,7 +82,14 @@ export default function NearbySpotsSection({ section, spots }: Props) {
   // Admin writes this section's copy in Bangla; English mode falls back to the built-in strings
   // so the page is fully English, and Bangla mode shows the admin text (or the built-in Bangla).
   const bn = language === 'bn';
-  const pick = (admin: string | null | undefined, key: string) => (bn && admin?.trim() ? admin : tr('sections', key));
+  const hasBangla = (s: string) => /[\u0980-\u09FF]/.test(s);
+  // Admin can type both columns; otherwise: Bangla mode → admin Bangla text, English mode → admin
+  // English text; anything missing falls back to the built-in strings.
+  const pick = (en: string | null | undefined, bnText: string | null | undefined, key: string) => {
+    const e = en?.trim() ?? ''; const b = bnText?.trim() ?? '';
+    if (bn) return b || (e && hasBangla(e) ? e : tr('sections', key));
+    return e && !hasBangla(e) ? e : tr('sections', key);
+  };
 
   const loop = [...spots, ...spots];
   const { ref: headRef, visible: headVisible } = useReveal<HTMLDivElement>();
@@ -102,9 +109,9 @@ export default function NearbySpotsSection({ section, spots }: Props) {
       <Container className="relative z-10">
         <div ref={headRef} className={`reveal ${headVisible ? 'visible' : ''}`}>
           <SectionHeading
-            eyebrow={pick(section.eyebrow, 'exploreEyebrow')}
-            title={pick(section.title, 'exploreTitle')}
-            subtitle={pick(section.subtitle, 'exploreSubtitle')}
+            eyebrow={pick(section.eyebrow, section.eyebrowBn, 'exploreEyebrow')}
+            title={pick(section.title, section.titleBn, 'exploreTitle')}
+            subtitle={pick(section.subtitle, section.subtitleBn, 'exploreSubtitle')}
             decorate
           />
         </div>
@@ -130,7 +137,7 @@ export default function NearbySpotsSection({ section, spots }: Props) {
       </div>
 
       <Container className="relative z-10 mt-6">
-        <p className="mx-auto max-w-2xl text-center text-xs text-stone-500 sm:text-sm">{pick(section.footnote, 'exploreFootnote')}</p>
+        <p className="mx-auto max-w-2xl text-center text-xs text-stone-500 sm:text-sm">{pick(section.footnote, section.footnoteBn, 'exploreFootnote')}</p>
       </Container>
     </section>
   );

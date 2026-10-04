@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BiField } from '@/components/ui/bi-field';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -45,6 +46,10 @@ type BlogRow = {
   isActive: boolean;
   isFeatured: boolean;
   createdAt: string;
+  titleBn?: string | null;
+  summaryBn?: string | null;
+  contentBn?: string | null;
+  categoryBn?: string | null;
 };
 
 const BlogCard: React.FC<{ blog: BlogRow }> = ({ blog }) => (
@@ -93,6 +98,7 @@ const Blogs: React.FC = () => {
     sortOrder: '0',
     isActive: true,
     isFeatured: false,
+    titleBn: '', summaryBn: '', contentBn: '', categoryBn: '',
   });
 
   const fetchAll = async () => {
@@ -123,6 +129,7 @@ const Blogs: React.FC = () => {
       sortOrder: String(items.length ? Math.max(...items.map((i) => i.sortOrder)) + 1 : 0),
       isActive: true,
       isFeatured: false,
+      titleBn: '', summaryBn: '', contentBn: '', categoryBn: '',
     });
     setOpen(true);
   };
@@ -141,6 +148,7 @@ const Blogs: React.FC = () => {
       sortOrder: String(item.sortOrder),
       isActive: item.isActive,
       isFeatured: item.isFeatured,
+      titleBn: item.titleBn ?? '', summaryBn: item.summaryBn ?? '', contentBn: item.contentBn ?? '', categoryBn: item.categoryBn ?? '',
     });
     setOpen(true);
   };
@@ -226,24 +234,23 @@ const Blogs: React.FC = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>Title</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Blog title" />
+              <BiField label="Title" required value={form.title} onChange={(v) => setForm({ ...form, title: v })} bn={form.titleBn} onChangeBn={(v) => setForm({ ...form, titleBn: v })} placeholder="Blog title" placeholderBn="ব্লগের শিরোনাম" />
             </div>
             <div className="grid gap-2">
               <Label>Slug (URL)</Label>
               <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} placeholder="blog-url-slug" />
             </div>
             <div className="grid gap-2">
-              <Label>Category</Label>
-              <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="General" />
+              <BiField label="Category" value={form.category} onChange={(v) => setForm({ ...form, category: v })} bn={form.categoryBn} onChangeBn={(v) => setForm({ ...form, categoryBn: v })} placeholder="General" placeholderBn="সাধারণ" />
             </div>
             <div className="grid gap-2">
-              <Label>Summary (Short description)</Label>
-              <Textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} placeholder="Brief summary for cards..." rows={3} />
+              <BiField label="Summary (Short description)" textarea rows={3} value={form.summary} onChange={(v) => setForm({ ...form, summary: v })} bn={form.summaryBn} onChangeBn={(v) => setForm({ ...form, summaryBn: v })} placeholder="Brief summary for cards..." placeholderBn="কার্ডের জন্য সংক্ষিপ্ত সারাংশ…" />
             </div>
             <div className="grid gap-2">
               <Label>Content (Full article)</Label>
               <Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Write markdown here. Use **bold**, *italic*, [links](url), and lists." rows={8} />
+              <Label className="mt-2 block">Content — বাংলা (full article, optional)</Label>
+              <Textarea value={form.contentBn} onChange={(e) => setForm({ ...form, contentBn: e.target.value })} placeholder="বাংলায় পুরো লেখা (markdown চলবে)। খালি রাখলে ইংরেজি লেখাটিই দেখাবে।" rows={8} lang="bn" />
               <details className="rounded border bg-muted/30">
                 <summary className="cursor-pointer px-3 py-2 text-sm font-medium">Markdown preview</summary>
                 <div

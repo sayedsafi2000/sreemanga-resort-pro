@@ -1,9 +1,12 @@
+'use client';
+
 import type { MenuItem } from '@/types/resort';
 import { getMenuCategoryMeta, sortCategories } from '@/lib/restaurant-menu-meta';
 import SpotCoverImage from '@/components/explore/SpotCoverImage';
 import { cn } from '@/lib/utils';
 import { fmtMoney } from '@/lib/format';
 import T from '@/components/T';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type Props = {
   items: MenuItem[];
@@ -190,7 +193,8 @@ export default function RestaurantMenuBook({ items }: Props) {
 }
 
 function SetMenuCard({ item }: { item: MenuItem }) {
-  const lines = formatDescription(item.description);
+  const { lx } = useLanguage();
+  const lines = formatDescription(lx(item.description, item.descriptionBn));
   const hasImage = Boolean(item.image);
 
   return (
@@ -216,7 +220,7 @@ function SetMenuCard({ item }: { item: MenuItem }) {
       <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2 gap-y-1 border-b border-dotted border-stone-400/70 pb-3">
           <h4 className="max-w-[85%] font-display text-lg font-semibold leading-snug text-stone-900 sm:text-xl">
-            {item.name}
+            {lx(item.name, item.nameBn)}
           </h4>
           <span className="rounded-md bg-forest-900/5 px-2 py-0.5 font-display text-lg font-semibold tabular-nums text-forest-900 sm:text-xl">
             {fmtMoney(item.price)}
@@ -242,7 +246,7 @@ function SetMenuCard({ item }: { item: MenuItem }) {
             ))}
           </ul>
         ) : item.description ? (
-          <p className="mt-4 flex-1 text-sm leading-relaxed text-stone-700">{item.description}</p>
+          <p className="mt-4 flex-1 text-sm leading-relaxed text-stone-700">{lx(item.description, item.descriptionBn)}</p>
         ) : (
           <p className="mt-4 flex-1 text-sm italic text-stone-400"><T en="Description coming soon." bn="বর্ণনা শীঘ্রই আসছে।" /></p>
         )}
@@ -252,7 +256,8 @@ function SetMenuCard({ item }: { item: MenuItem }) {
 }
 
 function ALaCarteRow({ item }: { item: MenuItem }) {
-  const lines = formatDescription(item.description);
+  const { lx } = useLanguage();
+  const lines = formatDescription(lx(item.description, item.descriptionBn));
   const hasImage = Boolean(item.image);
 
   return (
@@ -273,7 +278,7 @@ function ALaCarteRow({ item }: { item: MenuItem }) {
         {/* Dot-leader row: name ……… price */}
         <div className="flex items-end gap-2">
           <h4 className="min-w-0 shrink font-display text-base font-semibold leading-snug text-stone-900 sm:text-[1.05rem]">
-            {item.name}
+            {lx(item.name, item.nameBn)}
           </h4>
           <span
             className="mb-1.5 min-w-[1rem] flex-1 border-b border-dotted border-stone-400/80"
@@ -293,7 +298,7 @@ function ALaCarteRow({ item }: { item: MenuItem }) {
             ))}
           </ul>
         ) : item.description ? (
-          <p className="mt-2 text-[0.82rem] leading-relaxed text-stone-600 sm:text-sm">{item.description}</p>
+          <p className="mt-2 text-[0.82rem] leading-relaxed text-stone-600 sm:text-sm">{lx(item.description, item.descriptionBn)}</p>
         ) : null}
       </div>
     </article>

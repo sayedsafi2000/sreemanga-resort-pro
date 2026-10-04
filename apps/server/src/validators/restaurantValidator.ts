@@ -5,6 +5,8 @@ export const menuSchema = z.object({
   price: z.number().positive('Price must be positive'),
   category: z.string().min(1, 'Category is required'),
   description: z.string().optional(),
+  nameBn: z.string().max(200).optional().nullable(),
+  descriptionBn: z.string().max(5000).optional().nullable(),
   image: z.string().optional(),
   isAvailable: z.boolean().optional(),
 });

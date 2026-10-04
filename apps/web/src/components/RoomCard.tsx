@@ -18,7 +18,7 @@ type Props = {
 };
 
 export default function RoomCard({ room, className, showPrice = true }: Props) {
-  const { t, ta } = useLanguage();
+  const { t, lx } = useLanguage();
   const img = room.mainImage || room.images[0] || fallbackRoomPhoto.src;
   const typeLabel = ROOM_TYPE_LABEL[room.type] ?? { en: room.type, bn: room.type };
   const zoneLabel = room.zone ? ROOM_ZONE_LABEL[room.zone] : null;
@@ -74,7 +74,7 @@ export default function RoomCard({ room, className, showPrice = true }: Props) {
         {/* Content */}
         <div className="p-5">
           <h3 className="font-display text-xl font-semibold leading-snug text-stone-900 transition-colors group-hover:text-forest-800">
-            {room.name}
+            {lx(room.name, room.nameBn)}
           </h3>
           {zoneLabel && showPrice && (
             <p className="mt-1 flex items-center gap-1 text-xs font-medium text-forest-700">
@@ -85,7 +85,7 @@ export default function RoomCard({ room, className, showPrice = true }: Props) {
 
           {room.description && (
             <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-stone-500">
-              {ta(room.description)}
+              {lx(room.description, room.descriptionBn)}
             </p>
           )}
 

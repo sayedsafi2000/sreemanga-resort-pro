@@ -14,7 +14,7 @@ import {
 type Props = { products: DayLongProduct[] };
 
 export default function DayLongBookingForm({ products }: Props) {
-  const { t } = useLanguage();
+  const { t, lx } = useLanguage();
   const [productId, setProductId] = useState(products[0]?.id ?? '');
   const [bookingDate, setBookingDate] = useState('');
   const [slotStart, setSlotStart] = useState('09:00');
@@ -106,7 +106,7 @@ export default function DayLongBookingForm({ products }: Props) {
             <select className={inputCls} value={productId} onChange={(e) => setProductId(e.target.value)}>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — {fmtMoney(p.basePrice)}
+                  {lx(p.name, p.nameBn)} — {fmtMoney(p.basePrice)}
                   {p.pricePerPerson ? ` + ${fmtMoney(p.pricePerPerson)}/person` : ''}
                 </option>
               ))}

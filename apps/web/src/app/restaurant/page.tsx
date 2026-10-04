@@ -11,6 +11,7 @@ import restCollageC from '@public/pina-vista/05-cottage-row.jpg';
 import Link from 'next/link';
 import { fmtMoney } from '@/lib/format';
 import T from '@/components/T';
+import L from '@/components/L';
 
 export const metadata: Metadata = {
   title: 'Restaurant',
@@ -73,10 +74,10 @@ export default async function RestaurantPage() {
                               <Utensils className="h-4 w-4" strokeWidth={1.5} />
                             </span>
                             <div>
-                              <p className="font-semibold text-white">{item.name}</p>
+                              <p className="font-semibold text-white"><L en={item.name} bn={item.nameBn} /></p>
                               {item.description && (
                                 <p className="mt-0.5 text-sm text-forest-400/65 line-clamp-2">
-                                  {item.description}
+                                  <L en={item.description} bn={item.descriptionBn} />
                                 </p>
                               )}
                             </div>

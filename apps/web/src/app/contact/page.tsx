@@ -6,6 +6,7 @@ import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getSettings } from '@/lib/resort-api';
 import { MapPin, Phone, Mail } from 'lucide-react';
 import T from '@/components/T';
+import L from '@/components/L';
 
 export const metadata: Metadata = {
   title: 'Contact',
@@ -35,7 +36,7 @@ export default async function ContactPage() {
                 <ul className="mt-5 space-y-4 text-sm text-forest-300/70">
                   <li className="flex gap-3">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-earth-500" />
-                    {settings.address}
+                    <L en={settings.address} bn={settings.addressBn} />
                   </li>
                   <li className="flex items-center gap-3">
                     <Phone className="h-4 w-4 shrink-0 text-earth-500" />
@@ -105,7 +106,7 @@ export default async function ContactPage() {
               <ul className="mt-4 space-y-4 text-stone-700">
                 <li className="flex gap-3">
                   <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-forest-700" />
-                  {settings.address}
+                  <L en={settings.address} bn={settings.addressBn} />
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 shrink-0 text-forest-700" />

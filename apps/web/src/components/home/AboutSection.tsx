@@ -37,13 +37,13 @@ const highlights = [
 ] as const;
 
 export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong, aboutLongBn = '' }: Props) {
-  const { t, tr } = useLanguage();
-  const displayAboutShort = aboutShortBn ? t(aboutShort, aboutShortBn) : aboutShort;
+  const { t, tr, lx } = useLanguage();
+  const displayAboutShort = lx(aboutShort, aboutShortBn);
   const longParts = aboutLong
     .split(/\n\n+/)
     .map((p) => p.trim())
     .filter(Boolean);
-  const displayAboutDesc = aboutLongBn ? t(aboutLong, aboutLongBn) : aboutLong;
+  const displayAboutDesc = lx(aboutLong, aboutLongBn);
 
   const { ref: headRef,   visible: headVisible   } = useReveal<HTMLDivElement>();
   const { ref: imgRef,    visible: imgVisible    } = useReveal<HTMLDivElement>({ threshold: 0.05 });
@@ -148,7 +148,7 @@ export default function AboutSection({ aboutShort, aboutShortBn = '', aboutLong,
                 )}
                 style={{ transitionDelay: '500ms' }}
               >
-                Tea garden stay
+                {t('Tea garden stay', 'চা বাগানে থাকা')}
               </div>
             </div>
           </div>

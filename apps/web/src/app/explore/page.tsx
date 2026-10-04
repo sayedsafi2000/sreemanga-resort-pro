@@ -7,6 +7,7 @@ import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getNearbyExplore, getSettings } from '@/lib/resort-api';
 import type { Metadata } from 'next';
 import T from '@/components/T';
+import L from '@/components/L';
 
 export const metadata: Metadata = {
   title: 'Explore around Sreemangal',
@@ -57,16 +58,16 @@ export default async function ExploreIndexPage() {
                   <div className="relative z-10 p-5">
                     <div className="mb-1.5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-earth-400">
                       <MapPin className="h-3 w-3" />
-                      {spot.distance}
+                      <L en={spot.distance} bn={spot.distanceBn} />
                     </div>
                     <h2 className="font-display text-xl font-semibold text-white">
-                      {spot.emoji} {spot.title}
+                      {spot.emoji} <L en={spot.title} bn={spot.titleBn} />
                     </h2>
                     <p className="mt-1 text-xs text-forest-300/60 line-clamp-2">
-                      {spot.bullets?.[0]}
+                      <L en={spot.bullets?.[0] ?? spot.bestFor} bn={spot.bulletsBn?.[0] ?? spot.bestForBn} />
                     </p>
                     <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-earth-400 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                      Explore <ArrowRight className="h-3 w-3" />
+                      <T en="Explore" bn="ঘুরে দেখুন" /> <ArrowRight className="h-3 w-3" />
                     </div>
                   </div>
                 </Link>
@@ -112,13 +113,13 @@ export default async function ExploreIndexPage() {
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-3 sm:p-4">
                   <h2 className="font-display text-base font-semibold leading-snug text-forest-950 line-clamp-2">
-                    {spot.title}
+                    <L en={spot.title} bn={spot.titleBn} />
                   </h2>
                   {spot.distance && (
-                    <p className="text-xs font-medium text-forest-800/90">{spot.distance}</p>
+                    <p className="text-xs font-medium text-forest-800/90"><L en={spot.distance} bn={spot.distanceBn} /></p>
                   )}
                   <span className="mt-1 inline-flex items-center gap-0.5 text-xs font-semibold text-forest-800">
-                    Read more <ChevronRight className="h-3.5 w-3.5" />
+                    <T en="Read more" bn="আরও পড়ুন" /> <ChevronRight className="h-3.5 w-3.5" />
                   </span>
                 </div>
               </Link>

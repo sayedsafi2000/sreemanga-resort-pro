@@ -3,6 +3,7 @@ import { getDayLongProducts } from '@/lib/resort-api';
 import DayLongBookingForm from '@/components/day-long/DayLongBookingForm';
 import { fmtMoney } from '@/lib/format';
 import T from '@/components/T';
+import L from '@/components/L';
 
 export const metadata: Metadata = {
   title: 'Day Long',
@@ -52,13 +53,13 @@ export default async function DayLongPage() {
                     {items.map((p) => (
                       <div key={p.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                         <div className="flex items-start justify-between">
-                          <h3 className="font-semibold text-gray-900">{p.name}</h3>
+                          <h3 className="font-semibold text-gray-900"><L en={p.name} bn={p.nameBn} /></h3>
                           <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
                             {CATEGORY_LABELS[p.category] ?? p.category}
                           </span>
                         </div>
                         {p.description && (
-                          <p className="mt-2 text-sm text-gray-600 line-clamp-3">{p.description}</p>
+                          <p className="mt-2 text-sm text-gray-600 line-clamp-3"><L en={p.description} bn={p.descriptionBn} /></p>
                         )}
                         <div className="mt-3 text-sm text-gray-700">
                           <span className="text-lg font-bold text-gray-900">{fmtMoney(p.basePrice)}</span>

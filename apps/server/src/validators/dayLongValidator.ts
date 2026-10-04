@@ -10,6 +10,8 @@ export const dayLongProductSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   category: z.enum(['POOL', 'COTTAGE', 'CONFERENCE', 'EVENT', 'PICNIC']),
   description: z.string().optional().nullable(),
+  nameBn: z.string().max(200).optional().nullable(),
+  descriptionBn: z.string().max(5000).optional().nullable(),
   images: z.array(z.string().max(12_000_000)).optional(),
   basePrice: z.number().nonnegative('Base price must be >= 0'),
   pricePerPerson: z.number().nonnegative().optional().nullable(),

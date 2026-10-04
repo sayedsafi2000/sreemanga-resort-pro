@@ -59,7 +59,7 @@ export default function Footer({
   settings: ResortSettings;
   logoSrc: string;
 }) {
-  const { t } = useLanguage();
+  const { t, lx } = useLanguage();
   const {
     resortName,
     resortNameBn,
@@ -68,15 +68,16 @@ export default function Footer({
     aboutShort,
     aboutShortBn,
     address,
+    addressBn,
     phone,
     email,
     social,
     mapEmbedUrl,
   } = settings;
 
-  const displayName    = resortNameBn ? t(resortName, resortNameBn)     : resortName;
-  const displayTagline = taglineBn    ? t(tagline,    taglineBn)         : tagline;
-  const displayAbout   = aboutShortBn ? t(aboutShort, aboutShortBn)     : aboutShort;
+  const displayName    = lx(resortName, resortNameBn);
+  const displayTagline = lx(tagline, taglineBn);
+  const displayAbout   = aboutShortBn ? lx(aboutShort, aboutShortBn)     : aboutShort;
   const telHref        = `tel:${phone.replace(/\s/g, '')}`;
   const hasSocial      = Boolean(social.facebook || social.instagram || social.youtube);
 
@@ -201,7 +202,7 @@ export default function Footer({
             <ul className="space-y-3 text-sm text-forest-200/85">
               <li className="flex gap-2.5">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-forest-500" aria-hidden />
-                <span className="leading-snug">{address}</span>
+                <span className="leading-snug">{lx(address, addressBn)}</span>
               </li>
               <li>
                 <a

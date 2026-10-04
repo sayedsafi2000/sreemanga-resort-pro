@@ -7,6 +7,7 @@ import SectionHeading from '@/components/SectionHeading';
 import DarkPageHeader from '@/templates/template-two/components/DarkPageHeader';
 import { getBlogs, getSettings } from '@/lib/resort-api';
 import T from '@/components/T';
+import L from '@/components/L';
 
 export const metadata: Metadata = {
   title: 'Travel Blog — Stories from Sreemangal',
@@ -58,14 +59,14 @@ export default async function BlogsPage() {
                     <div className="flex flex-1 flex-col p-6">
                       <div className="mb-3">
                         <span className="border border-earth-400/30 bg-earth-400/8 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-earth-400">
-                          {blog.category}
+                          <L en={blog.category} bn={blog.categoryBn} />
                         </span>
                       </div>
                       <h2 className="font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-earth-300 line-clamp-2">
-                        {blog.title}
+                        <L en={blog.title} bn={blog.titleBn} />
                       </h2>
                       <p className="mt-2 flex-1 line-clamp-3 text-sm leading-relaxed text-forest-400/65">
-                        {blog.summary}
+                        <L en={blog.summary} bn={blog.summaryBn} />
                       </p>
                       <div className="mt-5 flex items-center justify-between border-t border-forest-900/50 pt-4">
                         <div className="flex flex-col gap-0.5">
@@ -132,14 +133,14 @@ export default async function BlogsPage() {
                   <div className="flex flex-1 flex-col p-6">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-forest-100 px-3 py-0.5 text-xs font-semibold text-forest-800">
-                        {blog.category}
+                        <L en={blog.category} bn={blog.categoryBn} />
                       </span>
                     </div>
                     <h2 className="font-display text-xl font-semibold leading-snug text-stone-900 transition-colors group-hover:text-forest-800 line-clamp-2">
-                      {blog.title}
+                      <L en={blog.title} bn={blog.titleBn} />
                     </h2>
                     <p className="mt-2 flex-1 line-clamp-3 text-sm leading-relaxed text-stone-500">
-                      {blog.summary}
+                      <L en={blog.summary} bn={blog.summaryBn} />
                     </p>
                     <div className="mt-5 flex items-center justify-between border-t border-forest-100/60 pt-4">
                       <div className="flex flex-col gap-0.5">

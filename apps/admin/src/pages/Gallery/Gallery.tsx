@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BiField } from '@/components/ui/bi-field';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -17,6 +18,8 @@ type GalleryRow = {
   imageUrl: string;
   alt: string;
   category: string;
+  altBn?: string | null;
+  categoryBn?: string | null;
   sortOrder: number;
   isActive: boolean;
 };
@@ -72,6 +75,8 @@ const Gallery: React.FC = () => {
     imageUrl: '',
     alt: '',
     category: 'Nature',
+    altBn: '',
+    categoryBn: '',
     sortOrder: '0',
     isActive: true,
   });
@@ -105,6 +110,8 @@ const Gallery: React.FC = () => {
       imageUrl: '',
       alt: '',
       category: 'Nature',
+      altBn: '',
+      categoryBn: '',
       sortOrder: String(items.length ? Math.max(...items.map((i) => i.sortOrder)) + 1 : 0),
       isActive: true,
     });
@@ -117,6 +124,8 @@ const Gallery: React.FC = () => {
       imageUrl: row.imageUrl,
       alt: row.alt,
       category: row.category,
+      altBn: row.altBn ?? '',
+      categoryBn: row.categoryBn ?? '',
       sortOrder: String(row.sortOrder),
       isActive: row.isActive,
     });
@@ -138,6 +147,8 @@ const Gallery: React.FC = () => {
       imageUrl: form.imageUrl.trim(),
       alt: form.alt.trim(),
       category: form.category.trim() || 'General',
+      altBn: form.altBn.trim() || null,
+      categoryBn: form.categoryBn.trim() || null,
       sortOrder: Number(form.sortOrder) || 0,
       isActive: form.isActive,
     };
@@ -269,8 +280,7 @@ const Gallery: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="g-alt">Alt text (accessibility)</Label>
-              <Input id="g-alt" value={form.alt} onChange={(e) => setForm((f) => ({ ...f, alt: e.target.value }))} placeholder="Short description" />
+              <BiField label="Caption / alt text" value={form.alt} onChange={(v) => setForm((f) => ({ ...f, alt: v }))} bn={form.altBn} onChangeBn={(v) => setForm((f) => ({ ...f, altBn: v }))} placeholder="Short description" placeholderBn="ছোট বর্ণনা" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="g-cat">Category</Label>
@@ -286,6 +296,7 @@ const Gallery: React.FC = () => {
                   <option key={c} value={c} />
                 ))}
               </datalist>
+              <Input value={form.categoryBn} onChange={(e) => setForm((f) => ({ ...f, categoryBn: e.target.value }))} placeholder="ক্যাটাগরি বাংলায় (ঐচ্ছিক) — যেমন প্রকৃতি" lang="bn" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="g-order">Sort order</Label>

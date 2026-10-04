@@ -7,6 +7,7 @@ import { canManageRestaurantMenu } from '@/config/rbac';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BiField } from '@/components/ui/bi-field';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -50,6 +51,8 @@ const Restaurant: React.FC = () => {
     description: '',
     image: '',
     isAvailable: true,
+    nameBn: '',
+    descriptionBn: '',
   });
   const [orderForm, setOrderForm] = useState<{
     roomId: string;
@@ -144,6 +147,8 @@ const Restaurant: React.FC = () => {
       description: '',
       image: '',
       isAvailable: true,
+      nameBn: '',
+      descriptionBn: '',
     });
     setOpen(true);
   };
@@ -157,6 +162,8 @@ const Restaurant: React.FC = () => {
       description: item.description || '',
       image: item.image || '',
       isAvailable: item.isAvailable,
+      nameBn: item.nameBn || '',
+      descriptionBn: item.descriptionBn || '',
     });
     setOpen(true);
   };
@@ -176,6 +183,8 @@ const Restaurant: React.FC = () => {
       price: Number(form.price),
       category: form.category,
       description: form.description.trim() || undefined,
+      nameBn: form.nameBn.trim() || null,
+      descriptionBn: form.descriptionBn.trim() || null,
       isAvailable: form.isAvailable,
       ...(imagePayload !== undefined ? { image: imagePayload } : {}),
     };
@@ -634,8 +643,7 @@ const Restaurant: React.FC = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <BiField label="Name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} bn={form.nameBn} onChangeBn={(v) => setForm({ ...form, nameBn: v })} placeholder="Highland Sunrise Set" placeholderBn="হাইল্যান্ড সানরাইজ সেট" />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -681,12 +689,7 @@ const Restaurant: React.FC = () => {
               ) : null}
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
+              <BiField label="Description" textarea rows={3} value={form.description} onChange={(v) => setForm({ ...form, description: v })} bn={form.descriptionBn} onChangeBn={(v) => setForm({ ...form, descriptionBn: v })} />
             </div>
             <div className="flex items-center gap-2">
               <input

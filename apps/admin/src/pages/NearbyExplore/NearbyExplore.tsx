@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BiField } from '@/components/ui/bi-field';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,6 +18,10 @@ const SECTION_KEYS = [
   'nearbySectionTitle',
   'nearbySectionSubtitle',
   'nearbySectionFootnote',
+  'nearbySectionEyebrow_bn',
+  'nearbySectionTitle_bn',
+  'nearbySectionSubtitle_bn',
+  'nearbySectionFootnote_bn',
 ] as const;
 
 type SpotRow = {
@@ -31,6 +36,12 @@ type SpotRow = {
   imageUrl: string;
   imageAlt: string;
   body: string;
+  titleBn?: string | null;
+  badgeBn?: string | null;
+  distanceBn?: string | null;
+  bulletsBn?: string[] | null;
+  bestForBn?: string | null;
+  bodyBn?: string | null;
   sortOrder: number;
   isActive: boolean;
 };
@@ -51,11 +62,9 @@ const NearbyExplore: React.FC = () => {
   const { user } = useAuth();
   const isSuper = user?.role === 'SUPER_ADMIN';
   const [items, setItems] = useState<SpotRow[]>([]);
-  const [section, setSection] = useState({
-    nearbySectionEyebrow: '',
-    nearbySectionTitle: '',
-    nearbySectionSubtitle: '',
-    nearbySectionFootnote: '',
+  const [section, setSection] = useState<Record<(typeof SECTION_KEYS)[number], string>>({
+    nearbySectionEyebrow: '', nearbySectionTitle: '', nearbySectionSubtitle: '', nearbySectionFootnote: '',
+    nearbySectionEyebrow_bn: '', nearbySectionTitle_bn: '', nearbySectionSubtitle_bn: '', nearbySectionFootnote_bn: '',
   });
   const [sectionSaving, setSectionSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -71,6 +80,7 @@ const NearbyExplore: React.FC = () => {
     imageUrl: '',
     imageAlt: '',
     body: '',
+    titleBn: '', badgeBn: '', distanceBn: '', bulletsTextBn: '', bestForBn: '', bodyBn: '',
     sortOrder: '0',
     isActive: true,
   });
@@ -78,12 +88,7 @@ const NearbyExplore: React.FC = () => {
   const loadSettings = async () => {
     const res = await api.get('/public/settings');
     const map = (res.data as { settings?: Record<string, string> })?.settings ?? {};
-    setSection({
-      nearbySectionEyebrow: map.nearbySectionEyebrow ?? '',
-      nearbySectionTitle: map.nearbySectionTitle ?? '',
-      nearbySectionSubtitle: map.nearbySectionSubtitle ?? '',
-      nearbySectionFootnote: map.nearbySectionFootnote ?? '',
-    });
+    setSection(Object.fromEntries(SECTION_KEYS.map((k) => [k, map[k] ?? ''])) as Record<(typeof SECTION_KEYS)[number], string>);
   };
 
   const fetchSpots = async () => {
@@ -136,6 +141,7 @@ const NearbyExplore: React.FC = () => {
       imageUrl: '',
       imageAlt: '',
       body: '',
+      titleBn: '', badgeBn: '', distanceBn: '', bulletsTextBn: '', bestForBn: '', bodyBn: '',
       sortOrder: String(items.length ? Math.max(...items.map((i) => i.sortOrder)) + 1 : 0),
       isActive: true,
     });
@@ -155,6 +161,8 @@ const NearbyExplore: React.FC = () => {
       imageUrl: row.imageUrl,
       imageAlt: row.imageAlt,
       body: row.body,
+      titleBn: row.titleBn ?? '', badgeBn: row.badgeBn ?? '', distanceBn: row.distanceBn ?? '',
+      bulletsTextBn: (row.bulletsBn || []).join('\n'), bestForBn: row.bestForBn ?? '', bodyBn: row.bodyBn ?? '',
       sortOrder: String(row.sortOrder),
       isActive: row.isActive,
     });
@@ -193,6 +201,8 @@ const NearbyExplore: React.FC = () => {
       imageUrl: form.imageUrl.trim(),
       imageAlt: form.imageAlt.trim(),
       body: form.body,
+      titleBn: form.titleBn.trim(), badgeBn: form.badgeBn.trim(), distanceBn: form.distanceBn.trim(),
+      bulletsBn: parseBullets(form.bulletsTextBn), bestForBn: form.bestForBn.trim(), bodyBn: form.bodyBn,
       sortOrder: Number(form.sortOrder) || 0,
       isActive: form.isActive,
     };
@@ -241,38 +251,12 @@ const NearbyExplore: React.FC = () => {
           <CardTitle className="text-lg">Section text (home page)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label>Eyebrow</Label>
-              <Input
-                value={section.nearbySectionEyebrow}
-                onChange={(e) => setSection((s) => ({ ...s, nearbySectionEyebrow: e.target.value }))}
-                placeholder="Explore · আশেপাশে"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Label>Main title</Label>
-              <Input
-                value={section.nearbySectionTitle}
-                onChange={(e) => setSection((s) => ({ ...s, nearbySectionTitle: e.target.value }))}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Label>Subtitle</Label>
-              <Textarea
-                rows={3}
-                value={section.nearbySectionSubtitle}
-                onChange={(e) => setSection((s) => ({ ...s, nearbySectionSubtitle: e.target.value }))}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Label>Footnote (small text under carousel)</Label>
-              <Textarea
-                rows={2}
-                value={section.nearbySectionFootnote}
-                onChange={(e) => setSection((s) => ({ ...s, nearbySectionFootnote: e.target.value }))}
-              />
-            </div>
+          <div className="space-y-4">
+            <BiField label="Eyebrow" value={section.nearbySectionEyebrow} onChange={(v) => setSection((s) => ({ ...s, nearbySectionEyebrow: v }))} bn={section.nearbySectionEyebrow_bn} onChangeBn={(v) => setSection((s) => ({ ...s, nearbySectionEyebrow_bn: v }))} placeholder="Explore · Around" placeholderBn="ঘুরে দেখুন · আশেপাশে" />
+            <BiField label="Main title" value={section.nearbySectionTitle} onChange={(v) => setSection((s) => ({ ...s, nearbySectionTitle: v }))} bn={section.nearbySectionTitle_bn} onChangeBn={(v) => setSection((s) => ({ ...s, nearbySectionTitle_bn: v }))} placeholder="Best places to explore around" placeholderBn="আশেপাশে ঘুরার সেরা জায়গা" />
+            <BiField label="Subtitle" textarea rows={3} value={section.nearbySectionSubtitle} onChange={(v) => setSection((s) => ({ ...s, nearbySectionSubtitle: v }))} bn={section.nearbySectionSubtitle_bn} onChangeBn={(v) => setSection((s) => ({ ...s, nearbySectionSubtitle_bn: v }))} />
+            <BiField label="Footnote (small text under carousel)" textarea rows={2} value={section.nearbySectionFootnote} onChange={(v) => setSection((s) => ({ ...s, nearbySectionFootnote: v }))} bn={section.nearbySectionFootnote_bn} onChangeBn={(v) => setSection((s) => ({ ...s, nearbySectionFootnote_bn: v }))} />
+            <p className="text-xs text-muted-foreground">The website shows the English column when a visitor picks EN and the Bangla column for বাংলা. An empty Bangla box shows the built-in Bangla text.</p>
           </div>
           <Button type="button" onClick={() => void saveSection()} disabled={sectionSaving}>
             {sectionSaving ? 'Saving…' : 'Save section text'}
@@ -357,32 +341,19 @@ const NearbyExplore: React.FC = () => {
               />
               <p className="text-xs text-muted-foreground mt-1">Lowercase, numbers, single hyphens. Cannot change after create.</p>
             </div>
-            <div>
-              <Label>Title</Label>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-            </div>
+            <BiField label="Title" required value={form.title} onChange={(v) => setForm((f) => ({ ...f, title: v }))} bn={form.titleBn} onChangeBn={(v) => setForm((f) => ({ ...f, titleBn: v }))} placeholder="Lawachara National Park" placeholderBn="লাউয়াছড়া জাতীয় উদ্যান" />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Emoji (optional)</Label>
                 <Input value={form.emoji} onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))} />
               </div>
-              <div>
-                <Label>Badge</Label>
-                <Input value={form.badge} onChange={(e) => setForm((f) => ({ ...f, badge: e.target.value }))} />
+              <div className="col-span-2 sm:col-span-1">
+                <BiField label="Badge" value={form.badge} onChange={(v) => setForm((f) => ({ ...f, badge: v }))} bn={form.badgeBn} onChangeBn={(v) => setForm((f) => ({ ...f, badgeBn: v }))} placeholder="Must visit" placeholderBn="অবশ্যই দেখুন" />
               </div>
             </div>
-            <div>
-              <Label>Distance line</Label>
-              <Input value={form.distance} onChange={(e) => setForm((f) => ({ ...f, distance: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Bullets (one per line)</Label>
-              <Textarea rows={4} value={form.bulletsText} onChange={(e) => setForm((f) => ({ ...f, bulletsText: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Best for (short line)</Label>
-              <Input value={form.bestFor} onChange={(e) => setForm((f) => ({ ...f, bestFor: e.target.value }))} />
-            </div>
+            <BiField label="Distance line" value={form.distance} onChange={(v) => setForm((f) => ({ ...f, distance: v }))} bn={form.distanceBn} onChangeBn={(v) => setForm((f) => ({ ...f, distanceBn: v }))} placeholder="~8–12 km" placeholderBn="~৮–১২ কিমি" />
+            <BiField label="Bullets (one per line)" textarea rows={4} value={form.bulletsText} onChange={(v) => setForm((f) => ({ ...f, bulletsText: v }))} bn={form.bulletsTextBn} onChangeBn={(v) => setForm((f) => ({ ...f, bulletsTextBn: v }))} hint="Keep the same number of lines in both columns so they match up." />
+            <BiField label="Best for (short line)" value={form.bestFor} onChange={(v) => setForm((f) => ({ ...f, bestFor: v }))} bn={form.bestForBn} onChangeBn={(v) => setForm((f) => ({ ...f, bestForBn: v }))} />
             <div>
               <Label>Image</Label>
               <Input type="file" accept="image/*" className="mb-2" onChange={(e) => void handleFile(e.target.files?.[0])} />
@@ -392,10 +363,7 @@ const NearbyExplore: React.FC = () => {
               <Label>Image alt</Label>
               <Input value={form.imageAlt} onChange={(e) => setForm((f) => ({ ...f, imageAlt: e.target.value }))} />
             </div>
-            <div>
-              <Label>Full description (detail page)</Label>
-              <Textarea rows={10} value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} placeholder="Blank line between paragraphs." />
-            </div>
+            <BiField label="Full description (detail page)" textarea rows={10} value={form.body} onChange={(v) => setForm((f) => ({ ...f, body: v }))} bn={form.bodyBn} onChangeBn={(v) => setForm((f) => ({ ...f, bodyBn: v }))} placeholder="Blank line between paragraphs." placeholderBn="অনুচ্ছেদের মাঝে একটি খালি লাইন।" />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Sort order</Label>

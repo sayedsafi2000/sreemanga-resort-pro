@@ -18,8 +18,8 @@ type Props = {
 };
 
 export default function Navbar({ resortName, resortNameBn = '', phone, email, logoSrc }: Props) {
-  const { t, tr: translate } = useLanguage();
-  const displayName = resortNameBn ? t(resortName, resortNameBn) : resortName;
+  const { t, tr: translate, lx } = useLanguage();
+  const displayName = lx(resortName, resortNameBn);
   const pathname = usePathname();
   const isHome = pathname === '/';
   const [scrolled, setScrolled] = useState(false);
@@ -85,7 +85,7 @@ export default function Navbar({ resortName, resortNameBn = '', phone, email, lo
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1 text-forest-400">
               <Leaf className="h-3 w-3 text-forest-400" aria-hidden />
-              <span className="text-[11px] uppercase tracking-widest text-forest-400">Tea &amp; Hill Resort · Sreemangal</span>
+              <span className="text-[11px] uppercase tracking-widest text-forest-400">{t('Tea & Hill Resort · Sreemangal', 'টি অ্যান্ড হিল রিসোর্ট · শ্রীমঙ্গল')}</span>
             </span>
             <span className="h-3 w-px bg-forest-700" />
             <LanguageToggle />
@@ -136,7 +136,7 @@ export default function Navbar({ resortName, resortNameBn = '', phone, email, lo
                   lookSolid ? 'text-forest-500' : 'text-forest-200/80'
                 )}
               >
-                Tea &amp; Hill Resort
+                {t('Tea & Hill Resort', 'টি অ্যান্ড হিল রিসোর্ট')}
               </p>
             </div>
             {/* Mobile-only name */}

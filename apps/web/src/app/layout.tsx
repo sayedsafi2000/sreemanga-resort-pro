@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -38,6 +39,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSettings();
+  // Visitor's language (set by the EN/বাং toggle) — rendered server-side so there is no English flash.
+  const lang = cookies().get('pv_lang')?.value === 'bn' ? 'bn' : 'en';
   const isT2 = settings.activeTemplate === 'template-two';
   const isT3 = settings.activeTemplate === 'template-three';
   // Admin → Settings → Logo URL overrides the bundled pineapple mark.
@@ -61,7 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   };
 
   return (
-    <html lang="en">
+    <html lang={lang} className={lang === 'bn' ? 'lang-bn' : undefined}>
       <head>
         {/* Runtime browser config: PUBLIC_API_URL is set by docker-compose at start-up, so the
             public API URL does not have to be known when the image is built (see lib/resort-api). */}
@@ -79,7 +82,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className={`font-sans overflow-x-hidden${isT2 ? ' bg-[#09100a] text-forest-100' : isT3 ? ' bg-[#030d04] text-[#e8f5e9]' : ''}`}>
         <JsonLd data={jsonLd} />
-        <LanguageProvider>
+        <LanguageProvider initialLanguage={lang}>
           {isT3 ? (
             <NavbarT3
               resortName={settings.resortName}

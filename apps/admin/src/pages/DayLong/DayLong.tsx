@@ -5,8 +5,8 @@ import { unwrapList } from '@/lib/apiResponse';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BiField } from '@/components/ui/bi-field';
 import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,8 @@ const BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', '
 const PAY_METHODS = ['CASH', 'BKASH', 'NAGAD', 'CARD', 'BANK_TRANSFER', 'MOBILE_BANKING'] as const;
 
 type Product = {
+  nameBn?: string | null;
+  descriptionBn?: string | null;
   id: string;
   name: string;
   category: string;
@@ -81,6 +83,8 @@ const emptyProduct = {
   name: '',
   category: 'POOL',
   description: '',
+  nameBn: '',
+  descriptionBn: '',
   basePrice: 0,
   pricePerPerson: '',
   maxCapacity: '',
@@ -183,6 +187,8 @@ const DayLong: React.FC = () => {
       name: p.name,
       category: p.category,
       description: p.description ?? '',
+      nameBn: p.nameBn ?? '',
+      descriptionBn: p.descriptionBn ?? '',
       basePrice: p.basePrice,
       pricePerPerson: p.pricePerPerson ?? '',
       maxCapacity: p.maxCapacity ?? '',
@@ -202,6 +208,8 @@ const DayLong: React.FC = () => {
         name: productForm.name,
         category: productForm.category,
         description: productForm.description || null,
+        nameBn: productForm.nameBn?.trim() || null,
+        descriptionBn: productForm.descriptionBn?.trim() || null,
         basePrice: Number(productForm.basePrice),
         pricePerPerson: productForm.pricePerPerson === '' ? null : Number(productForm.pricePerPerson),
         maxCapacity: productForm.maxCapacity === '' ? null : Number(productForm.maxCapacity),
@@ -506,10 +514,7 @@ const DayLong: React.FC = () => {
             <DialogTitle>{editingProduct ? 'Edit Product' : 'New Day Long Product'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <Label>Name</Label>
-              <Input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
-            </div>
+            <BiField label="Name" required value={productForm.name} onChange={(v) => setProductForm({ ...productForm, name: v })} bn={productForm.nameBn ?? ''} onChangeBn={(v) => setProductForm({ ...productForm, nameBn: v })} placeholder="Pool day pass" placeholderBn="পুল ডে পাস" />
             <div>
               <Label>Category</Label>
               <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
@@ -537,10 +542,7 @@ const DayLong: React.FC = () => {
                 <Input type="number" value={productForm.maxCapacity} onChange={(e) => setProductForm({ ...productForm, maxCapacity: e.target.value })} placeholder="optional" />
               </div>
             </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
-            </div>
+            <BiField label="Description" textarea rows={3} value={productForm.description} onChange={(v) => setProductForm({ ...productForm, description: v })} bn={productForm.descriptionBn ?? ''} onChangeBn={(v) => setProductForm({ ...productForm, descriptionBn: v })} />
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
           <DialogFooter>
