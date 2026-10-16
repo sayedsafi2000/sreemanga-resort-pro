@@ -289,7 +289,7 @@ const Blogs: React.FC = () => {
                 <Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="tea, nature, travel" />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4 items-center">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-center">
               <div className="flex items-center gap-2">
                 <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
                 <Label>Active</Label>

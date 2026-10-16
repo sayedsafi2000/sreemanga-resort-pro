@@ -508,17 +508,17 @@ const Shareholders: React.FC = () => {
 
       {/* Holdings dialog */}
       <Dialog open={!!holdingsHolder} onOpenChange={(o) => !o && setHoldingsFor(null)}>
-        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl">
           <DialogHeader><DialogTitle>Shares — {holdingsHolder?.name}</DialogTitle></DialogHeader>
           {holdingsHolder && (
             <div className="space-y-5">
-              <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                 <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-xs text-muted-foreground">Paid-up capital</div><div className="font-semibold tabular-nums">{fmt(holdingsHolder.summary.activeCapital)}</div></div>
                 <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-xs text-muted-foreground">Ownership</div><div className="font-semibold tabular-nums">{pct(holdingsHolder.summary.ownershipPercent)}</div></div>
                 <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-xs text-muted-foreground">Instalments due</div><div className={`font-semibold tabular-nums ${holdingsHolder.summary.dueTotal > 0 ? 'text-amber-700' : ''}`}>{fmt(holdingsHolder.summary.dueTotal)}</div></div>
               </div>
 
-              <Table>
+              <Table className="min-w-[720px]">
                 <TableHeader><TableRow><TableHead>Tier</TableHead><TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Paid</TableHead><TableHead className="text-right">Due</TableHead><TableHead>Status</TableHead><TableHead>Bought</TableHead>{admin && <TableHead></TableHead>}</TableRow></TableHeader>
                 <TableBody>
                   {holdingsHolder.holdings.map((h) => {
@@ -550,7 +550,7 @@ const Shareholders: React.FC = () => {
               {admin && (
                 <section className="space-y-3">
                   {sectionLabel('Add shares')}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                       <Label>Tier</Label>
                       <Select value={holdForm.tierId} onValueChange={(v) => setHoldForm({ ...holdForm, tierId: v })}>
@@ -566,7 +566,7 @@ const Shareholders: React.FC = () => {
                     <div><Label>Purchase date</Label><Input type="date" value={holdForm.purchaseDate} onChange={(e) => setHoldForm({ ...holdForm, purchaseDate: e.target.value })} /></div>
                     <div><Label>Total</Label><div className="h-10 flex items-center font-semibold tabular-nums">{fmt(holdTotal)}</div></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div><Label>Pay now (৳)</Label><Input type="number" min={0} value={holdForm.payNow} onChange={(e) => setHoldForm({ ...holdForm, payNow: e.target.value })} placeholder={holdTotal ? `up to ${holdTotal}` : '0'} /></div>
                     <div>
                       <Label>Method</Label>
@@ -671,11 +671,11 @@ const Shareholders: React.FC = () => {
 
       {/* Distribution detail dialog */}
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader><DialogTitle>{detail?.periodLabel} — {detail?.status}</DialogTitle></DialogHeader>
           {detail && (
             <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                 <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-xs text-muted-foreground">Total profit</div><div className="font-semibold tabular-nums">{fmt(detail.totalProfit)}</div></div>
                 <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-xs text-muted-foreground">Capital base</div><div className="font-semibold tabular-nums">{fmt(detail.totalCapital)}</div></div>
                 <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-xs text-muted-foreground">Total payout</div><div className={`font-semibold tabular-nums ${detail.totalDistributed > detail.totalProfit + 0.005 ? 'text-red-600' : ''}`}>{fmt(detail.totalDistributed)}</div></div>
