@@ -45,10 +45,18 @@ describe('computeBookingTotal', () => {
 describe('paidAndDue', () => {
   it('counts only completed payments', () => {
     const r = paidAndDue(3800, [{ amount: 1000, status: 'COMPLETED' }, { amount: 3800, status: 'PENDING' }, { amount: 500, status: 'FAILED' }]);
-    expect(r).toEqual({ paid: 1000, due: 2800 });
+    expect(r).toEqual({ paid: 1000, due: 2800, refunded: 0 });
   });
   it('never reports negative due', () => {
     expect(paidAndDue(1000, [{ amount: 1500, status: 'COMPLETED' }]).due).toBe(0);
+  });
+  it('nets refunds out of the paid amount', () => {
+    const r = paidAndDue(5000, [
+      { amount: 3000, status: 'COMPLETED', refundedAmount: 1000 },
+      { amount: 2000, status: 'COMPLETED', refundedAmount: 2000 },
+      { amount: 900, status: 'FAILED', refundedAmount: 900 },
+    ]);
+    expect(r).toEqual({ paid: 2000, due: 3000, refunded: 3000 });
   });
 });
 

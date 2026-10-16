@@ -99,6 +99,7 @@ async function fulfillCheckout(session: CheckoutSessionLike): Promise<void> {
       where: { id: payment.id },
       data: {
         status: 'COMPLETED',
+        paidAt: new Date(),
         stripePaymentIntentId: piId,
         transactionId: piId,
         referenceType: payment.referenceType || 'BOOKING',

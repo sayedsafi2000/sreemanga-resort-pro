@@ -25,7 +25,10 @@ const BOOKING_INCLUDE = {
   room: true,
   guest: true,
   staff: { select: { id: true, name: true, email: true, role: true } },
-  payments: { orderBy: { createdAt: 'asc' as const } },
+  payments: {
+    orderBy: { createdAt: 'asc' as const },
+    include: { refunds: { orderBy: { refundedAt: 'asc' as const } } },
+  },
   voucher: { select: { id: true, name: true, codeHint: true } },
 } as const;
 
@@ -57,7 +60,7 @@ function isStakeholderGuest(g: { email?: string | null; phone?: string | null } 
 }
 
 function decorate(b: BookingRow, keys: StakeholderKeys) {
-  const { paid, due } = paidAndDue(b.totalAmount, b.payments);
+  const { paid, due, refunded } = paidAndDue(b.totalAmount, b.payments);
   const nights = nightsBetween(b.checkInDate, b.checkOutDate);
   const pricing = computeBookingTotal({
     rate: b.rate ?? b.room.price,
@@ -74,6 +77,7 @@ function decorate(b: BookingRow, keys: StakeholderKeys) {
     nights,
     paid,
     due,
+    refunded,
     pricing,
     isStakeholder: isStakeholderGuest(b.guest, keys),
     source: b.staffId ? 'ADMIN' : 'WEB',
@@ -119,12 +123,24 @@ export const getDaySummary = async (req: Request, res: Response, next: NextFunct
       prisma.room.count(),
       prisma.booking.findMany({
         where: { status: live, ...overlappingStayWhere(night, nightEnd) },
-        select: { id: true, roomId: true, status: true, totalAmount: true, payments: { select: { amount: true, status: true } } },
+        select: { id: true, roomId: true, status: true, totalAmount: true, payments: { select: { amount: true, status: true, refundedAmount: true } } },
       }),
       prisma.booking.count({ where: { status: live, checkInDate: { gte: night, lt: nightEnd } } }),
       prisma.booking.count({ where: { status: live, checkOutDate: { gte: night, lt: nightEnd } } }),
       prisma.booking.count({ where: { status: live, createdAt: { gte: localDayStart, lt: localDayEnd } } }),
-      prisma.payment.aggregate({ _sum: { amount: true }, _count: true, where: { status: 'COMPLETED', createdAt: { gte: localDayStart, lt: localDayEnd } } }),
+      // Cash basis: a payment counts on the local day it was received (paidAt); legacy rows
+      // without paidAt fall back to createdAt.
+      prisma.payment.aggregate({
+        _sum: { amount: true },
+        _count: true,
+        where: {
+          status: 'COMPLETED',
+          OR: [
+            { paidAt: { gte: localDayStart, lt: localDayEnd } },
+            { paidAt: null, createdAt: { gte: localDayStart, lt: localDayEnd } },
+          ],
+        },
+      }),
       prisma.booking.findMany({ where: { status: live, createdAt: { gte: monthStart, lt: monthEnd } }, select: { staffId: true } }),
     ]);
 
@@ -514,6 +530,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
             amount: round2(data.advance.amount),
             method: data.advance.method,
             status: 'COMPLETED',
+            paidAt: new Date(),
             transactionId: data.advance.transactionId?.trim() || undefined,
             notes: data.advance.notes?.trim() || 'Advance at booking',
             referenceType: 'BOOKING',
@@ -698,6 +715,13 @@ export const deleteBooking = async (req: Request, res: Response, next: NextFunct
     if (!booking) throw new AppError('Booking not found', 404);
 
     await prisma.$transaction(async (tx) => {
+      // A hard delete would silently erase cash history (payments cascade to their refunds).
+      const moneyRows = await tx.payment.count({
+        where: { bookingId: id, OR: [{ status: 'COMPLETED' }, { refundedAmount: { gt: 0 } }] },
+      });
+      if (moneyRows > 0) {
+        throw new AppError('This booking has recorded payments or refunds — cancel it instead of deleting', 400);
+      }
       await tx.payment.deleteMany({ where: { bookingId: id } });
       await tx.booking.delete({ where: { id } });
     });

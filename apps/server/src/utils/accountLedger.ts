@@ -202,4 +202,113 @@ export async function recordManualEntry(
   });
 }
 
+export interface RefundLedgerEntry {
+  amount: number;
+  method: string;
+  businessLine?: string | null; // ROOM | RESTAURANT | DAY_LONG
+  refundId: string;
+  createdById?: string;
+  /** true = undo a refund (cash IN + income IN, referenceType REFUND_REVERSAL). */
+  reverse?: boolean;
+}
+
+// Refund: cash/bank OUT + income OUT — the mirror image of recordRevenue. Skips silently when
+// the chart of accounts is missing, like every other helper here.
+export async function recordRefund(
+  tx: Prisma.TransactionClient,
+  r: RefundLedgerEntry
+): Promise<void> {
+  const line = r.businessLine || 'ROOM';
+  const cash = await accountByCode(tx, METHOD_ACCOUNT[r.method] || '1001');
+  const income = await accountByCode(tx, LINE_INCOME[line] || '4001');
+  if (!cash || !income) return;
+  const direction = r.reverse ? 'IN' : 'OUT';
+  const referenceType = r.reverse ? 'REFUND_REVERSAL' : 'REFUND';
+
+  await writeEntry(tx, {
+    accountId: cash.id,
+    direction,
+    amount: r.amount,
+    businessLine: line,
+    referenceType,
+    referenceId: r.refundId,
+    description: r.reverse ? `Refund reversed - ${line}` : `Refund paid - ${line}`,
+    createdById: r.createdById,
+  });
+  await writeEntry(tx, {
+    accountId: income.id,
+    direction,
+    amount: r.amount,
+    businessLine: line,
+    referenceType,
+    referenceId: r.refundId,
+    description: r.reverse ? `Revenue restored - ${line}` : `Revenue refunded - ${line}`,
+    createdById: r.createdById,
+  });
+}
+
+export interface FinanceEntryLike {
+  id: string;
+  type: string; // FinanceEntryType
+  amount: number;
+  method?: string | null;
+  description?: string | null;
+}
+
+type Posting = { account: 'CASH' | string; direction: 'IN' | 'OUT' };
+
+// Both sides of each FinanceEntry type. 'CASH' resolves through METHOD_ACCOUNT; codes are the
+// seeded chart of accounts (1100 Fixed Assets, 2000 Current Liabilities, 3001 Owner's Capital).
+const FINANCE_POSTINGS: Record<string, Posting[]> = {
+  OPENING_CASH: [{ account: 'CASH', direction: 'IN' }, { account: '3001', direction: 'IN' }],
+  OPENING_FIXED_ASSET: [{ account: '1100', direction: 'IN' }, { account: '3001', direction: 'IN' }],
+  OPENING_LIABILITY: [{ account: '2000', direction: 'IN' }, { account: '3001', direction: 'OUT' }],
+  LOAN_RECEIVED: [{ account: 'CASH', direction: 'IN' }, { account: '2000', direction: 'IN' }],
+  LOAN_REPAID: [{ account: 'CASH', direction: 'OUT' }, { account: '2000', direction: 'OUT' }],
+  CAPITAL_IN: [{ account: 'CASH', direction: 'IN' }, { account: '3001', direction: 'IN' }],
+  CAPITAL_OUT: [{ account: 'CASH', direction: 'OUT' }, { account: '3001', direction: 'OUT' }],
+};
+
+const FINANCE_LABEL: Record<string, string> = {
+  OPENING_CASH: 'Opening cash balance',
+  OPENING_FIXED_ASSET: 'Opening fixed assets',
+  OPENING_LIABILITY: 'Opening liability',
+  LOAN_RECEIVED: 'Loan received',
+  LOAN_REPAID: 'Loan repaid',
+  CAPITAL_IN: 'Owner capital in',
+  CAPITAL_OUT: 'Owner capital out',
+};
+
+// FinanceEntry (Financial Report → Other entries): posts both sides; `sign = -1` writes the exact
+// reversal (used when an entry is deleted). Posts nothing unless every account exists.
+export async function recordFinanceEntry(
+  tx: Prisma.TransactionClient,
+  e: FinanceEntryLike,
+  sign: 1 | -1 = 1,
+  createdById?: string
+): Promise<void> {
+  const postings = FINANCE_POSTINGS[e.type];
+  if (!postings) return;
+  const resolved: { accountId: string; direction: 'IN' | 'OUT' }[] = [];
+  for (const p of postings) {
+    const code = p.account === 'CASH' ? METHOD_ACCOUNT[e.method || 'CASH'] || '1001' : p.account;
+    const acc = await accountByCode(tx, code);
+    if (!acc) return;
+    const direction = sign === 1 ? p.direction : p.direction === 'IN' ? 'OUT' : 'IN';
+    resolved.push({ accountId: acc.id, direction });
+  }
+  const label = `${sign === -1 ? 'Reversed: ' : ''}${FINANCE_LABEL[e.type] || e.type}${e.description ? ` - ${e.description}` : ''}`;
+  for (const r of resolved) {
+    await writeEntry(tx, {
+      accountId: r.accountId,
+      direction: r.direction,
+      amount: e.amount,
+      referenceType: 'FINANCE_ENTRY',
+      referenceId: e.id,
+      description: label,
+      createdById,
+    });
+  }
+}
+
 export { METHOD_ACCOUNT, LINE_INCOME };

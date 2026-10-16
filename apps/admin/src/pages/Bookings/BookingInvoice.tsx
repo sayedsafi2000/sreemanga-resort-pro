@@ -47,6 +47,8 @@ const BookingInvoice: React.FC = () => {
   for (let i = 0; i < b.nights; i++) { const d = new Date(b.checkInDate); d.setDate(d.getDate() + i); nights.push(d.toISOString()); }
   const p = b.pricing;
   const completed = b.payments.filter((x) => x.status === 'COMPLETED');
+  // `b.paid` is already net of refunds (server decorate); the gross returned is shown as its own line.
+  const refunded = b.refunded ?? 0;
 
   const copyLink = async () => { if (await copyText(window.location.href)) { setCopied(true); window.setTimeout(() => setCopied(false), 1500); } };
   // Client-side PDF of the invoice sheet (A4, same markup as print). Library is loaded on demand.
@@ -183,11 +185,21 @@ const BookingInvoice: React.FC = () => {
               <table className="w-full text-sm">
                 <tbody>
                   {completed.map((x) => (
-                    <tr key={x.id} className="border-t">
-                      <td className="px-4 py-2">{fmtDate(x.createdAt)}</td>
-                      <td className="px-4 py-2">{METHOD_LABEL[x.method] ?? x.method}{x.transactionId ? <span className="ml-1 font-mono text-xs text-muted-foreground">{x.transactionId}</span> : null}</td>
-                      <td className="px-4 py-2 text-right font-semibold tabular-nums text-emerald-700">{fmt(x.amount)}</td>
-                    </tr>
+                    <React.Fragment key={x.id}>
+                      <tr className="border-t">
+                        <td className="px-4 py-2">{fmtDate(x.paidAt ?? x.createdAt)}</td>
+                        <td className="px-4 py-2">{METHOD_LABEL[x.method] ?? x.method}{x.transactionId ? <span className="ml-1 font-mono text-xs text-muted-foreground">{x.transactionId}</span> : null}</td>
+                        <td className="px-4 py-2 text-right font-semibold tabular-nums text-emerald-700">{fmt(x.amount)}</td>
+                      </tr>
+                      {/* Money handed back against this payment sits right under it, so the net is obvious. */}
+                      {(x.refunds ?? []).map((r) => (
+                        <tr key={r.id} className="border-t border-rose-100 bg-rose-50/70 text-rose-800">
+                          <td className="px-4 py-1.5 text-xs"><span className="font-semibold uppercase tracking-wide">Refund</span> · {fmtDate(r.refundedAt)}</td>
+                          <td className="px-4 py-1.5 text-xs">{METHOD_LABEL[r.method] ?? r.method}{r.reason ? <span className="ml-1 text-rose-700/70">— {r.reason}</span> : null}</td>
+                          <td className="px-4 py-1.5 text-right text-xs font-semibold tabular-nums">−{fmt(r.amount)}</td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -202,7 +214,8 @@ const BookingInvoice: React.FC = () => {
               {p.voucherDiscount > 0 && <div className="flex justify-between text-rose-700"><dt>Voucher discount{b.voucher ? ` (${b.voucher.name})` : ''}</dt><dd className="tabular-nums">− {fmt(p.voucherDiscount)}</dd></div>}
               {p.staffDiscount > 0 && <div className="flex justify-between text-rose-700"><dt>Discount</dt><dd className="tabular-nums">− {fmt(p.staffDiscount)}</dd></div>}
               <div className="flex justify-between border-t pt-2 text-base font-bold"><dt>Invoice amount</dt><dd className="tabular-nums text-primary">{fmt(b.totalAmount)}</dd></div>
-              <div className="flex justify-between"><dt>Paid</dt><dd className="tabular-nums text-emerald-700">{fmt(b.paid)}</dd></div>
+              {refunded > 0 && <div className="flex justify-between text-rose-700"><dt>Refunded</dt><dd className="tabular-nums">− {fmt(refunded)}</dd></div>}
+              <div className="flex justify-between"><dt>{refunded > 0 ? 'Paid (net of refunds)' : 'Paid'}</dt><dd className="tabular-nums text-emerald-700">{fmt(b.paid)}</dd></div>
               <div className="flex justify-between text-base font-bold"><dt className={b.due > 0 ? 'text-rose-700' : 'text-emerald-700'}>{b.due > 0 ? 'Due amount' : 'Fully paid'}</dt><dd className={`tabular-nums ${b.due > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{fmt(b.due)}</dd></div>
             </dl>
           </section>

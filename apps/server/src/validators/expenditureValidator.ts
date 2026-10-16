@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 export const EXPENSE_STATUSES = ['PAID', 'PENDING', 'CANCELLED'] as const;
-export const EXPENSE_PAYMENT_METHODS = ['CASH', 'BKASH', 'NAGAD', 'CARD'] as const;
+export const EXPENSE_PAYMENT_METHODS = ['CASH', 'BKASH', 'NAGAD', 'CARD', 'BANK_TRANSFER', 'MOBILE_BANKING'] as const;
+// Where a category's expenses land on the Financial Report (mirrors Prisma ExpenseCategoryKind).
+export const EXPENSE_CATEGORY_KINDS = ['EXPENSE', 'PURCHASE', 'FIXED_ASSET', 'INCOME_TAX'] as const;
 
 // Single attachment as data URL or external URL. Cap below the 10mb express body
 // limit so we reject oversized payloads with a useful message instead of a 413.
@@ -19,6 +21,7 @@ export const expenditureCategorySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   isActive: z.boolean().optional(),
   sortOrder: z.number().optional(),
+  kind: z.enum(EXPENSE_CATEGORY_KINDS).optional(),
   fields: z.array(categoryFieldSchema).optional(),
 });
 

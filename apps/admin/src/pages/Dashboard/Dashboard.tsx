@@ -474,9 +474,10 @@ const Dashboard: React.FC = () => {
           base.totalBookings = bookings.length;
           base.pendingBookings = bookings.filter((b: any) => b.status === 'PENDING').length;
           base.totalGuests = guests.length;
+          // Completed payments net of anything refunded to the guest.
           base.totalRevenue = payments
             .filter((p: any) => p.status === 'COMPLETED')
-            .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+            .reduce((s: number, p: any) => s + (p.amount || 0) - (p.refundedAmount || 0), 0);
           base.todayCheckIns = bookings.filter((b: any) => ymdOf(b.checkInDate) === t).length;
           base.todayCheckOuts = bookings.filter((b: any) => ymdOf(b.checkOutDate) === t).length;
           base.monthExpenses = Number((expRes?.data as any)?.stats?.monthTotal ?? 0);
@@ -495,9 +496,10 @@ const Dashboard: React.FC = () => {
           base.totalBookings = bookings.length;
           base.pendingBookings = bookings.filter((b: any) => b.status === 'PENDING').length;
           base.totalGuests = guests.length;
+          // Completed payments net of anything refunded to the guest.
           base.totalRevenue = payments
             .filter((p: any) => p.status === 'COMPLETED')
-            .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+            .reduce((s: number, p: any) => s + (p.amount || 0) - (p.refundedAmount || 0), 0);
           base.todayCheckIns = bookings.filter((b: any) => ymdOf(b.checkInDate) === t).length;
           base.todayCheckOuts = bookings.filter((b: any) => ymdOf(b.checkOutDate) === t).length;
           base.monthExpenses = Number((expRes?.data as any)?.stats?.monthTotal ?? 0);

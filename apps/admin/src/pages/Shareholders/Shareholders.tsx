@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import { unwrapList } from '@/lib/apiResponse';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,7 @@ const Shareholders: React.FC = () => {
   const admin = user?.role === 'SUPER_ADMIN';
   const canWriteDist = user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER';
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<'holders' | 'distributions' | 'tiers'>('holders');
   const [holders, setHolders] = useState<Shareholder[]>([]);
   const [dists, setDists] = useState<Distribution[]>([]);
@@ -128,7 +130,26 @@ const Shareholders: React.FC = () => {
       setTotals(t.data?.totals ?? null);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, []);
+  // The Financial Report's "Create distribution" button deep-links here with
+  // ?newDistribution=1&periodLabel=&periodStart=&periodEnd=&totalProfit= — prefill the
+  // dialog once the lists are in, then drop the params so a refresh doesn't reopen it.
+  useEffect(() => {
+    load().then(() => {
+      if (searchParams.get('newDistribution') !== '1') return;
+      if (canWriteDist) {
+        setTab('distributions');
+        setDistForm({
+          periodLabel: searchParams.get('periodLabel') ?? '',
+          periodStart: searchParams.get('periodStart') ?? '',
+          periodEnd: searchParams.get('periodEnd') ?? '',
+          totalProfit: searchParams.get('totalProfit') ?? '',
+        });
+        setDistError(null);
+        setDistDialog(true);
+      }
+      setSearchParams({}, { replace: true });
+    });
+  }, []);
 
   const tierName = (code: string) => tiers.find((t) => t.code === code)?.name ?? code;
   const unitsLabel = (units: Record<string, number>) => {

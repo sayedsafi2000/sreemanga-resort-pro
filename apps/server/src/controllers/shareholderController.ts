@@ -387,6 +387,8 @@ export const cancelHolding = async (req: Request, res: Response, next: NextFunct
           status: 'CANCELLED',
           cancelledAt: new Date(),
           notes: [h.notes, data.notes].filter(Boolean).join(' | ') || null,
+          // Capital returned — the Financial Report reads it by refundedAt.
+          ...(data.refund && h.paidAmount > 0 ? { refundedAmount: h.paidAmount, refundedAt: new Date() } : {}),
         },
         include: HOLDING_INCLUDE,
       });

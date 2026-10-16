@@ -22,6 +22,7 @@ import ShareholderPortal from '@/pages/Portal/ShareholderPortal';
 import Settings from '@/pages/Settings/Settings';
 import Users from '@/pages/Users/Users';
 import Reports from '@/pages/Reports/Reports';
+import FinancialReport from '@/pages/FinancialReport/FinancialReport';
 import Gallery from '@/pages/Gallery/Gallery';
 import NearbyExplore from '@/pages/NearbyExplore/NearbyExplore';
 import Blogs from '@/pages/Blogs/Blogs';
@@ -92,6 +93,7 @@ const App: React.FC = () => {
         <Route path="/settings" element={<ProtectedRoute><RoleGuard path="/settings"><Settings /></RoleGuard></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><RoleGuard path="/users"><Users /></RoleGuard></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><RoleGuard path="/reports"><Reports /></RoleGuard></ProtectedRoute>} />
+        <Route path="/financial-report" element={<ProtectedRoute><RoleGuard path="/financial-report"><FinancialReport /></RoleGuard></ProtectedRoute>} />
         <Route path="/unauthorized" element={<ProtectedRoute><Unauthorized /></ProtectedRoute>} />
       </Routes>
     </Layout>

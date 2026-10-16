@@ -372,6 +372,7 @@ export const recordBookingPayment = async (req: Request, res: Response, next: Ne
           amount: data.amount,
           method: data.method,
           status: 'COMPLETED',
+          paidAt: new Date(),
           transactionId: data.transactionId || undefined,
           notes: data.notes || undefined,
           referenceType: 'DAY_LONG_BOOKING',

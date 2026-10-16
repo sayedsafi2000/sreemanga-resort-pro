@@ -2,6 +2,11 @@
 
 export type Payment = {
   id: string; amount: number; method: string; status: string; transactionId?: string | null; notes?: string | null; createdAt: string;
+  /** When the money was actually received (defaults to createdAt on older rows). */
+  paidAt?: string | null;
+  /** Total returned to the guest so far; the payment stays COMPLETED. */
+  refundedAmount?: number;
+  refunds?: { id: string; amount: number; method: string; reason?: string | null; refundedAt: string }[];
 };
 export type Room = {
   id: string; name: string; type: string; zone?: string | null; price: number; weekendPrice?: number | null; extraGuestCharge?: number | null;
@@ -17,7 +22,7 @@ export type Booking = {
   adults: number; children: number; extraPersons: number; rate?: number | null; extraCharge: number; extraChargeNote?: string | null;
   staffDiscount: number; discountAmount: number; totalAmount: number; isVip: boolean; isForeigner: boolean; isStakeholder: boolean;
   checkInDate: string; checkOutDate: string; status: string; notes?: string | null; createdAt: string; updatedAt: string;
-  nights: number; paid: number; due: number; source: 'ADMIN' | 'WEB';
+  nights: number; paid: number; due: number; refunded?: number; source: 'ADMIN' | 'WEB';
   preferredPaymentTiming?: string | null; preferredPaymentMethod?: string | null; paymentTransactionId?: string | null; paymentProofImage?: string | null;
   room: Room; guest: Guest; staff?: { id: string; name: string; role: string } | null; payments: Payment[];
   voucher?: { id: string; name: string; codeHint?: string | null } | null;

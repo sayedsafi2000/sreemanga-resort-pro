@@ -65,10 +65,15 @@ export function computeBookingTotal(i: PricingInput): PricingBreakdown {
   };
 }
 
-/** Paid = COMPLETED payments only; due never below 0. */
-export function paidAndDue(totalAmount: number, payments: { amount: number; status: string }[]) {
-  const paid = round2(payments.filter((p) => p.status === 'COMPLETED').reduce((s, p) => s + p.amount, 0));
-  return { paid, due: round2(Math.max(0, totalAmount - paid)) };
+/** Paid = COMPLETED payments net of their refunds; due never below 0. */
+export function paidAndDue(
+  totalAmount: number,
+  payments: { amount: number; status: string; refundedAmount?: number | null }[]
+) {
+  const completed = payments.filter((p) => p.status === 'COMPLETED');
+  const refunded = round2(completed.reduce((s, p) => s + (p.refundedAmount ?? 0), 0));
+  const paid = round2(completed.reduce((s, p) => s + p.amount, 0) - refunded);
+  return { paid, due: round2(Math.max(0, totalAmount - paid)), refunded };
 }
 
 export function formatInvoiceNo(n: number): string {

@@ -136,6 +136,14 @@ export const deleteRoom = async (
     const existing = await prisma.room.findUnique({ where: { id } });
     if (!existing) throw new AppError('Room not found', 404);
 
+    // Payments and refunds are the Financial Report's cash book — never erase them with a room.
+    const moneyRows = await prisma.payment.count({
+      where: { booking: { roomId: id }, OR: [{ status: 'COMPLETED' }, { refundedAmount: { gt: 0 } }] },
+    });
+    if (moneyRows > 0) {
+      throw new AppError('This room has bookings with recorded payments — set it to MAINTENANCE instead of deleting', 400);
+    }
+
     // Delete dependent bookings and their payments first
     const bookings = await prisma.booking.findMany({ where: { roomId: id }, select: { id: true } });
     for (const b of bookings) {

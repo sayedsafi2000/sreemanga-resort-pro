@@ -542,6 +542,7 @@ async function main() {
     { code: '5005', name: 'Marketing', type: 'EXPENSE', parentCode: '5000', sortOrder: 25 },
     { code: '5006', name: 'Miscellaneous', type: 'EXPENSE', parentCode: '5000', sortOrder: 26 },
     { code: '5007', name: 'Inventory / COGS', type: 'EXPENSE', parentCode: '5000', sortOrder: 27 },
+    { code: '5008', name: 'Income Tax', type: 'EXPENSE', parentCode: '5000', sortOrder: 28 },
   ];
 
   // Pass 1: upsert all accounts without parent link.
@@ -562,28 +563,43 @@ async function main() {
   }
 
   // Expense categories (Phase 0.2) — link each to a chart-of-accounts EXPENSE account.
-  const expenseAccounts = await prisma.account.findMany({ where: { type: 'EXPENSE' } });
+  const expenseAccounts = await prisma.account.findMany(); // all types: Fixed Assets maps to 1101 (ASSET)
   const acctByCode = new Map(expenseAccounts.map((a) => [a.code, a.id]));
-  const categorySeed: Array<{ name: string; sortOrder: number; accountCode: string }> = [
-    { name: 'Staff Salary', sortOrder: 1, accountCode: '5002' },
-    { name: 'Food & Kitchen', sortOrder: 2, accountCode: '5004' },
-    { name: 'Utilities', sortOrder: 3, accountCode: '5001' },
-    { name: 'Maintenance', sortOrder: 4, accountCode: '5003' },
-    { name: 'Supplies', sortOrder: 5, accountCode: '5007' },
-    { name: 'Marketing', sortOrder: 6, accountCode: '5005' },
-    { name: 'Transport', sortOrder: 7, accountCode: '5006' },
-    { name: 'Rent/Tax', sortOrder: 8, accountCode: '5006' },
-    { name: 'Events', sortOrder: 9, accountCode: '5006' },
-    { name: 'Miscellaneous', sortOrder: 10, accountCode: '5006' },
+  // `kind` decides where a category's expenses land on the Financial Report:
+  // PURCHASE = cost of goods (above Gross Profit), EXPENSE = operating expense.
+  const categorySeed: Array<{
+    name: string;
+    sortOrder: number;
+    accountCode: string;
+    kind: 'EXPENSE' | 'PURCHASE' | 'FIXED_ASSET' | 'INCOME_TAX';
+  }> = [
+    { name: 'Staff Salary', sortOrder: 1, accountCode: '5002', kind: 'EXPENSE' },
+    { name: 'Food & Kitchen', sortOrder: 2, accountCode: '5004', kind: 'PURCHASE' },
+    { name: 'Utilities', sortOrder: 3, accountCode: '5001', kind: 'EXPENSE' },
+    { name: 'Maintenance', sortOrder: 4, accountCode: '5003', kind: 'EXPENSE' },
+    { name: 'Supplies', sortOrder: 5, accountCode: '5007', kind: 'PURCHASE' },
+    { name: 'Marketing', sortOrder: 6, accountCode: '5005', kind: 'EXPENSE' },
+    { name: 'Transport', sortOrder: 7, accountCode: '5006', kind: 'EXPENSE' },
+    { name: 'Rent/Tax', sortOrder: 8, accountCode: '5006', kind: 'EXPENSE' },
+    { name: 'Events', sortOrder: 9, accountCode: '5006', kind: 'EXPENSE' },
+    { name: 'Miscellaneous', sortOrder: 10, accountCode: '5006', kind: 'EXPENSE' },
+    // Financial Report system categories (ensureFinanceCategories() also creates them lazily).
+    { name: 'Income Tax', sortOrder: 11, accountCode: '5008', kind: 'INCOME_TAX' },
+    { name: 'Fixed Assets', sortOrder: 12, accountCode: '1101', kind: 'FIXED_ASSET' },
   ];
   if ((await prisma.expenseCategory.count()) === 0) {
     for (const c of categorySeed) {
       await prisma.expenseCategory.create({
-        data: { name: c.name, sortOrder: c.sortOrder, accountId: acctByCode.get(c.accountCode) ?? null },
+        data: {
+          name: c.name,
+          sortOrder: c.sortOrder,
+          kind: c.kind,
+          accountId: acctByCode.get(c.accountCode) ?? null,
+        },
       });
     }
   } else {
-    // Backfill accountId on existing categories that match by name (safe, idempotent).
+    // Backfill accountId / kind on existing categories that match by name (safe, idempotent).
     for (const c of categorySeed) {
       const accountId = acctByCode.get(c.accountCode);
       if (!accountId) continue;

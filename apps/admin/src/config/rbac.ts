@@ -28,6 +28,7 @@ import {
   Ticket,
   Clock,
   CalendarDays,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export type StaffRole =
@@ -54,7 +55,7 @@ export const SIDEBAR_SECTION: Record<string, string> = {
   dash: '', 'book-new': '',
   rooms: 'Operations', book: 'Operations', 'book-all': 'Operations', guest: 'Operations',
   rest: 'Operations', daylong: 'Operations', ord: 'Operations', menu: 'Operations', inv: 'Operations',
-  pay: 'Finance', acct: 'Finance', voucher: 'Finance', share: 'Finance', rep: 'Finance', exp: 'Finance',
+  pay: 'Finance', acct: 'Finance', voucher: 'Finance', share: 'Finance', rep: 'Finance', fin: 'Finance', exp: 'Finance',
   hr: 'People', sal: 'People', staff: 'People',
   gal: 'Content', near: 'Content', blog: 'Content',
   brand: 'System', tmpl: 'System', audit: 'System', set: 'System',
@@ -114,6 +115,7 @@ export const ROUTE_ACCESS: Record<string, StaffRole[]> = {
   '/audit-log': ['SUPER_ADMIN'],
   '/users': ['SUPER_ADMIN'],
   '/reports': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
+  '/financial-report': ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
   '/templates': ['SUPER_ADMIN'],
   '/branding': ['SUPER_ADMIN', 'MANAGER'],
   '/settings': ['SUPER_ADMIN'],
@@ -168,6 +170,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       expenditureParent,
       { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      { key: 'fin', label: 'Financial Report', path: '/financial-report', icon: FileSpreadsheet },
       // People
       { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
@@ -198,6 +201,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       expenditureParent,
       { key: 'share', label: 'Shareholders', path: '/shareholders', icon: PieChart },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      { key: 'fin', label: 'Financial Report', path: '/financial-report', icon: FileSpreadsheet },
       // People
       { key: 'hr', label: 'Staff HR', path: '/staff-hr', icon: Users2 },
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
@@ -234,6 +238,7 @@ export function getSidebarItems(role: string | undefined): SidebarItem[] {
       expenditureParent,
       { key: 'sal', label: 'Staff Salaries', path: '/staff-salaries', icon: Banknote },
       { key: 'rep', label: 'Reports', path: '/reports', icon: BarChart3 },
+      { key: 'fin', label: 'Financial Report', path: '/financial-report', icon: FileSpreadsheet },
     ],
     SHAREHOLDER: [
       { key: 'portal', label: 'My Portal', path: '/portal', icon: PieChart },
@@ -269,6 +274,11 @@ export function canManageRestaurantMenu(role: string | undefined): boolean {
 
 export function canEditPayments(role: string | undefined): boolean {
   return role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT';
+}
+
+/** Delete opening-balance / loan / owner-capital entries on the Financial Report — SUPER_ADMIN only on API. */
+export function canDeleteFinanceEntries(role: string | undefined): boolean {
+  return role === 'SUPER_ADMIN';
 }
 
 /** Item CRUD + purchases — matches inventory MANAGE roles. */

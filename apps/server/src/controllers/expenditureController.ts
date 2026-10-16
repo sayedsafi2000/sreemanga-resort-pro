@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { recordExpense } from '../utils/accountLedger';
+import { ensureFinanceCategories } from '../utils/financeCategories';
 import {
   expenditureCategorySchema,
   expenditureSchema,
@@ -22,6 +23,9 @@ async function assertCategoryExists(categoryId: string): Promise<void> {
 
 export const getExpenditureCategories = async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    // Make sure the Financial Report system categories (Income Tax, Fixed Assets) exist and the
+    // seeded cost-of-goods categories are kinded PURCHASE — a single lookup once initialised.
+    await ensureFinanceCategories();
     const categories = await prisma.expenseCategory.findMany({
       orderBy: { sortOrder: 'asc' },
       include: { _count: { select: { expenses: true } } },
@@ -44,6 +48,9 @@ export const createExpenditureCategory = async (req: Request, res: Response, nex
       if (exists) {
         throw new AppError('Staff Salary category already exists.', 400);
       }
+      if (data.kind !== undefined && data.kind !== 'EXPENSE') {
+        throw new AppError('Staff Salary always counts as an operating expense.', 400);
+      }
     }
     let sortOrder = data.sortOrder;
     if (sortOrder === undefined) {
@@ -55,6 +62,7 @@ export const createExpenditureCategory = async (req: Request, res: Response, nex
         name: trimmedName,
         isActive: data.isActive ?? true,
         sortOrder,
+        kind: data.kind ?? 'EXPENSE',
         fields: data.fields ?? [],
       },
     });
@@ -81,12 +89,17 @@ export const updateExpenditureCategory = async (req: Request, res: Response, nex
     if (existing.name !== 'Staff Salary' && data.name === 'Staff Salary') {
       throw new AppError('A Staff Salary category already exists. Choose another name.', 400);
     }
+    // Payroll mirror rows must stay operating expenses on the Financial Report.
+    if (existing.name === 'Staff Salary' && data.kind !== undefined && data.kind !== 'EXPENSE') {
+      throw new AppError('Staff Salary always counts as an operating expense.', 400);
+    }
     const category = await prisma.expenseCategory.update({
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        ...(data.kind !== undefined && { kind: data.kind }),
         ...(data.fields !== undefined && { fields: data.fields }),
       },
     });

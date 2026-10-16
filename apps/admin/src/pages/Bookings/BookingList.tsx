@@ -84,12 +84,14 @@ const Actions: React.FC<{ b: Booking; on: ActionHandlers; copied: boolean; canDe
   const sz = big ? 'h-10 w-10' : 'h-7 w-7 min-[1700px]:h-8 min-[1700px]:w-8';
   const ic = big ? 'h-4 w-4' : 'h-3.5 w-3.5';
   const base = `inline-flex ${sz} shrink-0 items-center justify-center rounded-md text-white shadow-sm transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:brightness-100`;
-  const mayDelete = canDelete || b.status === 'PENDING';
+  const hasMoney = (b.paid ?? 0) > 0 || (b.refunded ?? 0) > 0;
+  const mayDelete = (canDelete || b.status === 'PENDING') && !hasMoney;
+  const deleteTitle = hasMoney ? 'Has payments — cancel the booking instead' : mayDelete ? 'Delete booking' : 'Only managers can delete confirmed bookings';
   return (
     <div className={`flex items-center ${big ? 'justify-between gap-2' : 'justify-center gap-1'}`}>
       <button type="button" title="View invoice" aria-label="View invoice" className={`${base} bg-cyan-600`} onClick={() => on.invoice(b)}><FileText className={ic} /></button>
       <button type="button" title="Edit booking" aria-label="Edit booking" className={`${base} bg-blue-600`} onClick={() => on.edit(b)}><Pencil className={ic} /></button>
-      <button type="button" title={mayDelete ? 'Delete booking' : 'Only managers can delete confirmed bookings'} aria-label="Delete booking" className={`${base} bg-red-600`} disabled={!mayDelete} onClick={() => on.remove(b)}><Trash2 className={ic} /></button>
+      <button type="button" title={deleteTitle} aria-label="Delete booking" className={`${base} bg-red-600`} disabled={!mayDelete} onClick={() => on.remove(b)}><Trash2 className={ic} /></button>
       <button type="button" title={canCollect(b) ? `Collect due · ${fmt(b.due)}` : 'Nothing due'} aria-label="Collect due" className={`${base} bg-emerald-600`} disabled={!canCollect(b)} onClick={() => on.due(b)}><Banknote className={ic} /></button>
       <button type="button" title="Copy invoice number" aria-label="Copy invoice number" className={`${base} bg-slate-800`} onClick={() => on.copy(b)}>{copied ? <Check className={ic} /> : <Copy className={ic} />}</button>
       <DropdownMenu>
@@ -182,7 +184,7 @@ const BookingList: React.FC<Props> = ({ mode = 'all' }) => {
       catch (e: any) { setError(errMsg(e, 'Failed to update status')); }
     },
     remove: async (b) => {
-      if (!window.confirm(`Delete ${b.invoiceLabel} (${b.guest.name}, ${b.room.name})? Payments on it are removed too. This cannot be undone.`)) return;
+      if (!window.confirm(`Delete ${b.invoiceLabel} (${b.guest.name}, ${b.room.name})? Only unpaid bookings can be deleted. This cannot be undone.`)) return;
       try { await api.delete(`/bookings/${b.id}`); setNotice(`${b.invoiceLabel} deleted`); await load(); }
       catch (e: any) { setError(errMsg(e, 'Failed to delete')); }
     },

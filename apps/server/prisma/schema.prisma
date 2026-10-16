@@ -10,18 +10,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// How a category's expenses appear on the Financial Report (admin /financial-report).
+enum ExpenseCategoryKind {
+  EXPENSE // operating expense (default; includes the Staff Salary mirror rows)
+  PURCHASE // cost of goods: Food & Kitchen, Supplies, inventory purchases
+  FIXED_ASSET // capitalised: Balance Sheet → Fixed Asset, never in expenses
+  INCOME_TAX // Profit & Loss Distribution → (-) Income Tax
+}
+
 model ExpenseCategory {
-  id        String   @id @default(uuid())
+  id        String              @id @default(uuid())
   name      String
   // Link to a chart-of-accounts EXPENSE account (Phase 0.2). Optional during migration.
   accountId String?
-  account   Account? @relation(fields: [accountId], references: [id])
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
+  account   Account?            @relation(fields: [accountId], references: [id])
+  isActive  Boolean             @default(true)
+  sortOrder Int                 @default(0)
+  kind      ExpenseCategoryKind @default(EXPENSE)
   // Array of CategoryField definitions: [{ key, label, type, required, options? }]
-  fields    Json?    @default("[]")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  fields    Json?               @default("[]")
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
 
   expenses        Expense[]
   pendingPayments PendingPayment[]
@@ -29,6 +38,7 @@ model ExpenseCategory {
   @@index([isActive])
   @@index([sortOrder])
   @@index([accountId])
+  @@index([kind])
 }
 
 model PendingPayment {
@@ -265,11 +275,17 @@ model Payment {
   referenceType         String?
   referenceId           String?
   businessLine          BusinessLine?
+  // Cash basis: when the money was actually received. Set whenever a row becomes COMPLETED.
+  // Legacy rows are null → the Financial Report falls back to createdAt.
+  paidAt                DateTime?
+  // Σ Refund.amount for this payment (denormalised). Status stays COMPLETED after a refund.
+  refundedAmount        Float         @default(0)
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
   // Relations
   booking Booking? @relation(fields: [bookingId], references: [id])
+  refunds Refund[]
 
   @@index([bookingId])
   @@index([method])
@@ -277,23 +293,74 @@ model Payment {
   @@index([stripeSessionId])
   @@index([referenceType, referenceId])
   @@index([businessLine])
+  @@index([paidAt])
+}
+
+// Money returned to a guest against a COMPLETED payment (room, restaurant or day-long).
+// Cash basis: counts on refundedAt. Cascades with the payment so booking/room deletes keep working.
+model Refund {
+  id            String        @id @default(uuid())
+  paymentId     String
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  // Snapshots of the payment so the statement never needs a join.
+  referenceType String?
+  referenceId   String?
+  businessLine  BusinessLine?
+  amount        Float
+  method        PaymentMethod
+  reason        String?
+  refundedAt    DateTime      @default(now())
+  createdById   String?
+  createdAt     DateTime      @default(now())
+
+  @@index([paymentId])
+  @@index([refundedAt])
+  @@index([referenceType, referenceId])
+}
+
+// Money with no operational record: opening balances at go-live, loans, owner capital in/out.
+// Opening capital is never entered — the Financial Report derives it as
+// OPENING_CASH + OPENING_FIXED_ASSET − OPENING_LIABILITY so the balance sheet always balances.
+enum FinanceEntryType {
+  OPENING_CASH
+  OPENING_FIXED_ASSET
+  OPENING_LIABILITY
+  LOAN_RECEIVED
+  LOAN_REPAID
+  CAPITAL_IN
+  CAPITAL_OUT
+}
+
+model FinanceEntry {
+  id          String           @id @default(uuid())
+  type        FinanceEntryType
+  amount      Float
+  // Cash-moving types only (null for OPENING_FIXED_ASSET / OPENING_LIABILITY).
+  method      PaymentMethod?
+  date        DateTime
+  description String?
+  createdById String?
+  createdAt   DateTime         @default(now())
+
+  @@index([date])
+  @@index([type])
 }
 
 model RestaurantMenu {
-  id          String   @id @default(uuid())
-  name        String
-  price       Float
-  category    String
-  description String?
+  id            String   @id @default(uuid())
+  name          String
+  price         Float
+  category      String
+  description   String?
   /// Bangla copies (public site language toggle)
   nameBn        String?
   descriptionBn String?
-  image       String?
-  isAvailable Boolean  @default(true)
+  image         String?
+  isAvailable   Boolean  @default(true)
   // Display order inside category (then name). Lower = earlier in menu book.
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   ingredients MenuItemIngredient[]
 
@@ -345,17 +412,17 @@ model Setting {
 
 // Public site gallery — admin: image URL or data URL, category & sort order.
 model SiteGalleryItem {
-  id        String   @id @default(uuid())
-  imageUrl  String
-  alt       String   @default("")
-  category  String   @default("General")
+  id         String   @id @default(uuid())
+  imageUrl   String
+  alt        String   @default("")
+  category   String   @default("General")
   /// Bangla copies (public site language toggle)
   altBn      String?
   categoryBn String?
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([isActive, sortOrder])
   @@index([category])
@@ -363,17 +430,17 @@ model SiteGalleryItem {
 
 // Home “nearby places” carousel + /explore/[slug] detail — managed in admin.
 model SiteNearbySpot {
-  id        String   @id @default(uuid())
-  slug      String   @unique
-  title     String
-  emoji     String   @default("")
-  badge     String   @default("")
-  distance  String   @default("")
-  bullets   String[] @default([])
-  bestFor   String   @default("")
-  imageUrl  String
-  imageAlt  String   @default("")
-  body      String   @db.Text
+  id         String   @id @default(uuid())
+  slug       String   @unique
+  title      String
+  emoji      String   @default("")
+  badge      String   @default("")
+  distance   String   @default("")
+  bullets    String[] @default([])
+  bestFor    String   @default("")
+  imageUrl   String
+  imageAlt   String   @default("")
+  body       String   @db.Text
   /// Bangla copies (public site language toggle)
   titleBn    String?
   badgeBn    String?
@@ -381,10 +448,10 @@ model SiteNearbySpot {
   bulletsBn  String[] @default([])
   bestForBn  String?
   bodyBn     String?  @db.Text
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([isActive, sortOrder])
 }
@@ -761,23 +828,26 @@ enum ShareHoldingStatus {
 }
 
 model ShareHolding {
-  id            String             @id @default(uuid())
-  shareholderId String
-  shareholder   Shareholder        @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
-  tierId        String
-  tier          ShareTier          @relation(fields: [tierId], references: [id])
-  quantity      Int
-  unitPrice     Float // tier price when bought — later price changes don't touch it
-  totalPrice    Float // quantity × unitPrice
-  paidAmount    Float              @default(0)
-  status        ShareHoldingStatus @default(PENDING_PAYMENT)
-  purchaseDate  DateTime           @default(now())
-  activatedAt   DateTime?
-  cancelledAt   DateTime?
-  notes         String?
-  createdById   String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id             String             @id @default(uuid())
+  shareholderId  String
+  shareholder    Shareholder        @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
+  tierId         String
+  tier           ShareTier          @relation(fields: [tierId], references: [id])
+  quantity       Int
+  unitPrice      Float // tier price when bought — later price changes don't touch it
+  totalPrice     Float // quantity × unitPrice
+  paidAmount     Float              @default(0)
+  status         ShareHoldingStatus @default(PENDING_PAYMENT)
+  purchaseDate   DateTime           @default(now())
+  activatedAt    DateTime?
+  cancelledAt    DateTime?
+  // Capital returned when the holding was cancelled with refund=true (feeds the Financial Report).
+  refundedAmount Float              @default(0)
+  refundedAt     DateTime?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   payments SharePayment[]
 

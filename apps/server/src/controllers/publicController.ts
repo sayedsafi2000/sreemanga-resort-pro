@@ -156,7 +156,8 @@ export const getAvailabilityCalendar = async (req: Request, res: Response, next:
 
 export const getPublicSettings = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const settings = await prisma.setting.findMany();
+    // Internal flags (type 'system', e.g. financeCategoriesInitialized) never leave the server.
+    const settings = await prisma.setting.findMany({ where: { OR: [{ type: null }, { type: { not: 'system' } }] } });
     const settingsMap: Record<string, string> = {};
     settings.forEach(s => { settingsMap[s.key] = s.value; });
     res.json({ success: true, settings: settingsMap });

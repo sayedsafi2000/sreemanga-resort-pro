@@ -389,9 +389,10 @@ export const getGuestHistory = async (
       }))
     );
 
+    // Spend = COMPLETED payments net of anything refunded back to the guest.
     const totalSpend = payments
       .filter((p) => p.status === 'COMPLETED')
-      .reduce((sum, p) => sum + p.amount, 0);
+      .reduce((sum, p) => sum + p.amount - p.refundedAmount, 0);
 
     const completedStays = bookings.filter(
       (b) => b.status === 'CHECKED_OUT'

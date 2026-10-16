@@ -5,17 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 import { recordRevenue } from '../utils/accountLedger';
 import { consumeForOrder } from '../utils/inventory';
 import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
-
-// netAmount = totalPrice - discount + serviceCharge (never below 0)
-function computeNet(totalPrice: number, discount: number, serviceCharge: number): number {
-  return Math.max(0, totalPrice - discount + serviceCharge);
-}
-
-function derivePaymentStatus(paid: number, net: number): 'UNPAID' | 'PARTIAL' | 'PAID' {
-  if (paid <= 0) return 'UNPAID';
-  if (paid >= net) return 'PAID';
-  return 'PARTIAL';
-}
+import { computeNet, derivePaymentStatus } from '../utils/orderPayment';
 
 const menuSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -394,6 +384,7 @@ export const recordOrderPayment = async (
           amount: data.amount,
           method: data.method,
           status: 'COMPLETED',
+          paidAt: new Date(),
           transactionId: data.transactionId || undefined,
           notes: data.notes || undefined,
           referenceType: 'RESTAURANT_ORDER',

@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '@/lib/api';
+import { downloadCsv } from '@/lib/csv';
+import { toYmd, todayYmd } from '@/pages/Bookings/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,9 +24,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Download, RefreshCw, DollarSign, Wallet, TrendingUp, TrendingDown, BedDouble, CalendarCheck } from 'lucide-react';
+import { Download, RefreshCw, DollarSign, Wallet, TrendingUp, TrendingDown, BedDouble, CalendarCheck, FileSpreadsheet } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
-import FinancialReports from '@/components/reports/FinancialReports';
 
 type RevenueResp = {
   totalRevenue?: number;
@@ -54,43 +56,19 @@ type ExpenseReportResp = {
   expensesByCategory?: Record<string, number>;
 };
 
+/** First day of the current month as a local YYYY-MM-DD (no UTC day shift). */
 function firstOfMonth(): string {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toYmd(new Date(d.getFullYear(), d.getMonth(), 1));
 }
 
 function fmtCurrency(n: number): string {
   return `৳${n.toLocaleString()}`;
 }
 
-function downloadCsv(filename: string, rows: string[][]): void {
-  const csv = rows
-    .map((r) =>
-      r
-        .map((c) => {
-          const s = String(c ?? '');
-          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        })
-        .join(',')
-    )
-    .join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 const Reports: React.FC = () => {
-  const [view, setView] = useState<'operational' | 'financial'>('operational');
   const [startDate, setStartDate] = useState<string>(firstOfMonth());
-  const [endDate, setEndDate] = useState<string>(todayIso());
+  const [endDate, setEndDate] = useState<string>(todayYmd());
   const [rev, setRev] = useState<RevenueResp | null>(null);
   const [occ, setOcc] = useState<OccupancyResp | null>(null);
   const [bookings, setBookings] = useState<BookingStatsResp | null>(null);
@@ -208,6 +186,12 @@ const Reports: React.FC = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
+            <Button variant="outline" asChild>
+              <Link to="/financial-report">
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Financial Report
+              </Link>
+            </Button>
           </div>
         }
       />
@@ -218,15 +202,6 @@ const Reports: React.FC = () => {
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Button variant={view === 'operational' ? 'default' : 'outline'} onClick={() => setView('operational')}>Operational</Button>
-        <Button variant={view === 'financial' ? 'default' : 'outline'} onClick={() => setView('financial')}>Financial (P&L / Balance Sheet)</Button>
-      </div>
-
-      {view === 'financial' ? (
-        <FinancialReports startDate={startDate} endDate={endDate} />
-      ) : (
-      <div className="space-y-6">
       {/* Headline cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {loading ? (
@@ -263,7 +238,7 @@ const Reports: React.FC = () => {
           <p className={`mt-3 text-2xl font-bold tracking-tight value-pop ${netProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
             {fmtCurrency(netProfit)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">Revenue − expenses</p>
+          <p className="mt-1 text-xs text-muted-foreground">Revenue − all paid expenses incl. tax (capital purchases excluded) · statement in Financial Report</p>
         </div>
         <div className="card-base card-lift p-5 fade-up fade-up-4">
           <div className="flex items-start justify-between">
@@ -432,8 +407,6 @@ const Reports: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
-      </div>
-      )}
     </div>
   );
 };

@@ -231,7 +231,11 @@ export const markSalaryPaid = async (req: Request, res: Response, next: NextFunc
 export const deleteSalary = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    await prisma.staffSalary.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      // The auto-created Expenditures mirror row must go too, or it keeps counting on reports.
+      await tx.expense.deleteMany({ where: { salaryId: id } });
+      await tx.staffSalary.delete({ where: { id } });
+    });
     res.json({ success: true });
   } catch (error) {
     next(error);

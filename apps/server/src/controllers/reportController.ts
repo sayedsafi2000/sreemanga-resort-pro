@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
+import { parsePeriod, toYmdLocal } from '../utils/dateRange';
 
 export const getRevenueReport = async (
   req: Request,
@@ -9,37 +10,45 @@ export const getRevenueReport = async (
   try {
     const { startDate, endDate } = req.query;
 
-    const where: any = {
-      status: 'COMPLETED',
-    };
+    // Same cash-basis rules as the Financial Report: local-day bounds, a payment counts on
+    // `paidAt ?? createdAt`, and refunds are taken out on the day they were paid back.
+    const period = startDate || endDate ? parsePeriod(startDate, endDate) : null;
+    const range = period ? { gte: period.start, lt: period.endExclusive } : undefined;
+    const where: any = { status: 'COMPLETED' };
+    if (range) where.OR = [{ paidAt: range }, { paidAt: null, createdAt: range }];
 
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate as string);
-      if (endDate) where.createdAt.lte = new Date(endDate as string);
-    }
-
-    const payments = await prisma.payment.findMany({
-      where,
-      include: {
-        booking: {
-          include: {
-            room: true,
+    const [payments, refunds] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        include: {
+          booking: {
+            include: {
+              room: true,
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.refund.findMany({
+        where: range ? { refundedAt: range } : {},
+        select: { amount: true, refundedAt: true, payment: { select: { booking: { select: { room: { select: { type: true } } } } } } },
+      }),
+    ]);
 
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+    const refundTotal = refunds.reduce((sum, r) => sum + r.amount, 0);
+    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0) - refundTotal;
     const totalBookings = new Set(
       payments.map((p) => p.bookingId)
     ).size;
 
-    // Group by date
+    // Group by local date
     const revenueByDate: Record<string, number> = {};
     payments.forEach((p) => {
-      const date = p.createdAt.toISOString().split('T')[0];
+      const date = toYmdLocal(p.paidAt ?? p.createdAt);
       revenueByDate[date] = (revenueByDate[date] || 0) + p.amount;
+    });
+    refunds.forEach((r) => {
+      const date = toYmdLocal(r.refundedAt);
+      revenueByDate[date] = (revenueByDate[date] || 0) - r.amount;
     });
 
     // Group by room type
@@ -49,6 +58,11 @@ export const getRevenueReport = async (
       if (!type) return;
       revenueByRoomType[type] =
         (revenueByRoomType[type] || 0) + p.amount;
+    });
+    refunds.forEach((r) => {
+      const type = r.payment?.booking?.room?.type;
+      if (!type) return;
+      revenueByRoomType[type] = (revenueByRoomType[type] || 0) - r.amount;
     });
 
     res.json({
@@ -135,15 +149,11 @@ export const getExpenseReport = async (
   try {
     const { startDate, endDate } = req.query;
 
-    const where: any = { status: 'PAID' };
+    // Capitalised purchases (category kind FIXED_ASSET) are balance-sheet items, not expenses.
+    const where: any = { status: 'PAID', category: { kind: { not: 'FIXED_ASSET' } } };
     if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) {
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999);
-        where.date.lte = end;
-      }
+      const period = parsePeriod(startDate, endDate);
+      where.date = { gte: period.start, lt: period.endExclusive };
     }
 
     const expenses = await prisma.expense.findMany({
@@ -155,7 +165,7 @@ export const getExpenseReport = async (
 
     const expensesByDate: Record<string, number> = {};
     expenses.forEach((e) => {
-      const date = e.date.toISOString().split('T')[0];
+      const date = toYmdLocal(e.date);
       expensesByDate[date] = (expensesByDate[date] || 0) + e.amount;
     });
 

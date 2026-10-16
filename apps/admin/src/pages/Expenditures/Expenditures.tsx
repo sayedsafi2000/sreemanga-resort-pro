@@ -86,11 +86,30 @@ function toKey(label: string): string {
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 
+/** Where a category's expenses land on the Financial Report (mirrors the API's ExpenseCategoryKind). */
+type CategoryKind = 'EXPENSE' | 'PURCHASE' | 'FIXED_ASSET' | 'INCOME_TAX';
+
+const CATEGORY_KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
+  { value: 'EXPENSE', label: 'Expense' },
+  { value: 'PURCHASE', label: 'Purchase (cost of goods)' },
+  { value: 'FIXED_ASSET', label: 'Fixed asset' },
+  { value: 'INCOME_TAX', label: 'Income tax' },
+];
+
+/** Short labels for the kind badge shown next to non-default categories. */
+const CATEGORY_KIND_BADGE: Record<CategoryKind, string> = {
+  EXPENSE: 'Expense',
+  PURCHASE: 'Purchase',
+  FIXED_ASSET: 'Fixed asset',
+  INCOME_TAX: 'Income tax',
+};
+
 type Category = {
   id: string;
   name: string;
   sortOrder: number;
   isActive?: boolean;
+  kind?: CategoryKind;
   fields?: CategoryField[];
   _count?: { expenses: number };
 };
@@ -173,7 +192,7 @@ async function fileToCompressedDataUrl(file: File): Promise<string> {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const paymentMethods = ['CASH', 'BKASH', 'NAGAD', 'CARD'] as const;
+const paymentMethods = ['CASH', 'BKASH', 'NAGAD', 'CARD', 'BANK_TRANSFER', 'MOBILE_BANKING'] as const;
 const statuses = ['PAID', 'PENDING', 'CANCELLED'] as const;
 
 const DEFAULT_EXPENSE_FORM = {
@@ -467,6 +486,7 @@ export default function Expenditures() {
   // Category form
   const [categoryName, setCategoryName] = useState('');
   const [categoryIsActive, setCategoryIsActive] = useState(true);
+  const [categoryKind, setCategoryKind] = useState<CategoryKind>('EXPENSE');
   const [categoryFields, setCategoryFields] = useState<CategoryField[]>([]);
 
   // Expense form
@@ -626,7 +646,7 @@ export default function Expenditures() {
     }
     setSaving(true);
     try {
-      const payload = { name: categoryName, isActive: categoryIsActive, fields: categoryFields };
+      const payload = { name: categoryName, isActive: categoryIsActive, kind: categoryKind, fields: categoryFields };
       if (editingCategory) {
         await api.patch(`/expenditures/categories/${editingCategory.id}`, payload);
       } else {
@@ -634,6 +654,7 @@ export default function Expenditures() {
       }
       setCategoryName('');
       setCategoryIsActive(true);
+      setCategoryKind('EXPENSE');
       setCategoryFields([]);
       setEditingCategory(null);
       await fetchCategories();
@@ -1292,7 +1313,7 @@ export default function Expenditures() {
       )}
 
       {/* ── Manage Categories Dialog ─────────────────────────────────────────── */}
-      <Dialog open={openCategoryManager} onOpenChange={(o) => { if (!o) setEditingCategory(null); setOpenCategoryManager(o); }}>
+      <Dialog open={openCategoryManager} onOpenChange={(o) => { if (!o) { setEditingCategory(null); setCategoryName(''); setCategoryIsActive(true); setCategoryKind('EXPENSE'); setCategoryFields([]); } setOpenCategoryManager(o); }}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Categories</DialogTitle>
@@ -1313,6 +1334,24 @@ export default function Expenditures() {
                   <p className="text-xs text-muted-foreground">System category name cannot be changed.</p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label>Counts as</Label>
+                <Select
+                  value={categoryKind}
+                  onValueChange={(v) => setCategoryKind(v as CategoryKind)}
+                  disabled={editingCategory?.name === STAFF_SALARY_CATEGORY_NAME}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_KIND_OPTIONS.map((k) => (
+                      <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Decides where this category appears on the Financial Report. Changing it re-classifies the category's existing expenses.
+                </p>
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={categoryIsActive} onChange={(e) => setCategoryIsActive(e.target.checked)} />
                 Active
@@ -1324,7 +1363,7 @@ export default function Expenditures() {
                   {editingCategory ? 'Update' : 'Add Category'}
                 </Button>
                 {editingCategory && (
-                  <Button variant="outline" onClick={() => { setEditingCategory(null); setCategoryName(''); setCategoryIsActive(true); setCategoryFields([]); }}>
+                  <Button variant="outline" onClick={() => { setEditingCategory(null); setCategoryName(''); setCategoryIsActive(true); setCategoryKind('EXPENSE'); setCategoryFields([]); }}>
                     Cancel
                   </Button>
                 )}
@@ -1345,6 +1384,9 @@ export default function Expenditures() {
                         {cat.isActive === false && (
                           <Badge variant="outline" className="text-[10px] shrink-0">Inactive</Badge>
                         )}
+                        {cat.kind && cat.kind !== 'EXPENSE' && (
+                          <Badge variant="outline" className="text-[10px] shrink-0">{CATEGORY_KIND_BADGE[cat.kind]}</Badge>
+                        )}
                       </div>
                       {(cat.fields ?? []).length > 0 && (
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -1353,7 +1395,7 @@ export default function Expenditures() {
                       )}
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryIsActive(cat.isActive !== false); setCategoryFields(cat.fields ?? []); }}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryIsActive(cat.isActive !== false); setCategoryKind(cat.kind ?? 'EXPENSE'); setCategoryFields(cat.fields ?? []); }}>
                         <Edit className="h-3.5 w-3.5" />
                       </Button>
                       {cat.name !== STAFF_SALARY_CATEGORY_NAME && (
