@@ -58,6 +58,13 @@ async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> 
   }
 }
 
+/** `webAdvancePercent` setting → 0–100; missing/garbage falls back to 50. */
+function parseAdvancePercent(value: string | undefined): number {
+  const n = Number.parseFloat(String(value ?? '').trim());
+  if (!Number.isFinite(n)) return 50;
+  return Math.min(100, Math.max(0, n));
+}
+
 function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
   return {
     resortName: raw.resortName || "Pina Vista",
@@ -86,6 +93,8 @@ function mapSettingsFromDb(raw: Record<string, string>): ResortSettings {
     bankAccountNumber: raw.bankAccountNumber || undefined,
     bankName: raw.bankName || undefined,
     bankBranch: raw.bankBranch || undefined,
+    // Website advance rule (admin Settings): 0 or ≥100 means the full amount must be paid now.
+    advancePercent: parseAdvancePercent(raw.webAdvancePercent),
     // বাংলা copies saved by admin → Settings (`<key>_bn`); older installs used site_name_bn.
     resortNameBn: raw.resortName_bn || raw.site_name_bn || '',
     taglineBn: raw.tagline_bn || '',
@@ -370,9 +379,23 @@ export async function getTestimonials(): Promise<Testimonial[]> {
     .filter((t) => t.quote && t.author);
 }
 
+export interface PublicBookingResult {
+  ok: boolean;
+  message: string;
+  checkoutUrl?: string;
+  /** What the guest was asked to pay now (advance or full), per the server's rule. */
+  advanceAmount?: number;
+  advancePercent?: number;
+  dueAtCheckIn?: number;
+}
+
+function numberOrUndefined(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
 export async function submitPublicBooking(
   payload: PublicBookingInput
-): Promise<{ ok: boolean; message: string; checkoutUrl?: string }> {
+): Promise<PublicBookingResult> {
   try {
     const res = await fetch(`${apiBase()}/bookings`, {
       method: 'POST',
@@ -394,6 +417,9 @@ export async function submitPublicBooking(
       ok: true,
       message: 'Booking submitted successfully. We will contact you shortly.',
       checkoutUrl: j?.checkoutUrl,
+      advanceAmount: numberOrUndefined(j?.advanceAmount),
+      advancePercent: numberOrUndefined(j?.advancePercent),
+      dueAtCheckIn: numberOrUndefined(j?.dueAtCheckIn),
     };
   } catch {
     return { ok: false, message: 'Network error. Please try again.' };

@@ -7,7 +7,7 @@ import { createCheckoutSessionForBooking } from './stripeController';
 import { emailService } from '../utils/emailService';
 import crypto from 'crypto';
 import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
-import { computeBookingTotal, computeOccupancy, DEFAULT_EXTRA_GUEST_CHARGE, formatInvoiceNo } from '../utils/bookingPricing';
+import { computeBookingTotal, computeOccupancy, DEFAULT_EXTRA_GUEST_CHARGE, formatInvoiceNo, round2 } from '../utils/bookingPricing';
 import {
   assertRoomAvailable,
   isNightBooked,
@@ -18,6 +18,26 @@ import {
 // ── OTP store (DB-backed, Phase 0.6) ───────────────────────────────────────
 // Persisted in the OtpCode table so it survives restarts and works across
 // multiple server instances. One active row per email (latest wins).
+
+// ── Website advance ─────────────────────────────────────────────────────────
+// Settings key `webAdvancePercent` (seeded 50): the share of the invoice a web guest pays
+// up front. 0 or ≥ 100 (or an unparsable value → 50) means the full amount is required.
+const DEFAULT_WEB_ADVANCE_PERCENT = 50;
+
+async function readWebAdvancePercent(): Promise<number> {
+  const row = await prisma.setting.findUnique({ where: { key: 'webAdvancePercent' } });
+  const n = Number(row?.value ?? DEFAULT_WEB_ADVANCE_PERCENT);
+  const pct = Number.isFinite(n) ? n : DEFAULT_WEB_ADVANCE_PERCENT;
+  return Math.min(100, Math.max(0, pct));
+}
+
+/** Amount the guest pays now; the remainder is due at check-in. Never 0 < x < 1 taka, never above the total. */
+function computeWebAdvance(totalAmount: number, pct: number, full: boolean): number {
+  if (totalAmount <= 0) return 0;
+  if (full || pct <= 0 || pct >= 100) return totalAmount;
+  const raw = round2((totalAmount * pct) / 100);
+  return Math.min(totalAmount, Math.max(1, raw));
+}
 
 // Periodically purge expired OTP rows.
 setInterval(() => {
@@ -203,7 +223,9 @@ const publicBookingSchema = z.object({
     (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
     z.string().trim().min(4).max(100).optional(),
   ),
-  paymentProofImage: z.string().max(12_000_000, 'Screenshot too large (max ~8 MB)').optional(),
+  paymentProofImage: z.string().max(12_000_000, 'Receipt image too large (max ~8 MB)').optional(),
+  // ADVANCE = pay `webAdvancePercent` of the total now, rest at check-in; FULL = pay everything now.
+  advanceOption: z.enum(['ADVANCE', 'FULL']).default('ADVANCE'),
   guestNid: z.string().optional(),
   guestAddress: z.string().optional(),
   checkInDate: z.string(),
@@ -215,7 +237,7 @@ const publicBookingSchema = z.object({
   if (data.preferredPaymentMethod !== 'STRIPE' && !data.paymentProofImage) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Please attach a screenshot of your payment',
+      message: 'Please attach your payment receipt (screenshot)',
       path: ['paymentProofImage'],
     });
   }
@@ -246,8 +268,14 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     if (!room) throw new AppError('Room not found', 404);
 
     const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    // Occupancy: `capacity` guests are included; extra adults / children 8+ pay per night.
-    const occupancy = computeOccupancy({ capacity: room.capacity, adults: data.adults, childrenOver8: data.childrenOver8 });
+    // Occupancy: `capacity` guests are included; extra adults / children 8+ pay per night;
+    // under-8 children are free but still count towards the room's total-person cap.
+    const occupancy = computeOccupancy({
+      capacity: room.capacity,
+      adults: data.adults,
+      childrenOver8: data.childrenOver8,
+      childrenUnder8: data.children,
+    });
     if (!occupancy.ok) throw new AppError(occupancy.message, 400);
     const pricing = computeBookingTotal({
       rate: room.price,
@@ -256,6 +284,9 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
       extraGuestCharge: room.extraGuestCharge ?? DEFAULT_EXTRA_GUEST_CHARGE,
     });
     const grossAmount = pricing.gross;
+    // Card payments are charged in full by Stripe Checkout; the advance rule applies to manual methods.
+    const advancePercent = await readWebAdvancePercent();
+    const payFull = data.advanceOption === 'FULL' || data.preferredPaymentMethod === 'STRIPE';
 
     const result = await prisma.$transaction(async (tx) => {
       // Serialise per room, then check availability inside the transaction so
@@ -291,6 +322,8 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
       }
 
       const totalAmount = Math.max(0, Math.round((grossAmount - discountAmount) * 100) / 100);
+      // Advance is a share of the discounted total (the PENDING payment row carries this amount).
+      const advanceAmount = computeWebAdvance(totalAmount, advancePercent, payFull);
 
       const bookingData = {
         roomId: data.roomId,
@@ -306,6 +339,7 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         checkInDate: checkIn,
         checkOutDate: checkOut,
         totalAmount,
+        advanceAmount,
         discountAmount,
         voucherId,
         status: 'PENDING',
@@ -338,6 +372,10 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
     // OTP is single-use: invalidate it now that the booking is committed.
     await prisma.otpCode.deleteMany({ where: { email: normalisedEmail } });
 
+    const advanceAmount = result.advanceAmount ?? result.totalAmount;
+    const dueAtCheckIn = round2(Math.max(0, result.totalAmount - advanceAmount));
+    const advanceInfo = { advanceAmount, advancePercent, dueAtCheckIn };
+
     // Card payment → create a Stripe Checkout Session and hand the URL back so
     // the client can redirect. The confirmation email fires from the webhook
     // once payment succeeds, so we skip the "pending" email here.
@@ -348,11 +386,11 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
       });
       if (!payment) throw new AppError('Payment record missing for booking', 500);
       const checkoutUrl = await createCheckoutSessionForBooking(result, payment.id);
-      res.status(201).json({ success: true, booking: result, checkoutUrl });
+      res.status(201).json({ success: true, booking: result, ...advanceInfo, checkoutUrl });
       return;
     }
 
-    res.status(201).json({ success: true, booking: result });
+    res.status(201).json({ success: true, booking: result, ...advanceInfo });
 
     // Send pending acknowledgment email to guest (fire-and-forget)
     if (result.guest.email) {
@@ -363,6 +401,8 @@ export const createPublicBooking = async (req: Request, res: Response, next: Nex
         checkInDate: result.checkInDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
         checkOutDate: result.checkOutDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
         totalAmount: result.totalAmount,
+        advanceAmount,
+        dueAmount: dueAtCheckIn,
       }).catch(err => console.error('[Email] Pending booking email failed:', err));
     }
   } catch (error) { next(error); }

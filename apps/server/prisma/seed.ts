@@ -492,6 +492,7 @@ async function main() {
     { key: 'bankAccountNumber', value: '', description: 'Bank account number' },
     { key: 'bankName', value: '', description: 'Bank name' },
     { key: 'bankBranch', value: '', description: 'Bank branch' },
+    { key: 'webAdvancePercent', value: '50', description: 'Minimum advance (% of total) a website guest must pay to confirm a booking' },
   ];
   for (const s of settingKeys) {
     // Preserve existing non-empty values; only seed when missing or blank.
@@ -541,7 +542,6 @@ async function main() {
     { code: '5004', name: 'Food Supplies', type: 'EXPENSE', parentCode: '5000', sortOrder: 24 },
     { code: '5005', name: 'Marketing', type: 'EXPENSE', parentCode: '5000', sortOrder: 25 },
     { code: '5006', name: 'Miscellaneous', type: 'EXPENSE', parentCode: '5000', sortOrder: 26 },
-    { code: '5007', name: 'Inventory / COGS', type: 'EXPENSE', parentCode: '5000', sortOrder: 27 },
     { code: '5008', name: 'Income Tax', type: 'EXPENSE', parentCode: '5000', sortOrder: 28 },
   ];
 
@@ -577,7 +577,7 @@ async function main() {
     { name: 'Food & Kitchen', sortOrder: 2, accountCode: '5004', kind: 'PURCHASE' },
     { name: 'Utilities', sortOrder: 3, accountCode: '5001', kind: 'EXPENSE' },
     { name: 'Maintenance', sortOrder: 4, accountCode: '5003', kind: 'EXPENSE' },
-    { name: 'Supplies', sortOrder: 5, accountCode: '5007', kind: 'PURCHASE' },
+    { name: 'Supplies', sortOrder: 5, accountCode: '5006', kind: 'PURCHASE' },
     { name: 'Marketing', sortOrder: 6, accountCode: '5005', kind: 'EXPENSE' },
     { name: 'Transport', sortOrder: 7, accountCode: '5006', kind: 'EXPENSE' },
     { name: 'Rent/Tax', sortOrder: 8, accountCode: '5006', kind: 'EXPENSE' },

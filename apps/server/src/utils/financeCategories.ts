@@ -21,10 +21,12 @@ const FIXED_ASSET_ACCOUNT_CODE = '1101';
 const PURCHASE_DEFAULTS = ['Food & Kitchen', 'Supplies'];
 
 let initialised = false;
+let legacyRetired = false;
 
 /** Visible for tests / seed resets. */
 export function resetFinanceCategoriesMemo(): void {
   initialised = false;
+  legacyRetired = false;
 }
 
 async function initWith(tx: Prisma.TransactionClient): Promise<void> {
@@ -123,6 +125,65 @@ export async function ensureFinanceCategories(db: Db = prisma): Promise<void> {
   } catch (e: any) {
     if (e?.code === 'P2002') {
       initialised = true; // another request initialised concurrently
+      return;
+    }
+    throw e;
+  }
+}
+
+/**
+ * Account 5007 "Inventory / COGS" was dropped from the seed (stock purchases are ordinary
+ * PURCHASE-kind expense categories now) but live databases still carry it. Fold it into
+ * 5006 Miscellaneous: re-point its expense categories, clear inventory items that defaulted
+ * to it, then delete the account when nothing ever posted to it, otherwise deactivate it.
+ * Memoised in-process like ensureFinanceCategories — a single lookup per boot once done.
+ */
+const LEGACY_ACCOUNT_CODE = '5007';
+const LEGACY_FALLBACK_CODE = '5006';
+
+async function retireWith(tx: Prisma.TransactionClient): Promise<void> {
+  const legacy = await tx.account.findUnique({
+    where: { code: LEGACY_ACCOUNT_CODE },
+    include: { _count: { select: { transactions: true, children: true } } },
+  });
+  if (!legacy || !legacy.isActive) return;
+
+  const fallback = await tx.account.findUnique({ where: { code: LEGACY_FALLBACK_CODE } });
+  if (fallback) {
+    await tx.expenseCategory.updateMany({ where: { accountId: legacy.id }, data: { accountId: fallback.id } });
+  }
+  await tx.inventoryItem.updateMany({
+    where: { expenseAccountCode: LEGACY_ACCOUNT_CODE },
+    data: { expenseAccountCode: null },
+  });
+
+  // Categories can only still point here when 5006 is missing — then the FK forbids a delete.
+  const stillLinked = await tx.expenseCategory.count({ where: { accountId: legacy.id } });
+  const removable = legacy._count.transactions === 0 && legacy._count.children === 0 && stillLinked === 0;
+  if (removable) {
+    await tx.account.delete({ where: { id: legacy.id } });
+  } else {
+    await tx.account.update({ where: { id: legacy.id }, data: { isActive: false } });
+  }
+}
+
+export async function retireLegacyAccounts(db: Db = prisma): Promise<void> {
+  if (legacyRetired) return;
+  const legacy = await db.account.findUnique({ where: { code: LEGACY_ACCOUNT_CODE }, select: { isActive: true } });
+  if (!legacy || !legacy.isActive) {
+    legacyRetired = true;
+    return;
+  }
+  try {
+    if ('$transaction' in db) {
+      await (db as typeof prisma).$transaction((tx) => retireWith(tx));
+    } else {
+      await retireWith(db as Prisma.TransactionClient);
+    }
+    legacyRetired = true;
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      legacyRetired = true; // a concurrent request retired it first
       return;
     }
     throw e;

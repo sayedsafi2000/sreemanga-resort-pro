@@ -39,9 +39,33 @@ interface Entry {
   referenceType?: string;
   referenceId?: string;
   createdById?: string;
+  /** User-entered date (local noon); omitted = the DB default now(). */
+  transactionDate?: Date;
 }
 
-// The ONLY place an account balance is mutated. One rule.
+/** Signed change to an account balance for one entry: IN adds, OUT subtracts; `sign = -1` reverts it. */
+export function balanceDelta(direction: 'IN' | 'OUT', amount: number, sign: 1 | -1 = 1): number {
+  return (direction === 'IN' ? amount : -amount) * sign;
+}
+
+// The ONLY rule by which an account balance moves. `sign = -1` undoes an entry (edit/delete of a
+// user-made row) so the revert is the exact mirror of the original posting.
+export async function applyBalanceDelta(
+  tx: Prisma.TransactionClient,
+  accountId: string,
+  direction: 'IN' | 'OUT',
+  amount: number,
+  sign: 1 | -1 = 1
+): Promise<void> {
+  const delta = balanceDelta(direction, amount, sign);
+  if (delta === 0) return;
+  await tx.account.update({
+    where: { id: accountId },
+    data: { currentBalance: { increment: delta } },
+  });
+}
+
+// The ONLY place a ledger row is written. One rule.
 async function writeEntry(tx: Prisma.TransactionClient, e: Entry): Promise<void> {
   if (e.amount <= 0) return; // ignore zero/negative — callers pass positive magnitudes
   await tx.accountTransaction.create({
@@ -54,13 +78,10 @@ async function writeEntry(tx: Prisma.TransactionClient, e: Entry): Promise<void>
       referenceType: e.referenceType,
       referenceId: e.referenceId,
       createdById: e.createdById,
+      ...(e.transactionDate ? { transactionDate: e.transactionDate } : {}),
     },
   });
-  const delta = e.direction === 'IN' ? e.amount : -e.amount;
-  await tx.account.update({
-    where: { id: e.accountId },
-    data: { currentBalance: { increment: delta } },
-  });
+  await applyBalanceDelta(tx, e.accountId, e.direction, e.amount);
 }
 
 async function accountByCode(tx: Prisma.TransactionClient, code: string) {
@@ -162,6 +183,8 @@ export interface TransferEntry {
   amount: number;
   description?: string;
   createdById?: string;
+  /** Shared id written to `referenceId` on both legs so they can be edited/deleted as one. */
+  groupId?: string;
 }
 
 // Transfer: from OUT + to IN.
@@ -174,6 +197,7 @@ export async function recordTransfer(
     direction: 'OUT',
     amount: t.amount,
     referenceType: 'TRANSFER',
+    referenceId: t.groupId,
     description: t.description,
     createdById: t.createdById,
   });
@@ -182,6 +206,7 @@ export async function recordTransfer(
     direction: 'IN',
     amount: t.amount,
     referenceType: 'TRANSFER',
+    referenceId: t.groupId,
     description: t.description,
     createdById: t.createdById,
   });
@@ -190,15 +215,27 @@ export async function recordTransfer(
 // Manual single-sided entry (from the account detail UI).
 export async function recordManualEntry(
   tx: Prisma.TransactionClient,
-  m: { accountId: string; direction: 'IN' | 'OUT'; amount: number; description?: string; createdById?: string }
+  m: {
+    accountId: string;
+    direction: 'IN' | 'OUT';
+    amount: number;
+    description?: string;
+    createdById?: string;
+    /** Back-dated entry (local noon of the chosen day). */
+    transactionDate?: Date;
+    /** Optional pointer to the record that caused the posting (e.g. a profit distribution id). */
+    referenceId?: string;
+  }
 ): Promise<void> {
   await writeEntry(tx, {
     accountId: m.accountId,
     direction: m.direction,
     amount: m.amount,
     referenceType: 'MANUAL',
+    referenceId: m.referenceId,
     description: m.description,
     createdById: m.createdById,
+    transactionDate: m.transactionDate,
   });
 }
 

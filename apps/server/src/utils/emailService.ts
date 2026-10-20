@@ -233,24 +233,44 @@ class EmailService {
       checkInDate: string;
       checkOutDate: string;
       totalAmount: number;
+      /** Website bookings: what the guest paid now (receipt attached). Omitted for front-desk bookings. */
+      advanceAmount?: number;
+      /** Balance payable at check-in; defaults to total − advance. */
+      dueAmount?: number;
     }
   ): Promise<boolean> {
+    const hasReceipt = typeof booking.advanceAmount === 'number' && Number.isFinite(booking.advanceAmount);
+    const isPartial = hasReceipt && (booking.advanceAmount as number) < booking.totalAmount;
+    const dueAmount = isPartial
+      ? Math.max(0, booking.dueAmount ?? Math.round((booking.totalAmount - (booking.advanceAmount as number)) * 100) / 100)
+      : 0;
+    const intro = isPartial
+      ? 'We have received your booking request and your payment receipt. Once our team verifies the advance payment, your booking will be confirmed.'
+      : hasReceipt
+        ? 'We have received your booking request and your payment receipt. Once our team verifies the payment, your booking will be confirmed.'
+        : 'Your booking is currently <strong>pending review</strong>. We will confirm availability and contact you shortly.';
+    const rows: [string, string][] = [
+      ['Invoice No',  booking.bookingId],
+      ['Room',        booking.roomName],
+      ['Check-in',    booking.checkInDate],
+      ['Check-out',   booking.checkOutDate],
+      ['Total',       `৳${booking.totalAmount.toLocaleString()}`],
+    ];
+    if (isPartial) {
+      rows.push(['Advance to pay now', `৳${(booking.advanceAmount as number).toLocaleString()}`]);
+      rows.push(['Due at check-in', `৳${dueAmount.toLocaleString()}`]);
+    }
+    rows.push(['Status', '⏳ Pending Confirmation']);
+
     const html = wrap(bodyPad(`
       <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#4a6e4a;letter-spacing:2px;text-transform:uppercase;">Request Received</p>
       <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#0a1b0c;">We've got your booking request</h2>
       <p style="margin:0 0 24px;font-size:15px;color:#3a5a3a;line-height:1.7;">
         Dear <strong>${booking.guestName}</strong>, thank you for choosing ${BRAND_NAME}!
-        Your booking is currently <strong>pending review</strong>. We will confirm availability and contact you shortly.
+        ${intro}
       </p>
 
-      ${detailTable([
-        ['Invoice No',  booking.bookingId],
-        ['Room',        booking.roomName],
-        ['Check-in',    booking.checkInDate],
-        ['Check-out',   booking.checkOutDate],
-        ['Total',       `৳${booking.totalAmount.toLocaleString()}`],
-        ['Status',      '⏳ Pending Confirmation'],
-      ])}
+      ${detailTable(rows)}
 
       <div style="background:#fffbf0;border-left:4px solid ${ACCENT_COLOR};border-radius:0 8px 8px 0;padding:14px 18px;margin:20px 0;">
         <p style="margin:0;font-size:13px;color:#6a5a2a;line-height:1.7;">
@@ -264,7 +284,7 @@ class EmailService {
       to: email,
       subject: `Booking Request Received — ${booking.bookingId} | ${BRAND_NAME}`,
       html,
-      text: `Dear ${booking.guestName},\n\nYour booking request (Invoice ${booking.bookingId}) has been received and is pending confirmation.\n\nRoom: ${booking.roomName}\nCheck-in: ${booking.checkInDate}\nCheck-out: ${booking.checkOutDate}\n\nWe will contact you shortly.`,
+      text: `Dear ${booking.guestName},\n\nYour booking request (Invoice ${booking.bookingId}) has been received and is pending confirmation.\n\nRoom: ${booking.roomName}\nCheck-in: ${booking.checkInDate}\nCheck-out: ${booking.checkOutDate}\nTotal: ৳${booking.totalAmount.toLocaleString()}${isPartial ? `\nAdvance to pay now: ৳${(booking.advanceAmount as number).toLocaleString()}\nDue at check-in: ৳${dueAmount.toLocaleString()}` : ''}\n\n${hasReceipt ? 'Once our team verifies your payment, your booking will be confirmed.' : 'We will contact you shortly.'}`,
     });
   }
 

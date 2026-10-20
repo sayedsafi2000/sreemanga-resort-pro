@@ -276,9 +276,19 @@ export function canEditPayments(role: string | undefined): boolean {
   return role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT';
 }
 
-/** Delete opening-balance / loan / owner-capital entries on the Financial Report — SUPER_ADMIN only on API. */
+/** Delete opening-balance / loan / owner-capital entries on the Financial Report — SUPER_ADMIN + MANAGER on API. */
 export function canDeleteFinanceEntries(role: string | undefined): boolean {
-  return role === 'SUPER_ADMIN';
+  return role === 'SUPER_ADMIN' || role === 'MANAGER';
+}
+
+/** Edit (PATCH) opening-balance / loan / owner-capital entries — SUPER_ADMIN / MANAGER / ACCOUNTANT on API. */
+export function canEditFinanceEntries(role: string | undefined): boolean {
+  return role === 'SUPER_ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT';
+}
+
+/** Delete manual ledger entries / transfers and uncollected receivables on Accounts — SUPER_ADMIN + MANAGER on API. */
+export function canDeleteLedgerEntries(role: string | undefined): boolean {
+  return role === 'SUPER_ADMIN' || role === 'MANAGER';
 }
 
 /** Item CRUD + purchases — matches inventory MANAGE roles. */

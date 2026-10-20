@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import {
   Plus, Search, Copy, Check, FileText, Pencil, Trash2, Banknote, LogIn, LogOut, CalendarDays, Crown, Globe2, Handshake, MonitorSmartphone,
   Loader2, ChevronLeft, ChevronRight, ChevronDown, MoreHorizontal, Filter, BedDouble, User, Phone, Hash, Inbox, CheckCircle2, Ban, ReceiptText,
-  DollarSign, Percent, Calculator, Wallet, AlertTriangle, Settings2, Clock, RotateCcw,
+  DollarSign, Percent, Calculator, Wallet, AlertTriangle, Settings2, Clock, RotateCcw, Receipt,
 } from 'lucide-react';
 import DueCollectDialog from './DueCollectDialog';
 import { type Booking, type Room, STATUS_META, fmt, fmtDate, copyText, errMsg, resortTitle } from './shared';
@@ -63,6 +63,7 @@ const Flags: React.FC<{ b: Booking }> = ({ b }) => (
     {b.isForeigner && <span title="Foreigner" className="inline-flex items-center gap-0.5 rounded bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white"><Globe2 className="h-3 w-3" />Foreigner</span>}
     {b.isStakeholder && <span title="Stakeholder" className="inline-flex items-center gap-0.5 rounded bg-green-600 px-1.5 py-0.5 text-[10px] font-bold text-white"><Handshake className="h-3 w-3" />Stakeholder</span>}
     {b.source === 'WEB' && <span title="Booked on the website" className="inline-flex items-center gap-0.5 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold text-white"><MonitorSmartphone className="h-3 w-3" />Website</span>}
+    {b.hasPaymentProof && <span title="Guest attached a payment receipt — open the invoice" className="inline-flex items-center gap-0.5 rounded border border-violet-400 bg-white px-1.5 py-0.5 text-[10px] font-bold text-violet-700"><Receipt className="h-3 w-3" />Receipt</span>}
   </>
 );
 const Customer: React.FC<{ b: Booking }> = ({ b }) => (
@@ -76,6 +77,8 @@ const Details: React.FC<{ b: Booking; resortName: string }> = ({ b, resortName }
     <div className="font-bold text-emerald-700">{ymd(b.checkInDate)} <span className="font-normal text-slate-400">→</span> {ymd(b.checkOutDate)} <span className="font-normal text-slate-500">· {b.nights} night{b.nights === 1 ? '' : 's'}</span></div>
     <div className="font-bold text-emerald-700"><BedDouble className="mr-1 inline h-3 w-3 align-[-2px]" />{b.room.name} <span className="font-normal text-slate-500">· {b.adults}A {b.children}C{b.extraPersons ? ` +${b.extraPersons}` : ''}</span></div>
     <div className="font-bold text-blue-700">{resortName}</div>
+    {/* Website reservation: what the guest chose to pay now — the PENDING payment the desk must verify. */}
+    {b.status === 'PENDING' && b.source === 'WEB' && typeof b.advanceAmount === 'number' && <div className="font-bold text-amber-700">Advance expected {fmt(b.advanceAmount)}</div>}
   </div>
 );
 type ActionHandlers = { invoice: (b: Booking) => void; edit: (b: Booking) => void; remove: (b: Booking) => void; due: (b: Booking) => void; copy: (b: Booking) => void; status: (b: Booking, next: string) => void };

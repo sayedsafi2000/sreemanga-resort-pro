@@ -1,20 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import logoMark from '@/assets/logo-mark.png';
 import { downloadCsv } from '@/lib/csv';
 import { useAuth } from '@/contexts/AuthContext';
-import { canAccessPath, canDeleteFinanceEntries } from '@/config/rbac';
+import { canAccessPath, canDeleteFinanceEntries, canEditFinanceEntries } from '@/config/rbac';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
-import { Download, FileDown, Landmark, Loader2, PieChart, Printer } from 'lucide-react';
+import { Download, FileDown, Info, Landmark, Loader2, PieChart, Printer } from 'lucide-react';
 import { errMsg } from '@/pages/Bookings/shared';
 import type { Statement } from './types';
 import { isYmd, thisMonth } from './period';
-import { csvRows } from './rows';
+import { csvRows, distributionHref } from './rows';
 import PeriodPicker from './PeriodPicker';
 import StatementSheet from './StatementSheet';
 import OtherEntriesDialog from './OtherEntriesDialog';
+import IncomeTaxDialog from './IncomeTaxDialog';
 
 type Settings = Record<string, string>;
 
@@ -73,6 +74,7 @@ const FinancialReport: React.FC = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const [detailed, setDetailed] = useState(false);
   const [entriesOpen, setEntriesOpen] = useState(false);
+  const [taxOpen, setTaxOpen] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [settings, setSettings] = useState<Settings>({});
   const [logo, setLogo] = useState<string>(logoMark);
@@ -111,6 +113,13 @@ const FinancialReport: React.FC = () => {
   const resortName = settings.resortName || 'Pina Vista';
   const distributable = data?.distribution.distributable ?? 0;
   const canDistribute = canAccessPath(user?.role, '/shareholders') && distributable > 0 && !loading;
+  const planned = data?.distribution.planned ?? [];
+  const canSeeShareholders = canAccessPath(user?.role, '/shareholders');
+
+  // Row action buttons on the sheet (rows.ts `action.key`).
+  const onSheetAction = (key: string) => {
+    if (key === 'edit-income-tax') setTaxOpen(true);
+  };
   // Name files after the statement actually on screen (not the URL, which may already point at the next period).
   const fileBase = `financial-report-${data?.period.from ?? range.from}-${data?.period.to ?? range.to}`;
   const exportsDisabled = !data || loading;
@@ -183,6 +192,17 @@ const FinancialReport: React.FC = () => {
             <PieChart className="mr-1 h-4 w-4" /> Create distribution
           </Button>
         )}
+        {planned.length > 0 && (
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            Draft distribution exists for this period —{' '}
+            {canSeeShareholders ? (
+              <Link to={distributionHref(planned[0].id)} className="underline underline-offset-2 hover:text-primary">edit it on the Shareholders page</Link>
+            ) : (
+              'edit it on the Shareholders page'
+            )}
+          </p>
+        )}
         <div className="ml-auto flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="outline" onClick={exportCsv} disabled={exportsDisabled}>
             <Download className="mr-1 h-4 w-4" /> CSV
@@ -203,14 +223,28 @@ const FinancialReport: React.FC = () => {
       <div className="mx-auto max-w-5xl print:max-w-none">
         {data ? (
           <div className={`transition-opacity ${loading ? 'opacity-60' : ''}`} aria-busy={loading}>
-            <StatementSheet ref={sheetRef} data={data} detailed={detailed} resortName={resortName} logo={logo} settings={settings} />
+            <StatementSheet ref={sheetRef} data={data} detailed={detailed} resortName={resortName} logo={logo} settings={settings} onAction={onSheetAction} />
           </div>
         ) : loading ? (
           <SheetSkeleton />
         ) : null}
       </div>
 
-      <OtherEntriesDialog open={entriesOpen} onOpenChange={setEntriesOpen} canDelete={canDeleteFinanceEntries(user?.role)} onChanged={reload} />
+      <OtherEntriesDialog
+        open={entriesOpen}
+        onOpenChange={setEntriesOpen}
+        canEdit={canEditFinanceEntries(user?.role)}
+        canDelete={canDeleteFinanceEntries(user?.role)}
+        onChanged={reload}
+      />
+      <IncomeTaxDialog
+        open={taxOpen}
+        onOpenChange={setTaxOpen}
+        categoryId={data?.incomeTaxCategoryId ?? null}
+        from={data?.period.from ?? range.from}
+        to={data?.period.to ?? range.to}
+        onChanged={reload}
+      />
     </div>
   );
 };

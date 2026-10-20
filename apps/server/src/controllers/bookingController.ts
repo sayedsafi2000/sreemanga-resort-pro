@@ -4,7 +4,7 @@ import prisma from '../utils/prisma';
 import { bookingSchema, updateBookingSchema } from '../validators/bookingValidator';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
-import { createPaymentFromBooking } from '../utils/bookingPayment';
+import { bookingIdsWithPaymentProof, createPaymentFromBooking } from '../utils/bookingPayment';
 import { recordVoucherRedemption, validateVoucherForCheckout } from '../utils/voucher';
 import { assertRoomAvailable, lockRoomForBooking, overlappingStayWhere } from '../utils/bookingAvailability';
 import { recordRevenue } from '../utils/accountLedger';
@@ -32,7 +32,12 @@ const BOOKING_INCLUDE = {
   voucher: { select: { id: true, name: true, codeHint: true } },
 } as const;
 
-type BookingRow = Prisma.BookingGetPayload<{ include: typeof BOOKING_INCLUDE }>;
+// List queries omit the base64 receipt (`paymentProofImage`) — it can be megabytes per row — so
+// the column is optional here; `decorate` exposes `hasPaymentProof` either way.
+type BookingRow = Omit<Prisma.BookingGetPayload<{ include: typeof BOOKING_INCLUDE }>, 'paymentProofImage'> & {
+  paymentProofImage?: string | null;
+};
+const OMIT_PROOF = { paymentProofImage: true } as const;
 
 // ── Stakeholder detection (guest is also a shareholder) ────────────────────
 type StakeholderKeys = { emails: Set<string>; phones: Set<string> };
@@ -59,7 +64,8 @@ function isStakeholderGuest(g: { email?: string | null; phone?: string | null } 
   return p.length >= 10 && keys.phones.has(p);
 }
 
-function decorate(b: BookingRow, keys: StakeholderKeys) {
+/** `proofIds`: for list rows (image omitted) the ids that carry a receipt; detail rows read their own column. */
+function decorate(b: BookingRow, keys: StakeholderKeys, proofIds?: Set<string>) {
   const { paid, due, refunded } = paidAndDue(b.totalAmount, b.payments);
   const nights = nightsBetween(b.checkInDate, b.checkOutDate);
   const pricing = computeBookingTotal({
@@ -81,6 +87,7 @@ function decorate(b: BookingRow, keys: StakeholderKeys) {
     pricing,
     isStakeholder: isStakeholderGuest(b.guest, keys),
     source: b.staffId ? 'ADMIN' : 'WEB',
+    hasPaymentProof: proofIds ? proofIds.has(b.id) : Boolean(b.paymentProofImage),
   };
 }
 
@@ -216,11 +223,12 @@ export const getAllBookings = async (req: Request, res: Response, next: NextFunc
       ];
     }
 
-    const [rows, keys] = await Promise.all([
-      prisma.booking.findMany({ where, include: BOOKING_INCLUDE, orderBy: { createdAt: 'desc' } }),
+    const [rows, keys, proofIds] = await Promise.all([
+      prisma.booking.findMany({ where, include: BOOKING_INCLUDE, omit: OMIT_PROOF, orderBy: { createdAt: 'desc' } }),
       stakeholderKeys(),
+      bookingIdsWithPaymentProof(where),
     ]);
-    const all = rows.map((b) => decorate(b, keys));
+    const all = rows.map((b) => decorate(b, keys, proofIds));
 
     const stats = {
       all: all.length,
@@ -274,6 +282,7 @@ export const getRoomAvailability = async (req: Request, res: Response, next: Nex
           ...overlappingStayWhere(checkIn, checkOut),
           ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
         },
+        omit: OMIT_PROOF,
         include: { guest: { select: { name: true, phone: true } } },
       }),
     ]);
@@ -329,6 +338,7 @@ export const getMonthlyCalendar = async (req: Request, res: Response, next: Next
           checkInDate: { lt: end },
           checkOutDate: { gt: start },
         },
+        omit: OMIT_PROOF,
         include: { guest: { select: { name: true, phone: true, email: true } }, staff: { select: { name: true } } },
       }),
       stakeholderKeys(),

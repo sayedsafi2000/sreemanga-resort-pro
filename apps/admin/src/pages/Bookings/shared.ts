@@ -23,7 +23,12 @@ export type Booking = {
   staffDiscount: number; discountAmount: number; totalAmount: number; isVip: boolean; isForeigner: boolean; isStakeholder: boolean;
   checkInDate: string; checkOutDate: string; status: string; notes?: string | null; createdAt: string; updatedAt: string;
   nights: number; paid: number; due: number; refunded?: number; source: 'ADMIN' | 'WEB';
-  preferredPaymentTiming?: string | null; preferredPaymentMethod?: string | null; paymentTransactionId?: string | null; paymentProofImage?: string | null;
+  preferredPaymentTiming?: string | null; preferredPaymentMethod?: string | null; paymentTransactionId?: string | null;
+  /** Full receipt data URL — only on `GET /bookings/:id`; list rows carry `hasPaymentProof` instead. */
+  paymentProofImage?: string | null;
+  hasPaymentProof?: boolean;
+  /** Website bookings: the amount the guest chose to pay now (the PENDING payment row); the rest is due at check-in. */
+  advanceAmount?: number | null;
   room: Room; guest: Guest; staff?: { id: string; name: string; role: string } | null; payments: Payment[];
   voucher?: { id: string; name: string; codeHint?: string | null } | null;
   pricing: { rate: number; nights: number; roomSubtotal: number; extraPersons: number; extraPersonTotal: number; extraCharge: number; gross: number; voucherDiscount: number; staffDiscount: number; total: number };

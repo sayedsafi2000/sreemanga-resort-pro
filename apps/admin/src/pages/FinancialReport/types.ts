@@ -61,12 +61,25 @@ export interface IncomeStatement {
   netProfit: number;
 }
 
+/** A DRAFT / APPROVED distribution whose period overlaps the statement period — not yet paid out. */
+export interface PlannedDistribution {
+  id: string;
+  periodLabel: string;
+  status: 'DRAFT' | 'APPROVED';
+  totalProfit: number;
+  totalDistributed: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
 export interface ProfitDistribution {
   netProfit: number;
   incomeTax: { total: number; byCategory: CategoryAmount[] };
   distributable: number;
   /** Informational — what was actually paid out in the period, not part of the arithmetic. */
   distributionsPaid: { total: number; items: DistributionItem[] };
+  /** Informational — draft / approved distributions planned for this period (edit them on the Shareholders page). */
+  planned: PlannedDistribution[];
 }
 
 export interface BalanceSheet {
@@ -117,6 +130,8 @@ export interface Statement {
   distribution: ProfitDistribution;
   balanceSheet: BalanceSheet;
   memo: StatementMemo;
+  /** The system "Income Tax" ExpenseCategory, or null if it has been removed. */
+  incomeTaxCategoryId: string | null;
 }
 
 // ── Other entries (GET/POST /finance/entries) ────────────────────────────────

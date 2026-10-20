@@ -18,6 +18,8 @@ export type SheetItem = {
   hint?: string;
   muted?: boolean;
   strong?: boolean;
+  /** In-app link for the label (react-router path) — screen only, plain text in print / CSV. */
+  href?: string;
 };
 export type SheetGroup = { title?: string; items: SheetItem[]; empty?: string };
 export type SheetRow = {
@@ -31,6 +33,8 @@ export type SheetRow = {
   /** Breakdown shown when the row is expanded; absent → no chevron. */
   groups?: SheetGroup[];
   roseWhenNegative?: boolean;
+  /** Screen-only button next to the amount; StatementSheet calls onAction(key). Ignored by CSV / print. */
+  action?: { key: string; label: string };
 };
 export type SheetSection = { no: number; title: string; caption?: string; note?: string; rows: SheetRow[] };
 
@@ -73,9 +77,13 @@ const categoryGroup = (rows: CategoryAmount[], empty: string, title?: string): S
   empty,
 });
 
+/** Deep link that opens a distribution's detail dialog on the Shareholders page. */
+export const distributionHref = (id: string): string => `/shareholders?openDistribution=${encodeURIComponent(id)}`;
+
 export function buildSections(s: Statement): SheetSection[] {
   const is = s.incomeStatement;
   const d = s.distribution;
+  const planned = d.planned ?? [];
   const bs = s.balanceSheet;
   const cash = bs.currentAssets.cash;
   const eq = bs.equity;
@@ -151,6 +159,7 @@ export function buildSections(s: Statement): SheetSection[] {
           amount: d.incomeTax.total,
           variant: 'line',
           groups: [categoryGroup(d.incomeTax.byCategory, 'No income tax paid in this period')],
+          action: { key: 'edit-income-tax', label: 'Edit' },
         },
         { key: 'distributable', label: 'Distributed Profit & Loss', amount: d.distributable, variant: 'grand', roseWhenNegative: true },
         {
@@ -160,8 +169,29 @@ export function buildSections(s: Statement): SheetSection[] {
           variant: 'info',
           groups: [
             {
-              items: d.distributionsPaid.items.map((x) => ({ label: `${x.periodLabel} · ${fmtDate(x.distributionDate)}`, amount: x.totalDistributed })),
+              items: d.distributionsPaid.items.map((x) => ({
+                label: `${x.periodLabel} · ${fmtDate(x.distributionDate)}`,
+                amount: x.totalDistributed,
+                href: distributionHref(x.id),
+              })),
               empty: 'No distributions paid in this period',
+            },
+          ],
+        },
+        {
+          key: 'plannedDistributions',
+          label: 'Planned distributions (draft / approved)',
+          amount: planned.reduce((sum, p) => sum + p.totalProfit, 0),
+          variant: 'info',
+          groups: [
+            {
+              items: planned.map((p) => ({
+                label: `${p.periodLabel} · ${p.status}`,
+                amount: p.totalProfit,
+                note: `total profit ${money(p.totalProfit)}`,
+                href: distributionHref(p.id),
+              })),
+              empty: 'No draft distributions for this period',
             },
           ],
         },

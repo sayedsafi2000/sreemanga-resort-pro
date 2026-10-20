@@ -16,6 +16,8 @@ import { fmtMoney } from '@/lib/format';
 type Props = {
   rooms: Room[];
   variant?: 'light' | 'dark';
+  /** Minimum advance (% of the net total) the website asks for now; 0 or ≥100 = full amount. */
+  advancePercent?: number;
   paymentAccounts?: {
     bkashNumber?: string;
     nagadNumber?: string;
@@ -31,6 +33,7 @@ const CALENDAR_DAYS = 90;
 // Online bookings are pay-now only: the guest sends the money first and
 // submits the transaction ID. "Pay later" is not offered on the website.
 type PaymentMethod = 'BKASH' | 'NAGAD' | 'BANK_TRANSFER';
+type AdvanceOption = 'ADVANCE' | 'FULL';
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; bn: string }[] = [
   { value: 'BKASH', label: 'bKash', bn: 'বিকাশ' },
   { value: 'NAGAD', label: 'Nagad', bn: 'নগদ' },
@@ -69,7 +72,7 @@ function stayFromRange(range: DateRange | undefined) {
   return { checkIn: from, checkOut: addDays(to, 1), nights: differenceInCalendarDays(to, from) + 1 };
 }
 
-export default function BookingForm({ rooms, variant = 'light', paymentAccounts }: Props) {
+export default function BookingForm({ rooms, variant = 'light', advancePercent = 50, paymentAccounts }: Props) {
   const router = useRouter();
   const sp = useSearchParams();
   const defaultRoom = sp.get('room') || '';
@@ -98,9 +101,22 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
   const extraAdults = Math.max(0, adults - capacity);
   const extraPersons = extraAdults + childrenOver8;
   const extraOk = extraPersons <= MAX_EXTRA_PERSONS;
+  // Head-count ceiling (mirrors the server): everyone — including free under-8s — must fit in
+  // capacity + MAX_EXTRA_PERSONS. The counters' "+" buttons stop at this limit.
+  const maxPersons = capacity + MAX_EXTRA_PERSONS;
+  const totalPersons = adults + childrenUnder8 + childrenOver8;
+  const remaining = Math.max(0, maxPersons - totalPersons);
+  const totalOk = totalPersons <= maxPersons;
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>('BKASH');
+  // How much to send now: the minimum advance (default) or everything. When the resort's rule
+  // is 0% / 100% there is no choice — the full amount is due.
+  const fullRequired = advancePercent <= 0 || advancePercent >= 100;
+  const [advanceOption, setAdvanceOption] = useState<AdvanceOption>('ADVANCE');
+  const effectiveOption: AdvanceOption = fullRequired ? 'FULL' : advanceOption;
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
+  // Net amount the voucher API quoted for the current stay; null = no active voucher preview.
+  const [voucherNet, setVoucherNet] = useState<number | null>(null);
   const [emailVouchers, setEmailVouchers] = useState<PublicMineVoucher[]>([]);
   const [paymentTransactionId, setPaymentTransactionId] = useState('');
   const [paymentProofImage, setPaymentProofImage] = useState<string | undefined>(undefined);
@@ -149,6 +165,19 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
   );
   const stay = useMemo(() => stayFromRange(range), [range]);
 
+  // Amounts shown in the Payment block. `estimatedTotal` is null until a room + nights are chosen.
+  const estimatedTotal =
+    selectedRoom && stay ? selectedRoom.price * stay.nights + extraPersons * extraGuestCharge * stay.nights : null;
+  const netTotal = estimatedTotal == null ? null : voucherNet != null ? Math.max(0, voucherNet) : estimatedTotal;
+  const advanceAmount =
+    netTotal == null
+      ? null
+      : fullRequired
+        ? netTotal
+        : Math.min(netTotal, Math.max(1, Math.round((netTotal * advancePercent) / 100)));
+  const dueAtCheckIn = netTotal == null || advanceAmount == null ? null : Math.max(0, netTotal - advanceAmount);
+  const amountNow = netTotal == null ? null : effectiveOption === 'FULL' ? netTotal : advanceAmount;
+
   function handleDayClick(day: Date, modifiers: { disabled?: boolean }) {
     if (modifiers.disabled) return;
     const d = startOfDay(day);
@@ -194,6 +223,25 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     loadCalendar();
   }, [roomId]);
 
+  // Defensive clamp: if a ceiling drops below the current value, pull the counters back under it
+  // (8+ children first, then under-8s, then adults). Declared BEFORE the room-reset effect below so
+  // that on a room change the reset's values are applied last and win.
+  useEffect(() => {
+    const over8 = Math.min(childrenOver8, Math.max(0, MAX_EXTRA_PERSONS - extraAdults));
+    let under8 = childrenUnder8;
+    let a = adults;
+    let excess = a + under8 + over8 - maxPersons;
+    if (excess > 0) {
+      const drop = Math.min(under8, excess);
+      under8 -= drop;
+      excess -= drop;
+    }
+    if (excess > 0) a = Math.max(1, a - excess);
+    if (over8 !== childrenOver8) setChildrenOver8(over8);
+    if (under8 !== childrenUnder8) setChildrenUnder8(under8);
+    if (a !== adults) setAdults(a);
+  }, [adults, childrenUnder8, childrenOver8, extraAdults, maxPersons]);
+
   useEffect(() => {
     setRange(undefined);
     // Each room includes a different number of guests — reset the counters to its base.
@@ -201,6 +249,12 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     setChildrenUnder8(0);
     setChildrenOver8(0);
   }, [roomId, capacity]);
+
+  // A voucher quote is for one specific gross amount — drop it when the stay or head count changes.
+  useEffect(() => {
+    setVoucherNet(null);
+    setVoucherPreview(null);
+  }, [estimatedTotal]);
 
   // OTP resend countdown
   useEffect(() => {
@@ -274,7 +328,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     }
     if (!file.type.startsWith('image/')) {
       setStatus('err');
-      setMessage(t('Please upload an image file (screenshot) of your payment.', 'পেমেন্টের ছবি (screenshot) আপলোড করুন।'));
+      setMessage(t('Please upload an image of your payment receipt.', 'পেমেন্ট রসিদের ছবি আপলোড করুন।'));
       return;
     }
     const url = await new Promise<string>((resolve, reject) => {
@@ -306,15 +360,20 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     }
     const checkInDate = format(stay.checkIn, 'yyyy-MM-dd');
     const checkOutDate = format(stay.checkOut, 'yyyy-MM-dd');
-    // Pay-now only: staff verify the payment screenshot (the transaction ID is optional).
+    // Pay-now only: staff verify the payment receipt (the transaction ID is optional).
     if (!paymentProofImage) {
       setStatus('err');
-      setMessage(t('Please attach a screenshot of your payment.', 'আপনার পেমেন্টের screenshot যুক্ত করুন।'));
+      setMessage(t('Please attach your payment receipt.', 'আপনার পেমেন্ট রসিদ যুক্ত করুন।'));
       return;
     }
     if (paymentTransactionId.trim() && paymentTransactionId.trim().length < 4) {
       setStatus('err');
       setMessage(t('The transaction ID looks too short.', 'Transaction ID টি খুব ছোট মনে হচ্ছে।'));
+      return;
+    }
+    if (!totalOk) {
+      setStatus('err');
+      setMessage(t(`This room allows at most ${maxPersons} persons in total.`, `এই রুমে মোট সর্বোচ্চ ${maxPersons} জন থাকতে পারেন।`));
       return;
     }
     if (!extraOk) {
@@ -340,6 +399,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
       childrenOver8,
       preferredPaymentTiming: 'INSTANT',
       preferredPaymentMethod,
+      advanceOption: effectiveOption,
       paymentTransactionId: paymentTransactionId.trim() || undefined,
       paymentProofImage,
       checkInDate,
@@ -348,7 +408,12 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
     });
     if (res.ok) {
       setStatus('ok');
-      setMessage(res.message);
+      // The server's figure wins (it applies the same rule to the final total); fall back to ours.
+      const paidNow = res.advanceAmount ?? amountNow ?? 0;
+      setMessage(t(
+        `Booking request received. We will verify your payment of ${fmtMoney(paidNow)} and confirm by email.`,
+        `বুকিং অনুরোধ পেয়েছি। আপনার ${fmtMoney(paidNow)} পেমেন্ট যাচাই করে ইমেইলে নিশ্চিত করব।`,
+      ));
       setPaymentTransactionId('');
       setPaymentProofImage(undefined);
       router.refresh();
@@ -412,8 +477,95 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
         )}>
           <p className={cn('text-sm font-semibold', isDark ? 'text-forest-200' : 'text-stone-700')}>{t('Payment', 'পেমেন্ট')}</p>
           <p className={cn('text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>
-            {t('Pay now via bKash, Nagad or bank transfer, then attach a screenshot of the payment to confirm your booking.', 'bKash, Nagad বা ব্যাংক ট্রান্সফারে এখনই টাকা পাঠান, তারপর পেমেন্টের screenshot যুক্ত করে বুকিং নিশ্চিত করুন।')}
+            {t('Pay now via bKash, Nagad or bank transfer, then attach your payment receipt (screenshot) to confirm your booking.', 'bKash, Nagad বা ব্যাংক ট্রান্সফারে এখনই টাকা পাঠান, তারপর পেমেন্ট রসিদ (screenshot) যুক্ত করে বুকিং নিশ্চিত করুন।')}
           </p>
+
+          {/* Advance vs full — hidden when the resort's rule leaves no choice (0% / 100%). */}
+          {!fullRequired && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {([
+                {
+                  value: 'ADVANCE' as AdvanceOption,
+                  title: t(`Pay ${advancePercent}% advance now`, `এখন ${advancePercent}% অগ্রিম দিন`),
+                  sub: t('Minimum to confirm the booking · rest at check-in', 'বুকিং নিশ্চিত করতে ন্যূনতম · বাকিটা চেক-ইনে'),
+                  amount: advanceAmount,
+                },
+                {
+                  value: 'FULL' as AdvanceOption,
+                  title: t('Pay the full amount now', 'এখনই পুরো টাকা দিন'),
+                  sub: null,
+                  amount: netTotal,
+                },
+              ]).map((opt) => {
+                const selected = advanceOption === opt.value;
+                return (
+                  <label
+                    key={opt.value}
+                    className={cn(
+                      'flex cursor-pointer items-start gap-3 p-3 text-sm transition',
+                      isDark ? 'border bg-[#0a130b]' : 'rounded-xl border backdrop-blur-sm',
+                      selected
+                        ? isDark
+                          ? 'border-forest-500 ring-1 ring-forest-500/50'
+                          : 'border-forest-500 bg-forest-50/80 ring-1 ring-forest-500/40'
+                        : isDark
+                          ? 'border-forest-900/60'
+                          : 'border-white/60 bg-white/40',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="advanceOption"
+                      className="mt-1"
+                      checked={selected}
+                      onChange={() => setAdvanceOption(opt.value)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block font-semibold', isDark ? 'text-forest-100' : 'text-stone-800')}>{opt.title}</span>
+                      {opt.sub && (
+                        <span className={cn('block text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>{opt.sub}</span>
+                      )}
+                    </span>
+                    <span className={cn('shrink-0 font-semibold tabular-nums', isDark ? 'text-forest-100' : 'text-forest-800')}>
+                      {opt.amount == null ? '—' : fmtMoney(opt.amount)}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {/* The one number the guest must act on. */}
+          <div className={cn(
+            'p-4',
+            isDark
+              ? 'border border-forest-700/70 bg-forest-900/40'
+              : 'rounded-xl border border-forest-300/70 bg-forest-100/70 backdrop-blur-sm'
+          )}>
+            <p className={cn('text-xs font-semibold uppercase tracking-wide', isDark ? 'text-forest-300' : 'text-forest-700')}>
+              {t('Amount to send now', 'এখন যে টাকা পাঠাবেন')}
+            </p>
+            <p className={cn('mt-1 text-2xl font-bold tabular-nums', isDark ? 'text-forest-50' : 'text-forest-900')}>
+              {amountNow == null ? '—' : fmtMoney(amountNow)}
+            </p>
+            {effectiveOption === 'ADVANCE' && (
+              <p className={cn('mt-1 text-sm', isDark ? 'text-forest-200' : 'text-stone-700')}>
+                {t('Due at check-in', 'চেক-ইনে বাকি')}:{' '}
+                <span className="font-semibold tabular-nums">{dueAtCheckIn == null ? '—' : fmtMoney(dueAtCheckIn)}</span>
+              </p>
+            )}
+            <p className={cn('mt-1 text-xs', isDark ? 'text-forest-400' : 'text-stone-600')}>
+              {fullRequired
+                ? t('The full amount is required to confirm your booking.', 'বুকিং নিশ্চিত করতে পুরো টাকা প্রয়োজন।')
+                : t(`A minimum ${advancePercent}% advance is required to confirm your booking.`, `বুকিং নিশ্চিত করতে ন্যূনতম ${advancePercent}% অগ্রিম প্রয়োজন।`)}
+            </p>
+            {amountNow == null && (
+              <p className={cn('mt-1 text-xs', isDark ? 'text-forest-500' : 'text-stone-500')}>
+                {t('Select a room and your dates to see the amount.', 'টাকার পরিমাণ দেখতে রুম ও তারিখ বেছে নিন।')}
+              </p>
+            )}
+          </div>
+
           <div className={cn('flex flex-wrap gap-3 text-sm', isDark ? 'text-forest-200' : '')}>
             {PAYMENT_METHODS.map((m) => (
               <label
@@ -461,7 +613,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                   </span>
                 </p>
                 <p className={cn('text-xs', isDark ? 'text-forest-400' : 'text-stone-600')}>
-                  {t('Send the money, then attach the payment screenshot below.', 'টাকা পাঠিয়ে নিচে পেমেন্টের screenshot যুক্ত করুন।')}
+                  {t('Send the money, then attach the payment receipt below.', 'টাকা পাঠিয়ে নিচে পেমেন্ট রসিদ যুক্ত করুন।')}
                 </p>
               </div>
             )}
@@ -485,7 +637,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               'mb-2 block text-xs font-semibold',
               isDark ? 'text-forest-200' : 'text-stone-700'
             )}>
-              {t('Payment screenshot', 'পেমেন্টের screenshot')} <span className="text-rose-600">*</span>
+              {t('Payment Receipt', 'পেমেন্ট রসিদ')} <span className="text-rose-600">*</span>
             </span>
             <input
               type="file"
@@ -503,7 +655,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               )}
             />
             {paymentProofImage && (
-              <img src={paymentProofImage} alt="Payment proof preview" className="mt-2 h-20 rounded-lg border object-cover" />
+              <img src={paymentProofImage} alt="Payment receipt preview" className="mt-2 h-20 rounded-lg border object-cover" />
             )}
           </label>
         </div>
@@ -577,13 +729,17 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
             <Users className={iconClass} />
             {t('Guests', 'অতিথি')}
           </span>
+          <p className={cn('mb-3 text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>
+            {t(`${capacity} guests included · up to ${maxPersons} persons in total`, `${capacity} জন অন্তর্ভুক্ত · মোট সর্বোচ্চ ${maxPersons} জন`)}
+          </p>
+          {/* Each "+" stops when the room is full; 8+ children are additionally capped by the chargeable-extras rule. */}
           <div className="grid gap-3 sm:grid-cols-3">
             <Counter
               label={t('Adults', 'প্রাপ্তবয়স্ক')}
               hint={t(`${capacity} included`, `${capacity} জন অন্তর্ভুক্ত`)}
               value={adults}
               min={1}
-              max={capacity + Math.max(0, MAX_EXTRA_PERSONS - childrenOver8)}
+              max={adults + remaining}
               onChange={setAdults}
               dark={isDark}
               field={glassField}
@@ -593,7 +749,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               hint={t('free', 'ফ্রি')}
               value={childrenUnder8}
               min={0}
-              max={6}
+              max={childrenUnder8 + remaining}
               onChange={setChildrenUnder8}
               dark={isDark}
               field={glassField}
@@ -603,12 +759,17 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               hint={`${fmtMoney(extraGuestCharge)}/${t('night', 'রাত')}`}
               value={childrenOver8}
               min={0}
-              max={Math.max(0, MAX_EXTRA_PERSONS - extraAdults)}
+              max={childrenOver8 + Math.min(remaining, Math.max(0, MAX_EXTRA_PERSONS - extraAdults - childrenOver8))}
               onChange={setChildrenOver8}
               dark={isDark}
               field={glassField}
             />
           </div>
+          {remaining === 0 && (
+            <p className={cn('mt-2 text-xs font-medium', isDark ? 'text-amber-300' : 'text-amber-700')}>
+              {t(`Maximum ${maxPersons} persons for this room reached.`, `এই রুমে সর্বোচ্চ ${maxPersons} জন — সীমা পূর্ণ।`)}
+            </p>
+          )}
           <p className={cn('mt-2 text-xs', isDark ? 'text-forest-400' : 'text-stone-500')}>
             {t(
               `${capacity} guests are included in the room rate. Up to ${MAX_EXTRA_PERSONS} extra persons (adults or children aged 8+) can be added at ${fmtMoney(extraGuestCharge)} per person per night; children under 8 stay free.`,
@@ -621,7 +782,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               {extraPersons > 0 && (
                 <div className="flex justify-between"><span>{t('Extra persons', 'অতিরিক্ত ব্যক্তি')} {extraPersons} × {fmtMoney(extraGuestCharge)} × {stay.nights}</span><span className="font-semibold tabular-nums">{fmtMoney(extraPersons * extraGuestCharge * stay.nights)}</span></div>
               )}
-              <div className={cn('flex justify-between border-t pt-1 font-semibold', isDark ? 'border-forest-900/60' : 'border-forest-200/60')}><span>{t('Estimated total', 'আনুমানিক মোট')}</span><span className="tabular-nums">{fmtMoney(selectedRoom.price * stay.nights + extraPersons * extraGuestCharge * stay.nights)}</span></div>
+              <div className={cn('flex justify-between border-t pt-1 font-semibold', isDark ? 'border-forest-900/60' : 'border-forest-200/60')}><span>{t('Estimated total', 'আনুমানিক মোট')}</span><span className="tabular-nums">{fmtMoney(estimatedTotal ?? 0)}</span></div>
             </div>
           )}
         </div>
@@ -794,6 +955,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                       setMessage(t(`Your code ends with ${v.codeHint} — enter the full code to apply.`, `আপনার কোড ${v.codeHint} দিয়ে শেষ — পুরো কোড লিখে প্রয়োগ করুন।`));
                       setStatus('idle');
                       setVoucherPreview(null);
+                      setVoucherNet(null);
                     }}
                     title={t('Code ends with this hint — enter the full code to apply', 'কোডের শেষ অংশ — পুরো কোড লিখে প্রয়োগ করুন')}
                   >
@@ -815,6 +977,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
               onChange={(e) => {
                 setVoucherCode(e.target.value.toUpperCase());
                 setVoucherPreview(null);
+                setVoucherNet(null);
               }}
               className={cn('w-full px-4 py-3', glassField)}
               placeholder={t('Have a code?', 'কোড আছে?')}
@@ -835,7 +998,7 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                   setStatus('err');
                   return;
                 }
-                const gross = room.price * stay.nights + extraPersons * extraGuestCharge * stay.nights;
+                const gross = estimatedTotal ?? room.price * stay.nights + extraPersons * extraGuestCharge * stay.nights;
                 const res = await validatePublicVoucher({
                   code: voucherCode.trim(),
                   channel: 'ROOM',
@@ -845,10 +1008,12 @@ export default function BookingForm({ rooms, variant = 'light', paymentAccounts 
                 });
                 if (res.ok) {
                   setVoucherPreview(`${t('Save', 'সাশ্রয়')} ${fmtMoney(res.discountAmount)} — ${t('pay', 'দিতে হবে')} ${fmtMoney(res.netAmount)}`);
+                  setVoucherNet(typeof res.netAmount === 'number' ? res.netAmount : null);
                   setStatus('idle');
                   setMessage('');
                 } else {
                   setVoucherPreview(null);
+                  setVoucherNet(null);
                   setMessage(res.message);
                   setStatus('err');
                 }

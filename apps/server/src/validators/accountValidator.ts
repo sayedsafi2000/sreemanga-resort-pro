@@ -18,11 +18,21 @@ export const accountSchema = z.object({
 
 export const accountUpdateSchema = accountSchema.partial().omit({ code: true });
 
+// transactionDate: 'YYYY-MM-DD' (format + future check happen in the controller via localNoon);
+// empty/null = today.
 export const manualTxnSchema = z.object({
   direction: z.enum(['IN', 'OUT']),
   amount: z.number().positive(),
-  description: z.string().optional().nullable(),
-  transactionDate: z.string().optional(),
+  description: z.string().max(300).optional().nullable(),
+  transactionDate: z.string().optional().nullable(),
+});
+
+/** Edit of a user-made ledger row (MANUAL / TRANSFER leg). Every field optional = unchanged. */
+export const txnUpdateSchema = z.object({
+  amount: z.number().positive().optional(),
+  direction: z.enum(['IN', 'OUT']).optional(),
+  description: z.string().max(300).optional().nullable(),
+  transactionDate: z.string().optional().nullable(),
 });
 
 export const transferSchema = z.object({
@@ -40,6 +50,11 @@ export const receivableSchema = z.object({
   referenceId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
+
+/** Edit while OPEN / PARTIAL: identity, amount (never below what was collected), due date, notes. */
+export const receivableUpdateSchema = receivableSchema
+  .pick({ customerName: true, amount: true, dueDate: true, notes: true })
+  .partial();
 
 export const receivableCollectSchema = z.object({
   amount: z.number().positive(),

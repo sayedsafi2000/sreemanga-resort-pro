@@ -11,11 +11,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Pencil, Wallet, Clock, Hash, RotateCcw, Undo2, Loader2 } from 'lucide-react';
+import { DollarSign, Pencil, Wallet, Clock, Hash, RotateCcw, Undo2, Loader2, Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { InitialsAvatar } from '@/components/ui/avatar';
+import ReceiptViewer from '@/components/ReceiptViewer';
 import { fmt, fmtDate, METHOD_LABEL, errMsg } from '@/pages/Bookings/shared';
 import RefundDialog, { invoiceLabelOf, paymentLabel } from './RefundDialog';
+
+/** Website guests attach a screenshot and/or a transaction ID to the booking; either is worth showing before verifying. */
+const hasReceipt = (p: any) => Boolean(p?.booking?.hasPaymentProof || p?.booking?.paymentTransactionId);
+/** Website bookings carry the advance the guest chose; front-desk bookings never do. */
+const isWebBooking = (p: any) => p?.booking?.source === 'WEB' || typeof p?.booking?.advanceAmount === 'number';
 
 const paymentMethods = ['CASH', 'CARD', 'BKASH', 'NAGAD'];
 // REFUNDED is no longer set by hand — the Refund action records the amount and date instead.
@@ -34,6 +40,7 @@ const Payments: React.FC = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<any>(null);
   const [refundTarget, setRefundTarget] = useState<any>(null);
+  const [receiptFor, setReceiptFor] = useState<any>(null);
   const [form, setForm] = useState({ bookingId: '', amount: '', method: 'CASH', transactionId: '', notes: '' });
   const [editForm, setEditForm] = useState({ status: 'COMPLETED', transactionId: '', notes: '' });
   const [dateFrom, setDateFrom] = useState('');
@@ -305,7 +312,7 @@ const Payments: React.FC = () => {
                     <TableHead>Txn ID</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
-                    {editPayments && <TableHead className="text-right">Actions</TableHead>}
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -334,26 +341,31 @@ const Payments: React.FC = () => {
                         </TableCell>
                         <TableCell><Badge variant={statusColor(p.status) as any}>{p.status}</Badge></TableCell>
                         <TableCell>{fmtDate(p.paidAt ?? p.createdAt)}</TableCell>
-                        {editPayments && (
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-0.5">
-                              {canRefund && (
-                                <Button variant="ghost" size="icon" title="Refund" aria-label="Refund" onClick={() => setRefundTarget(p)}>
-                                  <RotateCcw className="h-4 w-4" />
-                                </Button>
-                              )}
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-0.5">
+                            {hasReceipt(p) && (
+                              <Button variant="ghost" size="icon" title="View receipt" aria-label="View receipt" onClick={() => setReceiptFor(p)}>
+                                <Receipt className="h-4 w-4 text-violet-700" />
+                              </Button>
+                            )}
+                            {editPayments && canRefund && (
+                              <Button variant="ghost" size="icon" title="Refund" aria-label="Refund" onClick={() => setRefundTarget(p)}>
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {editPayments && (
                               <Button variant="ghost" size="icon" title="Edit" aria-label="Edit" onClick={() => openEditPayment(p)}>
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                            </div>
-                          </TableCell>
-                        )}
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {payments.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={editPayments ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         {loading
                           ? 'Loading payments...'
                           : rangeActive
@@ -501,6 +513,35 @@ const Payments: React.FC = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>Update payment</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            {editingPayment && (
+              <div className="space-y-2 rounded-lg border bg-slate-50 p-3 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{editingPayment.booking?.guest?.name || 'Guest'}</p>
+                    {(editingPayment.booking?.invoiceLabel ?? invoiceLabelOf(editingPayment.booking?.invoiceNo)) && (
+                      <p className="font-mono text-xs text-muted-foreground">{editingPayment.booking?.invoiceLabel ?? invoiceLabelOf(editingPayment.booking?.invoiceNo)}</p>
+                    )}
+                  </div>
+                  <p className="shrink-0 text-base font-bold tabular">{fmt(editingPayment.amount)}</p>
+                </div>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-muted-foreground">Method</dt><dd className="font-medium">{METHOD_LABEL[editingPayment.method] ?? editingPayment.method}</dd>
+                  <dt className="text-muted-foreground">Guest's transaction ID</dt>
+                  <dd className={editingPayment.booking?.paymentTransactionId ? 'break-all font-mono font-medium' : 'italic text-muted-foreground'}>{editingPayment.booking?.paymentTransactionId || 'not provided'}</dd>
+                  {typeof editingPayment.booking?.advanceAmount === 'number' && (
+                    <><dt className="text-muted-foreground">Advance chosen</dt><dd className="font-medium tabular">{fmt(editingPayment.booking.advanceAmount)}</dd></>
+                  )}
+                </dl>
+                {hasReceipt(editingPayment) && (
+                  <Button type="button" size="sm" variant="outline" onClick={() => setReceiptFor(editingPayment)}>
+                    <Receipt className="mr-1 h-3.5 w-3.5 text-violet-700" /> View receipt
+                  </Button>
+                )}
+                {editingPayment.status === 'PENDING' && isWebBooking(editingPayment) && (
+                  <p className="text-xs font-medium text-amber-700">Marking this COMPLETED confirms the reservation once the advance is covered.</p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Status</Label>
               <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })} disabled={editingHasRefunds}>
@@ -523,6 +564,19 @@ const Payments: React.FC = () => {
       </Dialog>
 
       <RefundDialog payment={refundTarget} onClose={() => setRefundTarget(null)} onDone={refresh} />
+
+      <ReceiptViewer
+        open={!!receiptFor}
+        onOpenChange={(o) => { if (!o) setReceiptFor(null); }}
+        title={`Payment receipt — ${receiptFor?.booking?.invoiceLabel ?? invoiceLabelOf(receiptFor?.booking?.invoiceNo) ?? 'booking'}`}
+        fetchUrl={receiptFor?.bookingId ? `/bookings/${receiptFor.bookingId}` : undefined}
+        method={receiptFor?.booking?.preferredPaymentMethod ?? receiptFor?.method ?? null}
+        transactionId={receiptFor?.booking?.paymentTransactionId ?? receiptFor?.transactionId ?? null}
+        amount={receiptFor ? Number(receiptFor.amount) || null : null}
+        guestName={receiptFor?.booking?.guest?.name ?? null}
+        invoiceLabel={receiptFor?.booking?.invoiceLabel ?? invoiceLabelOf(receiptFor?.booking?.invoiceNo) ?? null}
+        advanceAmount={typeof receiptFor?.booking?.advanceAmount === 'number' ? receiptFor.booking.advanceAmount : null}
+      />
     </div>
   );
 };

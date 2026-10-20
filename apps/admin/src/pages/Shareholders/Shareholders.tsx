@@ -42,7 +42,7 @@ type DistShare = {
 };
 type Distribution = {
   id: string; periodLabel: string; periodStart: string; periodEnd: string; totalProfit: number;
-  totalDistributed: number; totalCapital: number; status: string; shares?: DistShare[];
+  totalDistributed: number; totalCapital: number; status: string; notes?: string | null; shares?: DistShare[];
 };
 
 const PAY_METHODS = ['CASH', 'BKASH', 'NAGAD', 'BANK_TRANSFER', 'CARD', 'MOBILE_BANKING'];
@@ -68,6 +68,7 @@ const emptyShForm = () => ({
 });
 const emptyHoldForm = () => ({ tierId: '', quantity: '1', purchaseDate: today(), notes: '', payNow: '', method: 'BANK_TRANSFER', transactionId: '' });
 const emptyPayForm = () => ({ amount: '', method: 'BANK_TRANSFER', transactionId: '', paidAt: today(), notes: '' });
+const emptyDistForm = () => ({ periodLabel: '', periodStart: '', periodEnd: '', totalProfit: '', notes: '' });
 
 const sectionLabel = (text: string) => (
   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">{text}</p>
@@ -110,7 +111,9 @@ const Shareholders: React.FC = () => {
 
   // Distributions
   const [distDialog, setDistDialog] = useState(false);
-  const [distForm, setDistForm] = useState<any>({ periodLabel: '', periodStart: '', periodEnd: '', totalProfit: '' });
+  /** Distribution loaded into the create dialog; null → the dialog creates a new one. */
+  const [distEditId, setDistEditId] = useState<string | null>(null);
+  const [distForm, setDistForm] = useState<any>(emptyDistForm());
   const [distError, setDistError] = useState<string | null>(null);
   const [detail, setDetail] = useState<Distribution | null>(null);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
@@ -130,15 +133,26 @@ const Shareholders: React.FC = () => {
       setTotals(t.data?.totals ?? null);
     } finally { setLoading(false); }
   };
-  // The Financial Report's "Create distribution" button deep-links here with
-  // ?newDistribution=1&periodLabel=&periodStart=&periodEnd=&totalProfit= — prefill the
-  // dialog once the lists are in, then drop the params so a refresh doesn't reopen it.
+  // The Financial Report deep-links here: ?openDistribution=<id> opens a distribution's detail,
+  // ?newDistribution=1&periodLabel=&periodStart=&periodEnd=&totalProfit= prefills the create
+  // dialog. Both are handled once the lists are in, then dropped so a refresh doesn't reopen them.
   useEffect(() => {
-    load().then(() => {
-      if (searchParams.get('newDistribution') !== '1') return;
+    load().then(async () => {
+      const openId = searchParams.get('openDistribution');
+      const isNew = searchParams.get('newDistribution') === '1';
+      if (!openId && !isNew) return;
+      setSearchParams({}, { replace: true });
+      if (openId) {
+        setTab('distributions');
+        try { await openDetail(openId); }
+        catch (e: any) { flash('warn', errMsg(e, 'Could not open that distribution')); }
+        return;
+      }
       if (canWriteDist) {
         setTab('distributions');
+        setDistEditId(null);
         setDistForm({
+          ...emptyDistForm(),
           periodLabel: searchParams.get('periodLabel') ?? '',
           periodStart: searchParams.get('periodStart') ?? '',
           periodEnd: searchParams.get('periodEnd') ?? '',
@@ -147,8 +161,8 @@ const Shareholders: React.FC = () => {
         setDistError(null);
         setDistDialog(true);
       }
-      setSearchParams({}, { replace: true });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const tierName = (code: string) => tiers.find((t) => t.code === code)?.name ?? code;
@@ -287,16 +301,43 @@ const Shareholders: React.FC = () => {
   };
 
   // ── Distributions ────────────────────────────────────────────────────────
+  const openDistCreate = () => { setDistEditId(null); setDistForm(emptyDistForm()); setDistError(null); setDistDialog(true); };
+  /** Reuse the create dialog to edit a DRAFT's label, period, profit and notes (closes the detail dialog underneath). */
+  const openDistEdit = (d: Distribution) => {
+    setDistEditId(d.id);
+    setDistForm({
+      periodLabel: d.periodLabel, periodStart: d.periodStart.slice(0, 10), periodEnd: d.periodEnd.slice(0, 10),
+      totalProfit: String(d.totalProfit), notes: d.notes ?? '',
+    });
+    setDistError(null);
+    setDetail(null);
+    setDistDialog(true);
+  };
   const saveDistribution = async () => {
     setSaving(true); setDistError(null);
+    const body = {
+      periodLabel: distForm.periodLabel, periodStart: distForm.periodStart, periodEnd: distForm.periodEnd,
+      totalProfit: Number(distForm.totalProfit), notes: distForm.notes?.trim() || null,
+    };
     try {
-      const r = await api.post('/shareholders/distributions', {
-        periodLabel: distForm.periodLabel, periodStart: distForm.periodStart, periodEnd: distForm.periodEnd, totalProfit: Number(distForm.totalProfit),
-      });
-      setDistDialog(false); await load();
-      await openDetail(r.data.distribution.id);
-    } catch (e: any) { setDistError(errMsg(e, 'Failed to create')); }
+      let id: string;
+      if (distEditId) {
+        await api.patch(`/shareholders/distributions/${distEditId}`, body);
+        id = distEditId;
+      } else {
+        const r = await api.post('/shareholders/distributions', body);
+        id = r.data.distribution.id;
+      }
+      setDistDialog(false); setDistEditId(null); await load();
+      await openDetail(id);
+    } catch (e: any) { setDistError(errMsg(e, distEditId ? 'Failed to save changes' : 'Failed to create')); }
     finally { setSaving(false); }
+  };
+  const deleteDistribution = async (d: Distribution) => {
+    if (!window.confirm(`Delete the ${d.status.toLowerCase()} distribution "${d.periodLabel}"? This cannot be undone.`)) return;
+    setDetailError(null);
+    try { await api.delete(`/shareholders/distributions/${d.id}`); setDetail(null); await load(); flash('ok', `Deleted "${d.periodLabel}"`); }
+    catch (e: any) { setDetailError(errMsg(e, 'Failed to delete')); }
   };
   const openDetail = async (id: string) => {
     setDetailError(null);
@@ -366,7 +407,7 @@ const Shareholders: React.FC = () => {
         <div className="ml-auto">
           {admin && tab === 'holders' && <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> New Shareholder</Button>}
           {canWriteDist && tab === 'distributions' && (
-            <Button onClick={() => { setDistForm({ periodLabel: '', periodStart: '', periodEnd: '', totalProfit: '' }); setDistError(null); setDistDialog(true); }}>
+            <Button onClick={openDistCreate}>
               <Plus className="h-4 w-4 mr-1" /> New Distribution
             </Button>
           )}
@@ -429,7 +470,12 @@ const Shareholders: React.FC = () => {
                   <TableCell className="text-right tabular-nums">{fmt(d.totalDistributed)}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmt(d.totalCapital)}</TableCell>
                   <TableCell><Badge className={DIST_STATUS[d.status]}>{d.status}</Badge></TableCell>
-                  <TableCell className="text-right text-xs text-primary">View</TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-xs text-primary">
+                    {canWriteDist && d.status === 'DRAFT' && (
+                      <Button size="sm" variant="ghost" title="Edit details" aria-label="Edit distribution" onClick={(e) => { e.stopPropagation(); openDistEdit(d); }}><Pencil className="h-3.5 w-3.5" /></Button>
+                    )}
+                    View
+                  </TableCell>
                 </TableRow>
               ))}
               {dists.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No distributions yet.</TableCell></TableRow>}
@@ -648,10 +694,10 @@ const Shareholders: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Distribution create dialog */}
-      <Dialog open={distDialog} onOpenChange={setDistDialog}>
+      {/* Distribution create / edit dialog */}
+      <Dialog open={distDialog} onOpenChange={(o) => { setDistDialog(o); if (!o) setDistEditId(null); }}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>New Profit Distribution</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{distEditId ? 'Edit Distribution' : 'New Profit Distribution'}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Period label</Label><Input value={distForm.periodLabel} onChange={(e) => setDistForm({ ...distForm, periodLabel: e.target.value })} placeholder="January 2026" /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -659,12 +705,16 @@ const Shareholders: React.FC = () => {
               <div><Label>End</Label><Input type="date" value={distForm.periodEnd} onChange={(e) => setDistForm({ ...distForm, periodEnd: e.target.value })} /></div>
             </div>
             <div><Label>Total profit to distribute (৳)</Label><Input type="number" value={distForm.totalProfit} onChange={(e) => setDistForm({ ...distForm, totalProfit: e.target.value })} /></div>
-            <p className="text-xs text-muted-foreground">Split by paid-up capital: each active shareholder gets profit × (their capital ÷ total capital). Current capital base: {fmt(totals?.activeCapital ?? 0)}.</p>
+            <div><Label>Notes</Label><Input value={distForm.notes ?? ''} onChange={(e) => setDistForm({ ...distForm, notes: e.target.value })} placeholder="optional" /></div>
+            <p className="text-xs text-muted-foreground">
+              Split by paid-up capital: each active shareholder gets profit × (their capital ÷ total capital). Current capital base: {fmt(totals?.activeCapital ?? 0)}.
+              {distEditId && ' Changing the profit recalculates every share; manual overrides are kept.'}
+            </p>
             {distError && <p className="text-sm text-red-600">{distError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDistDialog(false)}>Cancel</Button>
-            <Button onClick={saveDistribution} disabled={saving || !distForm.periodLabel || !distForm.periodStart || !distForm.periodEnd || !distForm.totalProfit}>{saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Create</Button>
+            <Button variant="outline" onClick={() => { setDistDialog(false); setDistEditId(null); }}>Cancel</Button>
+            <Button onClick={saveDistribution} disabled={saving || !distForm.periodLabel || !distForm.periodStart || !distForm.periodEnd || !distForm.totalProfit}>{saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} {distEditId ? 'Save changes' : 'Create'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -672,7 +722,15 @@ const Shareholders: React.FC = () => {
       {/* Distribution detail dialog */}
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>{detail?.periodLabel} — {detail?.status}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <div className="flex flex-wrap items-center gap-2 pr-6">
+              <DialogTitle>{detail?.periodLabel} — {detail?.status}</DialogTitle>
+              {detail && canWriteDist && detail.status === 'DRAFT' && (
+                <Button size="sm" variant="outline" onClick={() => openDistEdit(detail)}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit details</Button>
+              )}
+            </div>
+            {detail?.notes && <p className="text-sm text-muted-foreground">{detail.notes}</p>}
+          </DialogHeader>
           {detail && (
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
@@ -715,7 +773,10 @@ const Shareholders: React.FC = () => {
                 </div>
               )}
               {admin && (
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
+                  {(detail.status === 'DRAFT' || detail.status === 'CANCELLED') && (
+                    <Button size="sm" variant="ghost" className="mr-auto text-red-600" onClick={() => deleteDistribution(detail)}><Trash2 className="h-3.5 w-3.5 mr-1" /> Delete</Button>
+                  )}
                   {detail.status === 'DRAFT' && <Button size="sm" onClick={() => distAction(detail.id, 'approve')}>Approve</Button>}
                   {detail.status === 'APPROVED' && <Button size="sm" onClick={() => distAction(detail.id, 'distribute')}>Distribute</Button>}
                   {detail.status !== 'DISTRIBUTED' && detail.status !== 'CANCELLED' && <Button size="sm" variant="outline" onClick={() => distAction(detail.id, 'cancel')}>Cancel</Button>}

@@ -3,7 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '@/lib/api';
 import logoMark from '@/assets/logo-mark.png';
 import { Button } from '@/components/ui/button';
-import { Printer, Copy, Check, ArrowLeft, Pencil, Wallet, Loader2, MapPin, Phone, Mail, User, CalendarCheck, LogIn, LogOut, ShieldCheck, AlertTriangle, FileDown } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import ReceiptViewer from '@/components/ReceiptViewer';
+import { useAuth } from '@/contexts/AuthContext';
+import { canEditPayments } from '@/config/rbac';
+import { Printer, Copy, Check, ArrowLeft, Pencil, Wallet, Loader2, MapPin, Phone, Mail, User, CalendarCheck, LogIn, LogOut, ShieldCheck, AlertTriangle, FileDown, Receipt, BadgeCheck, ImageOff } from 'lucide-react';
 import DueCollectDialog from './DueCollectDialog';
 import { type Booking, STATUS_META, METHOD_LABEL, fmt, fmtDate, fmtDateTime, copyText, errMsg } from './shared';
 
@@ -12,12 +16,17 @@ type Settings = Record<string, string>;
 const BookingInvoice: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [settings, setSettings] = useState<Settings>({});
   const [logo, setLogo] = useState<string>(logoMark);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [dueOpen, setDueOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
 
@@ -47,8 +56,30 @@ const BookingInvoice: React.FC = () => {
   for (let i = 0; i < b.nights; i++) { const d = new Date(b.checkInDate); d.setDate(d.getDate() + i); nights.push(d.toISOString()); }
   const p = b.pricing;
   const completed = b.payments.filter((x) => x.status === 'COMPLETED');
+  // Submitted by a website guest but not yet checked by staff — listed so the desk sees it, never counted as paid.
+  const pending = b.payments.filter((x) => x.status === 'PENDING');
+  const pendingPayment = pending[0] ?? null;
   // `b.paid` is already net of refunds (server decorate); the gross returned is shown as its own line.
   const refunded = b.refunded ?? 0;
+  const submissionMethod = b.preferredPaymentMethod ?? pendingPayment?.method ?? null;
+  const submissionTrx = (b.paymentTransactionId ?? '').trim() || null;
+  const hasSubmission = b.source === 'WEB' || !!b.paymentProofImage || !!submissionTrx || !!b.preferredPaymentMethod;
+  const advanceAmount = typeof b.advanceAmount === 'number' ? b.advanceAmount : null;
+  const advancePct = advanceAmount != null && b.totalAmount > 0 ? Math.round((advanceAmount / b.totalAmount) * 100) : null;
+  const verifiedOn = completed.length ? completed[0].paidAt ?? completed[0].createdAt : null;
+  const canVerify = canEditPayments(user?.role) && b.status === 'PENDING' && !!pendingPayment;
+
+  const verifyPayment = async () => {
+    if (!pendingPayment) return;
+    setVerifying(true); setVerifyError(null);
+    try {
+      // Server confirms the reservation itself once the completed advance covers what the guest chose.
+      await api.put(`/payments/${pendingPayment.id}`, { status: 'COMPLETED' });
+      setVerifyOpen(false);
+      await load();
+    } catch (e: any) { setVerifyError(errMsg(e, 'Could not mark the payment as received')); }
+    finally { setVerifying(false); }
+  };
 
   const copyLink = async () => { if (await copyText(window.location.href)) { setCopied(true); window.setTimeout(() => setCopied(false), 1500); } };
   // Client-side PDF of the invoice sheet (A4, same markup as print). Library is loaded on demand.
@@ -83,6 +114,7 @@ const BookingInvoice: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft className="mr-1 h-4 w-4" /> Back</Button>
           <Button variant="outline" onClick={() => navigate(`/bookings/${b.id}/edit`)}><Pencil className="mr-1 h-4 w-4" /> Edit</Button>
+          {canVerify && <Button variant="success" onClick={() => { setVerifyError(null); setVerifyOpen(true); }}><BadgeCheck className="mr-1 h-4 w-4" /> Verify payment</Button>}
           {b.due > 0 && b.status !== 'CANCELLED' && <Button variant="expense" onClick={() => setDueOpen(true)}><Wallet className="mr-1 h-4 w-4" /> Collect due {fmt(b.due)}</Button>}
           <Button variant="outline" onClick={copyLink}>{copied ? <Check className="mr-1 h-4 w-4 text-emerald-600" /> : <Copy className="mr-1 h-4 w-4" />} Copy link</Button>
           <Button variant="outline" onClick={downloadPdf} disabled={pdfBusy}>{pdfBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileDown className="mr-1 h-4 w-4" />} Download PDF</Button>
@@ -145,6 +177,39 @@ const BookingInvoice: React.FC = () => {
           </section>
         </div>
 
+        {/* Guest payment submission — what a website guest paid and attached, so the desk can check it before confirming */}
+        {hasSubmission && (
+          <section className="mt-6 overflow-hidden rounded-xl border">
+            <h3 className="flex items-center gap-2 bg-violet-600 px-4 py-2 text-sm font-semibold text-white"><Receipt className="h-4 w-4" /> Guest payment submission</h3>
+            <div className="grid gap-4 p-4 md:grid-cols-2">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 self-start text-sm">
+                <dt className="text-muted-foreground">Method</dt><dd className="font-medium">{submissionMethod ? METHOD_LABEL[submissionMethod] ?? submissionMethod : '—'}</dd>
+                <dt className="text-muted-foreground">Transaction ID</dt><dd className={submissionTrx ? 'break-all font-mono font-medium' : 'italic text-muted-foreground'}>{submissionTrx ?? 'not provided'}</dd>
+                {advanceAmount != null && (
+                  <><dt className="text-muted-foreground">Advance chosen</dt><dd className="font-medium tabular-nums">{fmt(advanceAmount)}{advancePct != null && <span className="ml-1 text-xs text-muted-foreground">({advancePct}% of invoice)</span>}</dd></>
+                )}
+                <dt className="text-muted-foreground">Verification</dt>
+                <dd>
+                  {pending.length > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200/60"><AlertTriangle className="h-3 w-3" /> Awaiting verification</span>
+                  ) : verifiedOn ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200/60"><BadgeCheck className="h-3 w-3" /> Verified · {fmtDate(verifiedOn)}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No payment recorded</span>
+                  )}
+                </dd>
+              </dl>
+              {b.paymentProofImage ? (
+                <button type="button" className="group flex items-center justify-center rounded-lg bg-slate-50 p-2 text-left" onClick={() => setReceiptOpen(true)} title="Open the receipt">
+                  <img src={b.paymentProofImage} alt="Payment receipt" className="max-h-56 rounded border object-contain transition group-hover:shadow-md print:max-h-48" />
+                </button>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"><ImageOff className="h-5 w-5 opacity-60" /> No receipt image attached</div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Room details */}
         <section className="mt-6 overflow-hidden rounded-xl border">
           <h3 className="bg-primary px-4 py-2 text-sm font-semibold text-white">Room details</h3>
@@ -179,7 +244,7 @@ const BookingInvoice: React.FC = () => {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <section className="overflow-hidden rounded-xl border">
             <h3 className="bg-slate-100 px-4 py-2 text-sm font-semibold">Payments received</h3>
-            {completed.length === 0 ? (
+            {completed.length === 0 && pending.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No payment received yet.</p>
             ) : (
               <table className="w-full text-sm">
@@ -201,6 +266,17 @@ const BookingInvoice: React.FC = () => {
                       ))}
                     </React.Fragment>
                   ))}
+                  {/* Submitted but unverified — shown so staff see what the guest claims to have paid; not counted in Paid. */}
+                  {pending.map((x) => (
+                    <tr key={x.id} className="border-t border-amber-100 bg-amber-50/60 text-amber-800">
+                      <td className="px-4 py-2">{fmtDate(x.createdAt)}</td>
+                      <td className="px-4 py-2">
+                        {METHOD_LABEL[x.method] ?? x.method}{x.transactionId ? <span className="ml-1 font-mono text-xs text-amber-700/80">{x.transactionId}</span> : null}
+                        <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">Pending verification</span>
+                      </td>
+                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{fmt(x.amount)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
@@ -216,6 +292,7 @@ const BookingInvoice: React.FC = () => {
               <div className="flex justify-between border-t pt-2 text-base font-bold"><dt>Invoice amount</dt><dd className="tabular-nums text-primary">{fmt(b.totalAmount)}</dd></div>
               {refunded > 0 && <div className="flex justify-between text-rose-700"><dt>Refunded</dt><dd className="tabular-nums">− {fmt(refunded)}</dd></div>}
               <div className="flex justify-between"><dt>{refunded > 0 ? 'Paid (net of refunds)' : 'Paid'}</dt><dd className="tabular-nums text-emerald-700">{fmt(b.paid)}</dd></div>
+              {advanceAmount != null && b.status === 'PENDING' && <div className="flex justify-between text-amber-700"><dt>Advance expected</dt><dd className="tabular-nums">{fmt(advanceAmount)}</dd></div>}
               <div className="flex justify-between text-base font-bold"><dt className={b.due > 0 ? 'text-rose-700' : 'text-emerald-700'}>{b.due > 0 ? 'Due amount' : 'Fully paid'}</dt><dd className={`tabular-nums ${b.due > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{fmt(b.due)}</dd></div>
             </dl>
           </section>
@@ -235,6 +312,52 @@ const BookingInvoice: React.FC = () => {
       </div>
 
       <DueCollectDialog booking={dueOpen ? b : null} onClose={() => setDueOpen(false)} onDone={load} />
+
+      <ReceiptViewer
+        open={receiptOpen}
+        onOpenChange={setReceiptOpen}
+        title={`Payment receipt — ${b.invoiceLabel}`}
+        image={b.paymentProofImage ?? null}
+        method={submissionMethod}
+        transactionId={submissionTrx}
+        amount={pendingPayment?.amount ?? advanceAmount}
+        guestName={b.guest.name}
+        invoiceLabel={b.invoiceLabel}
+        advanceAmount={advanceAmount}
+      />
+
+      {/* Verify: mark the guest's submitted advance as received. */}
+      <Dialog open={verifyOpen} onOpenChange={(o) => { if (!verifying) setVerifyOpen(o); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verify payment</DialogTitle>
+            <DialogDescription>Check the money actually arrived before marking it received.</DialogDescription>
+          </DialogHeader>
+          {pendingPayment && (
+            <div className="space-y-3">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border bg-slate-50 p-3 text-sm">
+                <dt className="text-muted-foreground">Guest</dt><dd className="font-medium">{b.guest.name}</dd>
+                <dt className="text-muted-foreground">Method</dt><dd className="font-medium">{METHOD_LABEL[pendingPayment.method] ?? pendingPayment.method}</dd>
+                <dt className="text-muted-foreground">Transaction ID</dt><dd className={submissionTrx || pendingPayment.transactionId ? 'break-all font-mono font-medium' : 'italic text-muted-foreground'}>{submissionTrx || pendingPayment.transactionId || 'not provided'}</dd>
+                <dt className="text-muted-foreground">Amount</dt><dd className="font-semibold tabular-nums">{fmt(pendingPayment.amount)}</dd>
+              </dl>
+              {b.paymentProofImage ? (
+                <button type="button" className="flex w-full items-center justify-center rounded-lg bg-slate-50 p-2" onClick={() => setReceiptOpen(true)} title="Open the receipt">
+                  <img src={b.paymentProofImage} alt="Payment receipt" className="max-h-40 rounded border object-contain" />
+                </button>
+              ) : (
+                <p className="rounded-lg border border-dashed px-3 py-3 text-center text-xs text-muted-foreground">No receipt image attached — check the transaction ID against your statement.</p>
+              )}
+              <p className="text-xs text-muted-foreground">Marking it received records {fmt(pendingPayment.amount)} as paid; the reservation is confirmed once the advance is covered.</p>
+              {verifyError && <p className="text-sm text-rose-700">{verifyError}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVerifyOpen(false)} disabled={verifying}>Cancel</Button>
+            <Button variant="success" onClick={verifyPayment} disabled={verifying || !pendingPayment}>{verifying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <BadgeCheck className="mr-1 h-4 w-4" />} Mark as received</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

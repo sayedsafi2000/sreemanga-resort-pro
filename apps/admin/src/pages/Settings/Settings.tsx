@@ -121,6 +121,8 @@ const SECTIONS: Section[] = [
       { key: 'bankAccountNumber', label: 'Bank Account Number', placeholder: '1234567890' },
       { key: 'bankName', label: 'Bank Name', placeholder: 'Dutch-Bangla Bank' },
       { key: 'bankBranch', label: 'Bank Branch', placeholder: 'Sreemangal Branch' },
+      // Appended last so it lands in the section's second grid (fields.slice(2)) with the bank details.
+      { key: 'webAdvancePercent', label: 'Website advance (%)', type: 'text', placeholder: '50', hint: 'Minimum advance a website guest must pay now to confirm a booking (0 or 100 = full amount).' },
     ],
   },
   {

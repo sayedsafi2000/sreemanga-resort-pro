@@ -7,11 +7,19 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Landmark, Loader2, Plus, Trash2 } from 'lucide-react';
-import { METHOD_LABEL, PAY_METHODS, addDaysYmd, errMsg, fmt, fmtDate, todayYmd } from '@/pages/Bookings/shared';
+import { Check, Landmark, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { METHOD_LABEL, PAY_METHODS, addDaysYmd, errMsg, fmt, fmtDate, toYmd, todayYmd } from '@/pages/Bookings/shared';
 import { FINANCE_ENTRY_TYPES, type FinanceEntry, type FinanceEntryType, isCashMovingType } from './types';
 
-type Props = { open: boolean; onOpenChange: (open: boolean) => void; canDelete: boolean; onChanged: () => void };
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** PATCH /finance/entries/:id — SUPER_ADMIN / MANAGER / ACCOUNTANT. */
+  canEdit: boolean;
+  /** DELETE /finance/entries/:id — SUPER_ADMIN / MANAGER. */
+  canDelete: boolean;
+  onChanged: () => void;
+};
 
 export const ENTRY_TYPE_LABEL: Record<FinanceEntryType, string> = {
   OPENING_CASH: 'Opening cash / bank balance',
@@ -34,9 +42,10 @@ const ENTRY_TYPE_HELP: Record<FinanceEntryType, string> = {
 };
 
 const typeLabel = (t: string) => ENTRY_TYPE_LABEL[t as FinanceEntryType] ?? t;
+const isKnownType = (t: string): t is FinanceEntryType => (FINANCE_ENTRY_TYPES as readonly string[]).includes(t);
 
 /** Opening balances, loans and owner capital — the money with no payment or expense row behind it. */
-const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, onChanged }) => {
+const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canEdit, canDelete, onChanged }) => {
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -49,6 +58,8 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [earliestActivity, setEarliestActivity] = useState<string | null>(null);
+  /** Entry loaded into the form; null → the form adds a new entry. */
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -67,6 +78,7 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
   useEffect(() => {
     if (!open) return;
     setFormError(null);
+    setEditingId(null);
     setDate(type.startsWith('OPENING_') ? openingDefault : todayYmd());
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,9 +89,28 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
   // Opening balances must be dated before the first payment/expense, or older periods stay unbalanced.
   const openingDefault = earliestActivity ? addDaysYmd(earliestActivity, -1) : todayYmd();
   useEffect(() => {
+    // While editing, the form shows the entry's own date — never override it with the defaults.
+    if (editingId) return;
     if (isOpening) setDate(openingDefault);
     else setDate((d) => (d > todayYmd() ? todayYmd() : d));
-  }, [isOpening, openingDefault]);
+  }, [isOpening, openingDefault, editingId]);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setAmount('');
+    setDescription('');
+    setFormError(null);
+  };
+
+  const startEdit = (entry: FinanceEntry) => {
+    setEditingId(entry.id);
+    if (isKnownType(entry.type)) setType(entry.type);
+    setAmount(String(entry.amount));
+    setMethod(entry.method ?? 'CASH');
+    setDate(toYmd(new Date(entry.date)));
+    setDescription(entry.description ?? '');
+    setFormError(null);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,20 +119,22 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
     if (!date) { setFormError('Pick a date'); return; }
     setSaving(true);
     setFormError(null);
+    const body = {
+      type,
+      amount: amt,
+      method: cashMoving ? method : undefined,
+      date,
+      // null clears a description when editing (the API accepts nullable).
+      description: description.trim() || null,
+    };
     try {
-      await api.post('/finance/entries', {
-        type,
-        amount: amt,
-        method: cashMoving ? method : undefined,
-        date,
-        description: description.trim() || undefined,
-      });
-      setAmount('');
-      setDescription('');
+      if (editingId) await api.patch(`/finance/entries/${editingId}`, body);
+      else await api.post('/finance/entries', body);
+      resetForm();
       await load();
       onChanged();
     } catch (err) {
-      setFormError(errMsg(err, 'Could not save the entry'));
+      setFormError(errMsg(err, editingId ? 'Could not save the changes' : 'Could not save the entry'));
     } finally {
       setSaving(false);
     }
@@ -113,6 +146,7 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
     setListError(null);
     try {
       await api.delete(`/finance/entries/${entry.id}`);
+      if (editingId === entry.id) resetForm();
       await load();
       onChanged();
     } catch (err) {
@@ -121,6 +155,9 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
       setDeletingId(null);
     }
   };
+
+  const showActions = canEdit || canDelete;
+  const editing = entries.find((en) => en.id === editingId) ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,7 +170,12 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
           Record here only the money that has no payment or expense row behind it.
         </p>
 
-        <form onSubmit={submit} className="space-y-3 rounded-xl border bg-slate-50/60 p-4">
+        <form onSubmit={submit} className={`space-y-3 rounded-xl border p-4 ${editing ? 'border-amber-300 bg-amber-50/50' : 'bg-slate-50/60'}`}>
+          {editing && (
+            <p className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+              <Pencil className="h-3 w-3" /> Editing the {typeLabel(editing.type).toLowerCase()} of {fmt(editing.amount)} dated {fmtDate(editing.date)} — its ledger postings are re-posted on save.
+            </p>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
               <Label>Type</Label>
@@ -173,9 +215,15 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
             </div>
           </div>
           {formError && <p className="text-sm text-red-600">{formError}</p>}
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-3">
+            {editing && (
+              <Button type="button" variant="link" size="sm" className="h-auto p-0 text-muted-foreground" onClick={resetForm} disabled={saving}>
+                Cancel edit
+              </Button>
+            )}
             <Button type="submit" size="sm" disabled={saving}>
-              {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />} Add entry
+              {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : editing ? <Check className="mr-1 h-4 w-4" /> : <Plus className="mr-1 h-4 w-4" />}
+              {editing ? 'Save changes' : 'Add entry'}
             </Button>
           </div>
         </form>
@@ -189,7 +237,7 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
                 <TableHead>Method</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Description</TableHead>
-                {canDelete && <TableHead className="w-12" />}
+                {showActions && <TableHead className="w-20" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -199,17 +247,24 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No entries yet. Start with your opening cash balance.</TableCell></TableRow>
               ) : (
                 entries.map((en) => (
-                  <TableRow key={en.id}>
+                  <TableRow key={en.id} className={en.id === editingId ? 'bg-amber-50/60' : ''}>
                     <TableCell className="whitespace-nowrap">{fmtDate(en.date)}</TableCell>
                     <TableCell className="font-medium">{typeLabel(en.type)}</TableCell>
                     <TableCell className="text-muted-foreground">{en.method ? METHOD_LABEL[en.method] ?? en.method : '—'}</TableCell>
                     <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{fmt(en.amount)}</TableCell>
                     <TableCell className="max-w-[16rem] truncate text-muted-foreground" title={en.description ?? ''}>{en.description || '—'}</TableCell>
-                    {canDelete && (
-                      <TableCell className="text-right">
-                        <Button type="button" variant="ghost" size="icon" aria-label="Delete entry" onClick={() => remove(en)} disabled={deletingId === en.id}>
-                          {deletingId === en.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-rose-600" />}
-                        </Button>
+                    {showActions && (
+                      <TableCell className="whitespace-nowrap text-right">
+                        {canEdit && (
+                          <Button type="button" variant="ghost" size="icon" aria-label="Edit entry" title="Edit" onClick={() => startEdit(en)} disabled={saving || deletingId === en.id}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button type="button" variant="ghost" size="icon" aria-label="Delete entry" title="Delete" onClick={() => remove(en)} disabled={deletingId === en.id}>
+                            {deletingId === en.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-rose-600" />}
+                          </Button>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
@@ -219,7 +274,7 @@ const OtherEntriesDialog: React.FC<Props> = ({ open, onOpenChange, canDelete, on
           </Table>
         </div>
         {listError && <p className="text-sm text-red-600">{listError}</p>}
-        {!canDelete && entries.length > 0 && <p className="text-xs text-muted-foreground">Only a Super Admin can delete entries.</p>}
+        {!canDelete && entries.length > 0 && <p className="text-xs text-muted-foreground">Only a Super Admin or Manager can delete entries.</p>}
       </DialogContent>
     </Dialog>
   );

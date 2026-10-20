@@ -3,9 +3,9 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { localNoon, nextLocalDay, parsePeriod, parseYmdLocal, todayYmd, toYmdLocal } from '../utils/dateRange';
 import { buildStatement, type StatementMemo } from '../utils/financialStatement';
-import { ensureFinanceCategories } from '../utils/financeCategories';
+import { ensureFinanceCategories, retireLegacyAccounts } from '../utils/financeCategories';
 import { recordFinanceEntry } from '../utils/accountLedger';
-import { CASH_MOVING_TYPES, financeEntrySchema } from '../validators/financeValidator';
+import { CASH_MOVING_TYPES, financeEntrySchema, type FinanceEntryInput } from '../validators/financeValidator';
 import { formatInvoiceNo, paidAndDue, round2 } from '../utils/bookingPricing';
 import { computeNet } from '../utils/orderPayment';
 
@@ -68,10 +68,12 @@ async function computeMemo(): Promise<StatementMemo> {
 export const getStatement = async (req: Request, res: Response, next: NextFunction) => {
   try {
     await ensureFinanceCategories();
+    await retireLegacyAccounts();
     const period = parsePeriod(req.query.from, req.query.to);
     const end = period.endExclusive;
 
-    const [payments, refunds, expenses, sharePayments, holdingRefunds, distributions, entries] = await Promise.all([
+    const [payments, refunds, expenses, sharePayments, holdingRefunds, distributions, entries, planned, taxCategory] =
+      await Promise.all([
       prisma.payment.findMany({
         where: { status: 'COMPLETED', OR: [{ paidAt: { lt: end } }, { paidAt: null, createdAt: { lt: end } }] },
         select: { amount: true, method: true, businessLine: true, bookingId: true, referenceType: true, paidAt: true, createdAt: true },
@@ -97,6 +99,21 @@ export const getStatement = async (req: Request, res: Response, next: NextFuncti
         select: { id: true, periodLabel: true, totalDistributed: true, distributionDate: true },
       }),
       prisma.financeEntry.findMany({ where: { date: { lt: end } }, select: { type: true, amount: true, method: true, date: true } }),
+      // Distributions still in progress whose [periodStart, periodEnd] touches the requested period —
+      // shown next to the paid ones so the admin sees what is planned against this profit.
+      prisma.profitDistribution.findMany({
+        where: { status: { in: ['DRAFT', 'APPROVED'] }, periodStart: { lt: end }, periodEnd: { gte: period.start } },
+        select: {
+          id: true, periodLabel: true, status: true, totalProfit: true, totalDistributed: true, periodStart: true, periodEnd: true,
+        },
+        orderBy: [{ periodStart: 'asc' }, { createdAt: 'asc' }],
+      }),
+      // Where income-tax expenses are filed — lets the admin add/edit tax entries from the report.
+      prisma.expenseCategory.findFirst({
+        where: { kind: 'INCOME_TAX' },
+        orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }],
+        select: { id: true },
+      }),
     ]);
 
     const statement = buildStatement({
@@ -118,7 +135,21 @@ export const getStatement = async (req: Request, res: Response, next: NextFuncti
     });
     const memo = await computeMemo();
 
-    res.json({ success: true, generatedAt: new Date().toISOString(), ...statement, memo });
+    res.json({
+      success: true,
+      generatedAt: new Date().toISOString(),
+      ...statement,
+      distribution: {
+        ...statement.distribution,
+        planned: planned.map((d) => ({
+          ...d,
+          periodStart: d.periodStart.toISOString(),
+          periodEnd: d.periodEnd.toISOString(),
+        })),
+      },
+      incomeTaxCategoryId: taxCategory?.id ?? null,
+      memo,
+    });
   } catch (error) {
     next(error);
   }
@@ -144,27 +175,51 @@ export const listFinanceEntries = async (_req: Request, res: Response, next: Nex
   }
 };
 
+/** Validated body → row columns. Method only survives on cash-moving types; date is local noon. */
+function entryColumns(data: FinanceEntryInput) {
+  if (parseYmdLocal(data.date) >= nextLocalDay(todayYmd())) throw new AppError('Entry date cannot be in the future', 400);
+  const cashMoving = (CASH_MOVING_TYPES as readonly string[]).includes(data.type);
+  return {
+    type: data.type,
+    amount: round2(data.amount),
+    method: cashMoving ? data.method ?? 'CASH' : null,
+    date: localNoon(data.date), // local noon: same calendar day for viewers in other time zones
+    description: data.description?.trim() || null,
+  };
+}
+
 export const createFinanceEntry = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = financeEntrySchema.parse(req.body);
     const userId = req.user?.id;
-    const cashMoving = (CASH_MOVING_TYPES as readonly string[]).includes(data.type);
-    if (parseYmdLocal(data.date) >= nextLocalDay(todayYmd())) throw new AppError('Entry date cannot be in the future', 400);
+    const columns = entryColumns(data);
     const entry = await prisma.$transaction(async (tx) => {
-      const created = await tx.financeEntry.create({
-        data: {
-          type: data.type,
-          amount: round2(data.amount),
-          method: cashMoving ? data.method ?? 'CASH' : null,
-          date: localNoon(data.date), // local noon: same calendar day for viewers in other time zones
-          description: data.description?.trim() || null,
-          createdById: userId,
-        },
-      });
+      const created = await tx.financeEntry.create({ data: { ...columns, createdById: userId } });
       await recordFinanceEntry(tx, created, 1, userId);
       return created;
     });
     res.status(201).json({ success: true, entry });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Full-body edit: the old ledger postings are reversed and the new ones written in the same
+// transaction, so the chart of accounts always mirrors the row.
+export const updateFinanceEntry = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = financeEntrySchema.parse(req.body);
+    const userId = req.user?.id;
+    const columns = entryColumns(data);
+    const entry = await prisma.$transaction(async (tx) => {
+      const existing = await tx.financeEntry.findUnique({ where: { id: req.params.id } });
+      if (!existing) throw new AppError('Entry not found', 404);
+      await recordFinanceEntry(tx, existing, -1, userId);
+      const updated = await tx.financeEntry.update({ where: { id: existing.id }, data: columns });
+      await recordFinanceEntry(tx, updated, 1, userId);
+      return updated;
+    });
+    res.json({ success: true, entry });
   } catch (error) {
     next(error);
   }

@@ -23,6 +23,7 @@ export default async function BookingPage() {
     bankName: settings.bankName,
     bankBranch: settings.bankBranch,
   };
+  const advancePercent = settings.advancePercent ?? 50;
 
   const emptyMessage = !roomsOk
     ? 'We could not load rooms right now. Please refresh or call us.'
@@ -49,7 +50,7 @@ export default async function BookingPage() {
                 <div className="h-64 animate-pulse border border-forest-900/40 bg-forest-950/50" aria-hidden />
               }
             >
-              <BookingForm rooms={rooms} variant="dark" paymentAccounts={paymentAccounts} />
+              <BookingForm rooms={rooms} variant="dark" paymentAccounts={paymentAccounts} advancePercent={advancePercent} />
             </Suspense>
           )}
         </div>
@@ -75,7 +76,7 @@ export default async function BookingPage() {
           <Suspense
             fallback={<div className="h-64 animate-pulse rounded-2xl bg-white/30 backdrop-blur-md" aria-hidden />}
           >
-            <BookingForm rooms={rooms} paymentAccounts={paymentAccounts} />
+            <BookingForm rooms={rooms} paymentAccounts={paymentAccounts} advancePercent={advancePercent} />
           </Suspense>
         )}
       </Container>

@@ -1,5 +1,7 @@
 import React, { forwardRef, Fragment, useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronRight, Info, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, ChevronDown, ChevronRight, Info, MapPin, Pencil, Phone, ShieldCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { fmtDate } from '@/pages/Bookings/shared';
 import type { Statement } from './types';
 import { buildSections, memoItems, money, type SheetItem, type SheetRow } from './rows';
@@ -12,6 +14,8 @@ type Props = {
   resortName: string;
   logo?: string;
   settings: Record<string, string>;
+  /** Called with `row.action.key` when a row's screen-only action button is clicked. */
+  onAction?: (key: string) => void;
 };
 
 const ROW_CLASS: Record<SheetRow['variant'], string> = {
@@ -25,18 +29,24 @@ const ItemRow: React.FC<{ item: SheetItem }> = ({ item }) => (
   <tr className="break-inside-avoid">
     <td className={`py-1 pl-12 pr-3 text-xs ${item.strong ? 'font-semibold text-slate-800' : item.muted ? 'text-slate-500' : 'text-slate-600'}`}>
       {item.sign && <span className="mr-1.5 inline-block w-3 text-center font-mono text-slate-400">{item.sign}</span>}
-      {item.label}
+      {item.href ? (
+        // Screen-only underline; the <a> prints as plain text (no print:hidden here — html2pdf would drop the label).
+        <Link to={item.href} className="underline decoration-dotted underline-offset-2 hover:text-primary print:no-underline">{item.label}</Link>
+      ) : (
+        item.label
+      )}
       {item.hint && <span className="ml-2 text-[11px] text-slate-400">{item.hint}</span>}
       {item.note && <div className="mt-0.5 text-[11px] italic text-slate-400">{item.note}</div>}
     </td>
     <td className={`whitespace-nowrap py-1 pr-2 text-right text-xs tabular-nums ${item.strong ? 'font-semibold text-slate-800' : item.muted ? 'text-slate-500' : 'text-slate-600'}`}>
       {money(item.amount)}
     </td>
+    <td className="w-px print:hidden" />
   </tr>
 );
 
 /** White A4-style statement: letterhead, three numbered sections, warnings, memo. Printable (no fixed heights / overflow). */
-const StatementSheet = forwardRef<HTMLDivElement, Props>(({ data, detailed, resortName, logo, settings }, ref) => {
+const StatementSheet = forwardRef<HTMLDivElement, Props>(({ data, detailed, resortName, logo, settings, onAction }, ref) => {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const sections = useMemo(() => buildSections(data), [data]);
   const isOpen = (key: string) => detailed || !!open[key];
@@ -109,17 +119,31 @@ const StatementSheet = forwardRef<HTMLDivElement, Props>(({ data, detailed, reso
                         </div>
                       </td>
                       <td className={`w-40 whitespace-nowrap py-2 pr-2 text-right align-top tabular-nums ${rose ? 'text-rose-700' : ''}`}>{money(row.amount)}</td>
+                      {/* Screen-only action column (w-px keeps it as narrow as its content). */}
+                      <td className="w-px whitespace-nowrap py-1 pl-1 align-top print:hidden">
+                        {row.action && onAction && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs font-normal not-italic text-slate-600 print:hidden"
+                            onClick={() => onAction(row.action!.key)}
+                          >
+                            <Pencil className="mr-1 h-3 w-3" /> {row.action.label}
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                     {expanded &&
                       row.groups!.map((g, gi) => (
                         <Fragment key={gi}>
                           {g.title && (
                             <tr>
-                              <td colSpan={2} className="pb-0.5 pl-12 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{g.title}</td>
+                              <td colSpan={3} className="pb-0.5 pl-12 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{g.title}</td>
                             </tr>
                           )}
                           {g.items.length === 0 ? (
-                            <tr><td colSpan={2} className="py-1 pl-12 text-xs italic text-slate-400">{g.empty ?? 'Nothing recorded'}</td></tr>
+                            <tr><td colSpan={3} className="py-1 pl-12 text-xs italic text-slate-400">{g.empty ?? 'Nothing recorded'}</td></tr>
                           ) : (
                             g.items.map((it, ii) => <ItemRow key={ii} item={it} />)
                           )}

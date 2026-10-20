@@ -61,6 +61,9 @@ export const distributionSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+/** DRAFT header edit — every field optional, unchanged when omitted. */
+export const distributionUpdateSchema = distributionSchema.partial();
+
 /** amount null = drop the manual override and fall back to the calculated share. */
 export const shareOverridesSchema = z.object({
   shares: z.array(z.object({ shareholderId: z.string().uuid(), amount: z.number().nonnegative().nullable() })),

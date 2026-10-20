@@ -81,6 +81,8 @@ export interface ResortSettings {
   bankAccountNumber?: string;
   bankName?: string;
   bankBranch?: string;
+  /** Minimum advance (% of the net total) a website booking must pay now; 0 or ≥100 = full amount. */
+  advancePercent?: number;
   /** Bengali translations */
   resortNameBn?: string;
   taglineBn?: string;
@@ -113,6 +115,8 @@ export interface PublicBookingInput {
   children: number;
   preferredPaymentTiming: 'INSTANT' | 'LATER';
   preferredPaymentMethod?: 'BKASH' | 'NAGAD' | 'BANK_TRANSFER' | 'STRIPE';
+  /** Pay the minimum advance now (default) or the full amount. */
+  advanceOption?: 'ADVANCE' | 'FULL';
   paymentTransactionId?: string;
   paymentProofImage?: string;
   checkInDate: string;

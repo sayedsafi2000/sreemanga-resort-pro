@@ -30,8 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Loader2, CalendarDays, CalendarPlus, Wallet } from 'lucide-react';
+import { Plus, Pencil, Loader2, CalendarDays, CalendarPlus, Wallet, Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import ReceiptViewer from '@/components/ReceiptViewer';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageRooms } from '@/config/rbac';
 import GuestPicker, { type GuestPick } from '@/components/GuestPicker';
@@ -69,6 +70,10 @@ type Booking = {
   totalAmount: number;
   paidAmount?: number;
   status: string;
+  /** List rows only say whether a receipt exists; the image itself comes from `GET /day-long/bookings/:id`. */
+  hasPaymentProof?: boolean;
+  paymentTransactionId?: string | null;
+  preferredPaymentMethod?: string | null;
 };
 
 const statusColor: Record<string, string> = {
@@ -138,6 +143,7 @@ const DayLong: React.FC = () => {
   const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', transactionId: '' });
   const [paySaving, setPaySaving] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [receiptFor, setReceiptFor] = useState<Booking | null>(null);
   const [useExistingGuest, setUseExistingGuest] = useState(false);
   const [pickedGuest, setPickedGuest] = useState<GuestPick | null>(null);
   const [voucherCode, setVoucherCode] = useState('');
@@ -424,16 +430,23 @@ const DayLong: React.FC = () => {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      {b.status !== 'CANCELLED' && due > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Record payment"
-                          onClick={() => openPayment(b)}
-                        >
-                          <Wallet className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <div className="flex justify-end gap-0.5">
+                        {b.hasPaymentProof && (
+                          <Button variant="ghost" size="icon" title="View receipt" aria-label="View receipt" onClick={() => setReceiptFor(b)}>
+                            <Receipt className="h-4 w-4 text-violet-700" />
+                          </Button>
+                        )}
+                        {b.status !== 'CANCELLED' && due > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Record payment"
+                            onClick={() => openPayment(b)}
+                          >
+                            <Wallet className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                   );
@@ -765,6 +778,17 @@ const DayLong: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ReceiptViewer
+        open={!!receiptFor}
+        onOpenChange={(o) => { if (!o) setReceiptFor(null); }}
+        title={receiptFor ? `Payment receipt — ${receiptFor.guestName}` : 'Payment receipt'}
+        fetchUrl={receiptFor ? `/day-long/bookings/${receiptFor.id}` : undefined}
+        method={receiptFor?.preferredPaymentMethod ?? null}
+        transactionId={receiptFor?.paymentTransactionId ?? null}
+        amount={receiptFor?.totalAmount ?? null}
+        guestName={receiptFor?.guestName ?? null}
+      />
     </div>
   );
 };

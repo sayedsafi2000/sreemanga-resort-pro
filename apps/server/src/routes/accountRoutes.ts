@@ -7,9 +7,13 @@ import {
   deleteAccount,
   getAccountTransactions,
   addManualTransaction,
+  updateTransaction,
+  deleteTransaction,
   transfer,
   listReceivables,
   createReceivable,
+  updateReceivable,
+  deleteReceivable,
   collectReceivable,
 } from '../controllers/accountController';
 import { roleCheck } from '../middleware/roleCheck';
@@ -23,9 +27,15 @@ const router = Router();
 router.get('/receivables', listReceivables);
 router.post('/receivables', roleCheck([...TXN]), createReceivable);
 router.patch('/receivables/:id/collect', roleCheck([...TXN]), collectReceivable);
+router.patch('/receivables/:id', roleCheck([...TXN]), updateReceivable);
+router.delete('/receivables/:id', roleCheck([...WRITE]), deleteReceivable);
 
 // Transfers
 router.post('/transfer', roleCheck([...TXN]), transfer);
+
+// Ledger rows by id (user-made MANUAL / TRANSFER only) — before /:id for the same reason.
+router.patch('/transactions/:id', roleCheck([...TXN]), updateTransaction);
+router.delete('/transactions/:id', roleCheck([...WRITE]), deleteTransaction);
 
 // Accounts
 router.get('/', listAccounts);

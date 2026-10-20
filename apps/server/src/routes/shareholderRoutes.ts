@@ -16,6 +16,8 @@ import {
   listDistributions,
   getDistribution,
   createDistribution,
+  updateDistribution,
+  deleteDistribution,
   recalcDistribution,
   setShareOverrides,
   approveDistribution,
@@ -38,6 +40,8 @@ router.patch('/tiers/:id', roleCheck([...ADMIN]), updateTier);
 router.get('/distributions', roleCheck([...VIEW]), listDistributions);
 router.get('/distributions/:id', roleCheck([...VIEW]), getDistribution);
 router.post('/distributions', roleCheck([...DIST_WRITE]), createDistribution);
+router.patch('/distributions/:id', roleCheck([...DIST_WRITE]), updateDistribution);
+router.delete('/distributions/:id', roleCheck([...ADMIN]), deleteDistribution);
 router.post('/distributions/:id/recalculate', roleCheck([...DIST_WRITE]), recalcDistribution);
 router.post('/distributions/:id/overrides', roleCheck([...DIST_WRITE]), setShareOverrides);
 router.post('/distributions/:id/approve', roleCheck([...ADMIN]), approveDistribution);

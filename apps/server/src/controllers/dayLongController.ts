@@ -264,11 +264,22 @@ export const listBookings = async (req: Request, res: Response, next: NextFuncti
       if (from) where.bookingDate.gte = startOfDay(new Date(String(from)));
       if (to) where.bookingDate.lte = endOfDay(new Date(String(to)));
     }
-    const bookings = await prisma.dayLongBooking.findMany({
+    // The base64 receipt is omitted from list rows (megabytes each); `hasPaymentProof` comes from
+    // an id-only query. `getBooking` still returns the image.
+    const rows = await prisma.dayLongBooking.findMany({
       where,
       include: { product: true },
+      omit: { paymentProofImage: true },
       orderBy: [{ bookingDate: 'desc' }, { createdAt: 'desc' }],
     });
+    const withProof = rows.length
+      ? await prisma.dayLongBooking.findMany({
+          where: { id: { in: rows.map((r) => r.id) }, NOT: [{ paymentProofImage: null }, { paymentProofImage: '' }] },
+          select: { id: true },
+        })
+      : [];
+    const proofIds = new Set(withProof.map((r) => r.id));
+    const bookings = rows.map((b) => ({ ...b, hasPaymentProof: proofIds.has(b.id) }));
     res.json({ success: true, bookings });
   } catch (error) { next(error); }
 };
@@ -280,7 +291,7 @@ export const getBooking = async (req: Request, res: Response, next: NextFunction
       include: { product: true },
     });
     if (!booking) throw new AppError('Day Long booking not found', 404);
-    res.json({ success: true, booking });
+    res.json({ success: true, booking: { ...booking, hasPaymentProof: Boolean(booking.paymentProofImage) } });
   } catch (error) { next(error); }
 };
 

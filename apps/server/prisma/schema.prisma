@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["omitApi"]
 }
 
 datasource db {
@@ -212,6 +213,10 @@ model Booking {
   preferredPaymentMethod String?
   paymentTransactionId   String?
   paymentProofImage      String?
+  // Website bookings: what the guest chose to pay now (webAdvancePercent of the total, or the
+  // full total). The PENDING payment row carries this amount and completing it confirms the
+  // booking; the rest is due at check-in. Null = no advance rule (front-desk bookings).
+  advanceAmount          Float?
   totalAmount            Float
   discountAmount         Float         @default(0) // voucher discount
   voucherId              String?

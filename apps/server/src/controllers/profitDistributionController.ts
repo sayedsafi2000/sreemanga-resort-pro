@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
-import { distributionSchema, shareOverridesSchema } from '../validators/shareholderValidator';
+import { distributionSchema, distributionUpdateSchema, shareOverridesSchema } from '../validators/shareholderValidator';
 import { recordManualEntry } from '../utils/accountLedger';
 import { emailService } from '../utils/emailService';
 import { calculateCapitalShares, round2 } from '../utils/shareCapital';
@@ -84,15 +84,23 @@ export const getDistribution = async (req: Request, res: Response, next: NextFun
   } catch (error) { next(error); }
 };
 
+function assertPeriod(periodStart: Date, periodEnd: Date): void {
+  if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) throw new AppError('Invalid period date', 400);
+  if (periodStart > periodEnd) throw new AppError('Period start must not be after period end', 400);
+}
+
 export const createDistribution = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = distributionSchema.parse(req.body);
+    const periodStart = new Date(data.periodStart);
+    const periodEnd = new Date(data.periodEnd);
+    assertPeriod(periodStart, periodEnd);
     const distribution = await prisma.$transaction(async (tx) => {
       const dist = await tx.profitDistribution.create({
         data: {
           periodLabel: data.periodLabel,
-          periodStart: new Date(data.periodStart),
-          periodEnd: new Date(data.periodEnd),
+          periodStart,
+          periodEnd,
           totalProfit: data.totalProfit,
           notes: data.notes ?? null,
           status: 'DRAFT',
@@ -103,6 +111,49 @@ export const createDistribution = async (req: Request, res: Response, next: Next
       return tx.profitDistribution.findUnique({ where: { id: dist.id }, include: DIST_INCLUDE });
     });
     res.status(201).json({ success: true, distribution });
+  } catch (error) { next(error); }
+};
+
+// Edit the header of a DRAFT distribution. A changed profit figure re-splits every share
+// (admin overrides keep their amount, as in recalculate).
+export const updateDistribution = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = distributionUpdateSchema.parse(req.body);
+    const distribution = await prisma.$transaction(async (tx) => {
+      const dist = await tx.profitDistribution.findUnique({ where: { id: req.params.id } });
+      if (!dist) throw new AppError('Distribution not found', 404);
+      if (dist.status !== 'DRAFT') throw new AppError('Only DRAFT distributions can be edited', 400);
+      const periodStart = data.periodStart !== undefined ? new Date(data.periodStart) : dist.periodStart;
+      const periodEnd = data.periodEnd !== undefined ? new Date(data.periodEnd) : dist.periodEnd;
+      assertPeriod(periodStart, periodEnd);
+      const totalProfit = data.totalProfit ?? dist.totalProfit;
+      await tx.profitDistribution.update({
+        where: { id: dist.id },
+        data: {
+          ...(data.periodLabel !== undefined ? { periodLabel: data.periodLabel } : {}),
+          periodStart,
+          periodEnd,
+          totalProfit,
+          ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        },
+      });
+      if (totalProfit !== dist.totalProfit) await rebuildShares(tx, dist.id, totalProfit);
+      return tx.profitDistribution.findUnique({ where: { id: dist.id }, include: DIST_INCLUDE });
+    });
+    res.json({ success: true, distribution });
+  } catch (error) { next(error); }
+};
+
+// Remove a distribution that never paid anything (DRAFT or CANCELLED); its shares cascade.
+export const deleteDistribution = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dist = await prisma.profitDistribution.findUnique({ where: { id: req.params.id } });
+    if (!dist) throw new AppError('Distribution not found', 404);
+    if (dist.status !== 'DRAFT' && dist.status !== 'CANCELLED') {
+      throw new AppError('Only DRAFT or CANCELLED distributions can be deleted', 400);
+    }
+    await prisma.profitDistribution.delete({ where: { id: dist.id } });
+    res.json({ success: true, message: 'Distribution deleted' });
   } catch (error) { next(error); }
 };
 
@@ -189,6 +240,7 @@ export const distributeDistribution = async (req: Request, res: Response, next: 
           direction: 'OUT',
           amount: dist.totalDistributed,
           description: `Profit distribution - ${dist.periodLabel}`,
+          referenceId: dist.id,
           createdById: (req as any).user?.id,
         });
       }

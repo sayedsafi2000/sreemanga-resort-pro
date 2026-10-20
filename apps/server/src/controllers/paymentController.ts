@@ -4,7 +4,7 @@ import prisma from '../utils/prisma';
 import { formatInvoiceNo, round2 } from '../utils/bookingPricing';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from '../utils/emailService';
-import { backfillMissingBookingPayments } from '../utils/bookingPayment';
+import { backfillMissingBookingPayments, bookingIdsWithPaymentProof, reachesConfirmation } from '../utils/bookingPayment';
 import { recordRefund, recordRevenue } from '../utils/accountLedger';
 import { computeNet, derivePaymentStatus } from '../utils/orderPayment';
 import { isYmd, localNoon, nextLocalDay, parseYmdLocal, todayYmd, toYmdLocal } from '../utils/dateRange';
@@ -13,6 +13,13 @@ import { refundSchema, updatePaymentSchema } from '../validators/paymentValidato
 // Every payment read returns its booking (room + guest) and its refund history.
 const PAYMENT_INCLUDE = {
   booking: { include: { room: true, guest: true } },
+  refunds: { orderBy: { refundedAt: 'asc' as const } },
+} as const;
+
+// List shape: the booking's base64 receipt is omitted (megabytes per row); `hasPaymentProof`
+// is added from an id-only query instead. The single-payment read keeps the image.
+const PAYMENT_LIST_INCLUDE = {
+  booking: { omit: { paymentProofImage: true }, include: { room: true, guest: true } },
   refunds: { orderBy: { refundedAt: 'asc' as const } },
 } as const;
 
@@ -52,11 +59,17 @@ export const getAllPayments = async (
       where.OR = [{ paidAt: range }, { paidAt: null, createdAt: range }];
     }
 
-    const payments = await prisma.payment.findMany({
+    const rows = await prisma.payment.findMany({
       where,
-      include: PAYMENT_INCLUDE,
+      include: PAYMENT_LIST_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
+    const bookingIds = [...new Set(rows.map((p) => p.bookingId).filter((id): id is string => Boolean(id)))];
+    const withProof = bookingIds.length ? await bookingIdsWithPaymentProof({ id: { in: bookingIds } }) : new Set<string>();
+    const payments = rows.map((p) => ({
+      ...p,
+      booking: p.booking ? { ...p.booking, hasPaymentProof: withProof.has(p.booking.id) } : p.booking,
+    }));
 
     res.json({ success: true, payments });
   } catch (error) {
@@ -81,7 +94,15 @@ export const getPayment = async (
       throw new AppError('Payment not found', 404);
     }
 
-    res.json({ success: true, payment });
+    res.json({
+      success: true,
+      payment: {
+        ...payment,
+        booking: payment.booking
+          ? { ...payment.booking, hasPaymentProof: Boolean(payment.booking.paymentProofImage) }
+          : payment.booking,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -164,8 +185,9 @@ export const createPayment = async (
         });
       }
 
-      // Only upgrade PENDING → CONFIRMED, never downgrade
-      if (totalPaid + numAmount >= booking.totalAmount && booking.status === 'PENDING') {
+      // Only upgrade PENDING → CONFIRMED, never downgrade. A website booking confirms once its
+      // agreed advance (`advanceAmount`) is in; otherwise the whole invoice has to be paid.
+      if (booking.status === 'PENDING' && reachesConfirmation(totalPaid + numAmount, booking)) {
         await tx.booking.update({ where: { id: bookingId }, data: { status: 'CONFIRMED' } });
       }
 
@@ -257,7 +279,8 @@ export const updatePayment = async (
           return sum + (p.status === 'COMPLETED' ? p.amount - p.refundedAmount : 0);
         }, 0);
 
-        if (totalPaid >= updated.booking.totalAmount && updated.bookingId) {
+        // Website advance (`advanceAmount`) or the whole invoice — see reachesConfirmation.
+        if (updated.bookingId && reachesConfirmation(totalPaid, updated.booking)) {
           await tx.booking.update({
             where: { id: updated.bookingId },
             data: { status: 'CONFIRMED' },

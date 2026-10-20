@@ -19,6 +19,20 @@ describe('computeOccupancy (website booking rules)', () => {
     expect(o.ok).toBe(false); expect(o.extraPersons).toBe(3); expect(o.message).toMatch(/at most 2 additional/);
     expect(MAX_EXTRA_PERSONS).toBe(2);
   });
+  it('under-8 children are free but still occupy the room: capacity + 2 persons in total', () => {
+    const o = computeOccupancy({ capacity: 4, adults: 4, childrenUnder8: 2 });
+    expect(o.ok).toBe(true); expect(o.extraPersons).toBe(0); expect(o.totalPersons).toBe(6); expect(o.maxPersons).toBe(6);
+  });
+  it('too many persons in total is rejected even when none of them are chargeable', () => {
+    const o = computeOccupancy({ capacity: 4, adults: 4, childrenUnder8: 3 });
+    expect(o.ok).toBe(false); expect(o.extraPersons).toBe(0); expect(o.totalPersons).toBe(7);
+    expect(o.message).toBe('This room holds at most 6 persons in total (4 included + 2 extra).');
+  });
+  it('three children aged 8+ with one adult exceed the extra-person cap (not the total cap)', () => {
+    const o = computeOccupancy({ capacity: 2, adults: 1, childrenOver8: 3 });
+    expect(o.ok).toBe(false); expect(o.extraPersons).toBe(3); expect(o.totalPersons).toBe(4);
+    expect(o.message).toMatch(/at most 2 additional/);
+  });
   it('extra persons are charged per night through computeBookingTotal', () => {
     const o = computeOccupancy({ capacity: 2, adults: 3, childrenOver8: 1 });
     const p = computeBookingTotal({ rate: 3500, nights: 2, extraPersons: o.extraPersons, extraGuestCharge: DEFAULT_EXTRA_GUEST_CHARGE });
